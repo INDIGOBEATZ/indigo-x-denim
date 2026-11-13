@@ -1,0 +1,36 @@
+# INDIGO X DENIM: build Melodee for the MPC Sample exactly as ./build.sh does,
+# on a native arm64 runner (Melodee's build image is linux/arm64), then package
+# the SD card zip and keep the binary, previews and zip as artifacts.
+name: build
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Build, test, sound self-test, monkey test and page previews
+        run: ./build.sh
+      - name: Strip and self-test the release binary
+        run: |
+          docker run --rm --platform linux/arm64 -v "$PWD:/work" sample-base-builder \
+            sh -c 'strip -o build/melodee.release build/melodee && build/melodee.release --self-test build/release-test.wav'
+      - name: SD card zip
+        run: |
+          VERSION="$(git describe --tags --always)"
+          python3 tools/make_release.py "$VERSION" --allow-dirty
+      - uses: actions/upload-artifact@v4
+        with:
+          name: indigo-x-denim-build
+          path: |
+            build/melodee
+            build/melodee.release
+            build/test.wav
+            build/melodee-preview/
+            dist/
+          if-no-files-found: warn

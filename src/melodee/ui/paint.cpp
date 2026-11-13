@@ -110,7 +110,8 @@ const juce::Font& cached_font(float size, Weight weight, bool caps) {
     auto key = style_of(size, weight, caps);
     auto found = fonts.find(key);
     if (found != fonts.end()) return found->second;
-    bound(fonts, 256);
+    // INDIGO X DENIM: never dropped (callers hold the reference while they draw); with eight typefaces it grows past
+    // the old bound, but stays small: sizes x weights x capitals x typefaces.
     return fonts.emplace(key, make_font(size, weight, caps)).first->second;
 }
 

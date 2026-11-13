@@ -157,13 +157,14 @@ void header(Paint& p, const Header& h) {
     if (right - total < left_end + 2)
         for (auto& it : right_items) if (it.kind == HeaderItem::Kind::Tag) it.engine = {};
     total = right_width();
+    // INDIGO X DENIM: then an item its page marked spare is left out, last first, before the tag's sound name, so the
+    // tag never shrinks to its number box while a spare chip could make room.
+    for (size_t n = left.size(); n-- > 0 && right - total < left_end + 2;)
+        if (left[n].spare) { left_end -= item(p, left[n], 0, true) + 4; left.erase(left.begin() + std::ptrdiff_t(n)); }
     if (right - total < left_end + 2)
         for (auto& it : right_items) if (it.kind == HeaderItem::Kind::Tag) it.text = {};
     total = right_width();
-    // Still too wide (a long folder or sample name): an item its page marked spare is left out, last first,
-    // rather than run under the tag; what is shown is never cut.
-    for (size_t n = left.size(); n-- > 0 && right - total < left_end + 2;)
-        if (left[n].spare) { left_end -= item(p, left[n], 0, true) + 4; left.erase(left.begin() + std::ptrdiff_t(n)); }
+    // Still too wide (a long folder or sample name): what is shown is never cut.
     if (right - total < left_end + 2) report_text_issue({"header", type::floor, left_end + total, right - zone::pad});
     for (const auto& it : left) x += item(p, it, x, false) + 4;
     float at = right - total;

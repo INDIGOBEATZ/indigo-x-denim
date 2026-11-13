@@ -5,8 +5,9 @@
 // sixteen tracks; B1 or B2 again shows the other eight. A pad picks a strip (on PADS it also plays), as do the wheel
 // and Minus / Plus; K1 its level, K2 its pan, K3 the pad's tune or the track's send to bus A. Push mutes the strip in
 // hand, Shift + Push solos it; B3 FX opens the effects (the pad's own chain on PADS, the track's on TRACKS),
-// Shift + B3 unmutes everything. Beside each bar a VU meter moves with what the strip plays: a track's peak as the
-// engine measures it, a pad's voices as loud as their envelopes and its level.
+// Shift + B3 unmutes everything. Each fader is a VU meter: it moves with what the strip plays (a track's peak as the
+// engine measures it, a pad's voices as loud as their envelopes and its level), dark to light in its colour; the cap
+// across it is the level it is set to.
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/mute_mode.h"
@@ -41,7 +42,9 @@ void draw(Paint& p, const Snapshot& s) {
     bool pads = pads_view(s);
     unsigned half = s.ui.mixer_half % 2;
     Header h = header_of(s);
-    h.left.push_back(pill(pads ? "PADS " + juce::String(half ? "9-16" : "1-8") : "TRACKS " + juce::String(half ? "9-16" : "1-8"), c));
+    auto which = pill(pads ? "PADS " + juce::String(half ? "9-16" : "1-8") : "TRACKS " + juce::String(half ? "9-16" : "1-8"), c);
+    which.spare = true; // the soft keys' dots say it too
+    h.left.push_back(which);
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"PADS", "TRACKS", "FX"}, pads ? 0 : 1, c};
     keys.dots[0] = 2; keys.dot_at[0] = uint8_t(pads ? half : 0);
@@ -87,25 +90,23 @@ void draw(Paint& p, const Snapshot& s) {
         auto name_style = caps_text(st.current ? colour::bg : st.used ? colour::text : colour::dim);
         p.fill(x, top, w, label_h, st.current ? st.colour : colour::surf, 3);
         p.text(st.name, x, top, w, label_h, p.fit(st.name, name_style, w - 2, type::floor), juce::Justification::centred);
-        // The level: a tall bar from the bottom, dim while muted.
-        float bw = w - 15, bx = x + 3;
+        // The fader is the VU meter: a bar as tall as what the strip plays now (-48 to 0 dBFS up its height), its colour
+        // from dark at the foot to light at the top as a VU meter goes from green to red; the level it is set to is
+        // the cap across it. Muted: no bar, the cap dim.
+        float bw = w - 8, bx = x + 4;
         p.fill(bx, fader_top, bw, fader_h, colour::quiet, 3);
-        if (st.used) {
-            float fill = std::clamp(st.level, 0.0f, 1.0f) * fader_h;
-            auto ink = st.muted ? st.colour.withAlpha(0.3f) : st.colour;
-            if (fill >= 1) p.fill(bx, fader_top + fader_h - fill, bw, fill, ink, 3);
-            p.fill(bx - 2, fader_top + fader_h * (1 - 100.0f / 127.0f), bw + 4, 1, colour::mid.withAlpha(0.6f)); // unity (100)
-        }
-        // The VU meter: -48 to 0 dBFS up its height, green, then yellow from -12 and red from -3.
-        float mx = x + w - 8, vw = 4;
-        p.fill(mx, fader_top, vw, fader_h, colour::quiet, 1.5f);
-        if (st.meter > 0.0039f) {
+        for (int tick = 1; tick < 4; ++tick) p.fill(bx, fader_top + fader_h * tick / 4.0f, bw, 0.5f, colour::bg.withAlpha(0.6f)); // -12, -24, -36 dB
+        if (st.used && !st.muted && st.meter > 0.0039f) {
             float db = 20 * std::log10(st.meter), up = std::clamp((db + 48) / 48, 0.0f, 1.0f) * fader_h;
-            auto band = [&](float from_db, float to_db, juce::Colour col) {
-                float a = std::clamp((from_db + 48) / 48, 0.0f, 1.0f) * fader_h, b = std::min(up, std::clamp((to_db + 48) / 48, 0.0f, 1.0f) * fader_h);
-                if (b > a) p.fill(mx, fader_top + fader_h - b, vw, b - a, col, 1);
-            };
-            band(-48, -12, juce::Colour(0xff7ee0b0)); band(-12, -3, juce::Colour(0xffffe07a)); band(-3, 0, colour::rec);
+            juce::ColourGradient vu(st.colour.darker(0.75f), bx, fader_top + fader_h, st.colour.brighter(0.45f), bx, fader_top, false);
+            vu.addColour(0.6, st.colour);
+            p.g.setGradientFill(vu);
+            p.g.fillRoundedRectangle(bx, fader_top + fader_h - up, bw, up, 3);
+        }
+        if (st.used) { // the cap: the level it is set to (100, unity, as high as -12 dB up the meter)
+            float cap = fader_top + fader_h * (1 - std::clamp(st.level, 0.0f, 1.0f));
+            auto ink = st.muted ? colour::dim : st.current ? colour::text : colour::sec;
+            p.fill(bx - 2, std::clamp(cap - 1.5f, fader_top, fader_top + fader_h - 3), bw + 4, 3, ink, 1.5f);
         }
         // M and S.
         float mw = (w - 2) / 2;

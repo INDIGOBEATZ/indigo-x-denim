@@ -195,8 +195,9 @@ on **PADS** (on a track that is not a kit, on **TRACKS**), the next tap shows
 by accident.
 
 The mixer shows eight strips: the name on top (lit for the strip in hand),
-the level as a tall bar with a VU meter beside it that moves as the strip
-plays, **M** and **S** under it, and **FX** where it has effects.
+each fader a VU meter that moves as the strip plays (dark to light in its
+colour; the cap across it is the level it is set to), **M** and **S** under
+it, and **FX** where it has effects.
 
 - **B1** **PADS** / **B2** **TRACKS**: press again for the other eight.
 - A pad, the encoder or **−** / **+** pick a strip (on PADS the pad plays).

@@ -80,7 +80,7 @@ void draw(Paint& p, const Snapshot& s) {
         if (focused) h.left.push_back(chip(Icon::Note, juce::String(key_label(track, focused->key)), c)); // where it sits: the place bar's
         else h.left.push_back(pill("BAR " + juce::String(cursor * q / bar + 1) + " / " + juce::String((pattern.length + bar - 1) / bar)));
         if (ui.roll_sel_count) h.left.push_back(chip("SEL " + juce::String(int(ui.roll_sel_count)), c)); // the selection
-        else if (!focused && ui.settings.roll_follow) h.left.push_back(pill("FOLLOW", following ? c : colour::mid)); // lit while it turns
+        else if (!focused && ui.settings.roll_follow) { auto f = pill("FOLLOW", following ? c : colour::mid); f.spare = true; h.left.push_back(f); } // lit while it turns
     }
     h.right.push_back(tag_of(s, ui.track));
     bool sel_sheet = ui.sheet_open && ui.roll_sheet_sel;

@@ -48,8 +48,17 @@ ui::Header header_of(const Snapshot& s) {
         std::snprintf(clock, sizeof(clock), "%s %u:%02u", s.ui.rendering == 2 ? "MIXDOWN" : "RESAMPLE", seconds / 60, seconds % 60);
         h.left.push_back(ui::chip(clock, ui::colour::rec));
     } else if (s.ui.resample_pick) h.left.push_back(ui::chip(s.ui.resample_song ? "SONG: TAP A PAD" : "RESAMPLE: TAP A PAD", ui::colour::rec));
-    // INDIGO X DENIM: ALL (Shift + MUTE) on a kit: the pad pages' knobs set every used pad.
-    if (s.ui.all_pads && s.track().engine == EngineKind::Sampler) h.left.push_back(ui::chip("ALL PADS", ui::colour::text));
+    // INDIGO X DENIM: ALL (Shift + MUTE) on a kit, on the pages whose knobs it widens: a short chip, left out first
+    // when the header is full.
+    if (s.ui.all_pads && s.track().engine == EngineKind::Sampler) {
+        auto pg = s.ui.page;
+        if (pg == PageId::Stage || pg == PageId::Trim || pg == PageId::PadMix || pg == PageId::EnvelopePage || pg == PageId::FilterEnvPage
+            || pg == PageId::PadPage || pg == PageId::PlayPage || pg == PageId::Mixer) {
+            auto all = ui::chip("ALL", ui::colour::text);
+            all.spare = true;
+            h.left.push_back(all);
+        }
+    }
     return h;
 }
 

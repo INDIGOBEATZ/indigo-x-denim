@@ -64,7 +64,8 @@ void BootAnimation::compose(uint32_t at) {
     if (composed == int64_t(at)) return;
     composed = at;
     float wipe = smooth(float(int(at) - int(black_ms)) / float(wipe_ms));
-    float edge = float(logo_left - feather) + wipe * float(logo_right - logo_left + feather);
+    // INDIGO X DENIM: the edge ends a feather past the logo's last column, so a wide logo shows whole at the end.
+    float edge = float(logo_left - feather) + wipe * float(logo_right - logo_left + 2 * feather);
     float shown = smooth(float(int(at) - int(black_ms + wipe_ms + logo_hold_ms)) / float(backdrop_ms));
     float column[320];
     for (int x = 0; x < 320; ++x) column[x] = std::clamp((edge - float(x)) / float(feather), 0.0f, 1.0f);

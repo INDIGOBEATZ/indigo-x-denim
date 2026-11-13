@@ -38,7 +38,8 @@ const std::array<Typeface, font_count>& typefaces() {
 // One typeface per weight, cloned from each variable font's wght axis; INDIGO X DENIM: for each typeface
 // (ui/fonts.h), loaded the first time it is used.
 const std::array<juce::Typeface::Ptr, 4>& faces(unsigned font) {
-    static std::array<std::array<juce::Typeface::Ptr, 4>, font_count> loaded {};
+    // Kept for the life of the process and never destroyed: JUCE's own typeface cache may go first at exit.
+    static auto& loaded = *new std::array<std::array<juce::Typeface::Ptr, 4>, font_count> {};
     static std::array<bool, font_count> ready {};
     font %= font_count;
     if (ready[font]) return loaded[font];
@@ -106,7 +107,7 @@ std::vector<TextIssue>* audit = nullptr;
 template <typename Map> void bound(Map& map, size_t most) { if (map.size() >= most) map.clear(); }
 
 const juce::Font& cached_font(float size, Weight weight, bool caps) {
-    static std::unordered_map<Style, juce::Font, FontHash> fonts;
+    static auto& fonts = *new std::unordered_map<Style, juce::Font, FontHash>; // never destroyed, as faces()' typefaces
     auto key = style_of(size, weight, caps);
     auto found = fonts.find(key);
     if (found != fonts.end()) return found->second;
@@ -130,7 +131,7 @@ float cached_width(const juce::String& value, float size, Weight weight, bool ca
 // style and box size.
 const juce::GlyphArrangement& cached_layout(const juce::String& value, float size, Weight weight, bool caps,
                                             float w, float h, juce::Justification justify) {
-    static std::unordered_map<LayoutKey, juce::GlyphArrangement, LayoutHash> layouts;
+    static auto& layouts = *new std::unordered_map<LayoutKey, juce::GlyphArrangement, LayoutHash>; // its glyphs hold fonts: never destroyed either
     LayoutKey key {value, style_of(size, weight, caps), w, h, justify.getFlags()};
     auto found = layouts.find(key);
     if (found != layouts.end()) return found->second;

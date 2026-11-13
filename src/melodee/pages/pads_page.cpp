@@ -48,7 +48,7 @@ void draw(Paint& p, const Snapshot& s) {
         if (s.pad_waves_shown & (1u << n)) {
             const auto& wave = s.pad_waves[n];
             float bw = ww / float(wave.size());
-            auto ink = last ? colour::bg.withAlpha(0.9f) : c.withAlpha(0.75f);
+            auto ink = last ? colour::bg.withAlpha(0.9f) : (colour::wave_fixed ? colour::wave : c).withAlpha(0.8f); // INDIGO X DENIM: the palette's waveform colour
             for (unsigned k = 0; k < wave.size(); ++k) {
                 float bh = std::max(1.0f, wave[k] / 255.0f * wh);
                 p.fill(wx + k * bw, wy + (wh - bh) / 2, std::max(1.0f, bw - 0.6f), bh, ink, 0.5f);

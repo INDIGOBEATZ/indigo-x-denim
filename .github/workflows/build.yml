@@ -4,7 +4,10 @@
 name: build
 on:
   push:
+    branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-24.04-arm
@@ -23,6 +26,20 @@ jobs:
       - name: SD card zip
         run: |
           python3 tools/make_release.py v0.1.0-indigo.1 --allow-dirty
+      - name: Give the runner the files the build container wrote
+        run: sudo chown -R "$(id -u):$(id -g)" build dist
+      - name: Keep the build on the builds branch
+        run: |
+          rm -rf /tmp/out && mkdir -p /tmp/out/previews
+          cp dist/* /tmp/out/
+          cp build/melodee-preview/*.png /tmp/out/previews/ 2>/dev/null || true
+          cd /tmp/out
+          git init -q -b builds
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Build of ${GITHUB_SHA} (run ${GITHUB_RUN_ID})" > BUILD.txt
+          git add -A && git commit -qm "build ${GITHUB_SHA::12}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" builds
       - uses: actions/upload-artifact@v4
         with:
           name: indigo-x-denim-build

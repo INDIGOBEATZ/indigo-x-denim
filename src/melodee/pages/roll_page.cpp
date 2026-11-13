@@ -24,6 +24,12 @@
 // pages with the playhead, the cursor staying put; FOLLOW in the header),
 // Scale lanes (the keys outside the project's scale sink), Quantize all and
 // Legato all. The two switches are Melodee's settings, kept on the card.
+// Shift + Push picks the note in focus (or lets it go): picked notes carry a
+// white ring and SEL n shows in the header; VIEW's Select all picks every
+// note. Push with a selection opens the SELECTION sheet: move them a step
+// earlier or later, a semitone or an octave up or down, duplicate them
+// straight after, quantize, delete, or clear the selection (B3 or Push do
+// the row; the sheet stays for moves, so a row can be done again).
 #include "melodee/engine/engine_host.h"
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
@@ -42,7 +48,8 @@ using namespace ui;
 constexpr float gutter = 23, ruler = 13, row_h = 10.5f, column = 18.5f;
 constexpr unsigned rows = roll_rows, columns = roll_columns;
 enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowQuantize, RowLegato, RowDuplicate, RowDelete, sheet_rows };
-enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, view_rows };
+enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, ViewSelectAll, view_rows };
+enum SelRow : uint8_t { SelEarlier, SelLater, SelUp, SelDown, SelOctaveUp, SelOctaveDown, SelDuplicate, SelQuantize, SelDelete, SelClear, sel_rows };
 
 bool black(int key) { return (0x54A >> (key % 12)) & 1; } // C#, D#, F#, G#, A#
 
@@ -69,14 +76,16 @@ void draw(Paint& p, const Snapshot& s) {
         if (focused && ui.held_note >= 0) h.left.push_back(pill("LOCK", c)); // its pad held: the pots lock it (roadmap P1)
         if (focused) h.left.push_back(chip(Icon::Note, juce::String(key_label(track, focused->key)), c)); // where it sits: the place bar's
         else h.left.push_back(pill("BAR " + juce::String(cursor * q / bar + 1) + " / " + juce::String((pattern.length + bar - 1) / bar)));
-        if (!focused && ui.settings.roll_follow) h.left.push_back(pill("FOLLOW", following ? c : colour::mid)); // lit while it turns
+        if (ui.roll_sel_count) h.left.push_back(chip("SEL " + juce::String(int(ui.roll_sel_count)), c)); // the selection
+        else if (!focused && ui.settings.roll_follow) h.left.push_back(pill("FOLLOW", following ? c : colour::mid)); // lit while it turns
     }
     h.right.push_back(tag_of(s, ui.track));
-    bool view_sheet = ui.sheet_open && ui.roll_sheet_view;
-    bool sheet = ui.sheet_open && !ui.roll_sheet_view && focused;
+    bool sel_sheet = ui.sheet_open && ui.roll_sheet_sel;
+    bool view_sheet = ui.sheet_open && ui.roll_sheet_view && !sel_sheet;
+    bool sheet = ui.sheet_open && !ui.roll_sheet_view && !sel_sheet && focused;
     SoftKeys keys {{"STEPS", "ROLL", "MOTION"}, 1, c};
     keys.dots[1] = 2; keys.dot_at[1] = ui.trig_cards ? 1 : 0; // ROLL again: the TRIG row of cards
-    if (view_sheet) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+    if (view_sheet || sel_sheet) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (sheet && ui.sheet_more) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (sheet) { // the likely job, Accent, under B3; MORE the rest
         keys = SoftKeys {{"BACK", "MORE", "ACCENT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
@@ -159,6 +168,7 @@ void draw(Paint& p, const Snapshot& s) {
             }
         }
         if (on) p.ring(x - 1, y - 1, w + 2, hgt + 2, c, 3, 1.2f);
+        else if (ui.roll_sel_count && roll_picked(ui, e.tick, e.key)) p.ring(x - 1, y - 1, w + 2, hgt + 2, colour::text, 3, 1.2f); // picked
         bool kit_lane = track.engine == EngineKind::Sampler;
         if (w > 6 && lock_in(pattern, e.tick, e.tick + 1, kit_lane ? int(e.key) - int(sampler_first_note) : -1)) // a Motion lock on it
             p.fill(x + 1, y + 1, 3, 3, on ? c : colour::bg, 0.5f);
@@ -216,7 +226,24 @@ void draw(Paint& p, const Snapshot& s) {
         m.rows[ViewScale] = {"Scale lanes", lanes ? "On" : "Off", lanes, false, kit};
         m.rows[ViewQuantize] = {"Quantize all", "", false, false, empty};
         m.rows[ViewLegato] = {"Legato all", "", false, false, empty};
+        m.rows[ViewSelectAll] = {"Select all", "", false, false, empty};
         m.count = view_rows; m.current = ui.sheet_row % view_rows;
+        menu_sheet(p, m);
+    } else if (sel_sheet) {
+        p.dim_zone(zone::picture_y, zone::picture_h, 0.7f);
+        MenuSheet m;
+        m.title = "SELECTION"; m.detail = juce::String(int(ui.roll_sel_count)) + (ui.roll_sel_count == 1 ? " NOTE" : " NOTES"); m.accent = c;
+        m.rows[SelEarlier] = {"A step earlier", "", false, false, false};
+        m.rows[SelLater] = {"A step later", "", false, false, false};
+        m.rows[SelUp] = {"A semitone up", "", false, false, false};
+        m.rows[SelDown] = {"A semitone down", "", false, false, false};
+        m.rows[SelOctaveUp] = {"An octave up", "", false, false, false};
+        m.rows[SelOctaveDown] = {"An octave down", "", false, false, false};
+        m.rows[SelDuplicate] = {"Duplicate after", "", false, false, false};
+        m.rows[SelQuantize] = {"Quantize", "", false, false, false};
+        m.rows[SelDelete] = {"Delete notes", "", false, true, false};
+        m.rows[SelClear] = {"Clear selection", "", false, false, false};
+        m.count = sel_rows; m.current = ui.sheet_row % sel_rows;
         menu_sheet(p, m);
     }
 }
@@ -239,6 +266,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
 }
 
 void wheel(Context& c, int delta) {
+    if (c.ui.sheet_open && c.ui.roll_sheet_sel) { c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(sel_rows) - 1)); return; }
     if (c.ui.sheet_open && c.ui.roll_sheet_view) { c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(view_rows) - 1)); return; }
     if (c.ui.sheet_open) {
         if (!c.ui.sheet_more) return; // the likely tile: a turn opens nothing (B2 MORE lists the rest)
@@ -265,11 +293,31 @@ void do_view_row(Context& c) {
         settings.roll_scale = !settings.roll_scale; save_settings(c); c.notice(settings.roll_scale ? "Scale lanes on" : "Scale lanes off"); break;
     case ViewQuantize: c.ui.sheet_open = false; roll_quantize_every(c); break;
     case ViewLegato: c.ui.sheet_open = false; roll_legato_every(c); break;
+    case ViewSelectAll: c.ui.sheet_open = false; roll_pick_every(c); break;
     default: break;
     }
 }
 
+// The SELECTION sheet's row: moves keep the sheet (do it again), the rest close it.
+void do_sel_row(Context& c) {
+    switch (c.ui.sheet_row % sel_rows) {
+    case SelEarlier: roll_picks_move(c, -1, 0); break;
+    case SelLater: roll_picks_move(c, 1, 0); break;
+    case SelUp: roll_picks_move(c, 0, 1); break;
+    case SelDown: roll_picks_move(c, 0, -1); break;
+    case SelOctaveUp: roll_picks_move(c, 0, 12); break;
+    case SelOctaveDown: roll_picks_move(c, 0, -12); break;
+    case SelDuplicate: roll_picks_duplicate(c); break;
+    case SelQuantize: roll_picks_quantize(c); break;
+    case SelDelete: c.ui.sheet_open = false; roll_picks_delete(c); break;
+    case SelClear: c.ui.sheet_open = false; roll_picks_clear(c); break;
+    default: break;
+    }
+    if (!c.ui.roll_sel_count) c.ui.sheet_open = false;
+}
+
 void do_row(Context& c) {
+    if (c.ui.roll_sheet_sel) { do_sel_row(c); return; }
     if (c.ui.roll_sheet_view) { do_view_row(c); return; }
     if (!c.ui.sheet_more) { roll_flag(c, step_accent); c.ui.sheet_open = false; return; } // the likely job: Accent, and done
     switch (c.ui.sheet_row % sheet_rows) {
@@ -287,14 +335,16 @@ void do_row(Context& c) {
 void push(Context& c) {
     if (c.ui.sheet_open) { do_row(c); return; }
     c.ui.sheet_row = 0;
+    c.ui.roll_sheet_sel = false;
+    if (roll_picks_tidy(c.pattern(), c.ui)) { c.ui.sheet_open = true; c.ui.roll_sheet_sel = true; c.ui.sheet_more = true; return; } // SELECTION
     if (roll_focus(c.pattern(), c.ui) < 0) { c.ui.sheet_open = true; c.ui.roll_sheet_view = true; c.ui.sheet_more = true; return; } // VIEW
     c.ui.sheet_open = true; c.ui.sheet_more = false; c.ui.roll_sheet_view = false;
 }
 
 void soft(Context& c, int key) {
-    if (c.ui.sheet_open && c.ui.roll_sheet_view) { // VIEW: BACK, -, DO IT
+    if (c.ui.sheet_open && (c.ui.roll_sheet_view || c.ui.roll_sheet_sel)) { // VIEW, SELECTION: BACK, -, DO IT
         if (key == 0) c.ui.sheet_open = false;
-        if (key == 2) do_view_row(c);
+        if (key == 2) do_row(c);
         return;
     }
     if (c.ui.sheet_open) { // BACK, MORE, ACCENT; on the list BACK, -, DO IT

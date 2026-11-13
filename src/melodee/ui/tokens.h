@@ -22,27 +22,24 @@ inline juce::Colour bg = hex(0x060419), panel = hex(0x0A0822), surf = hex(0x0D0B
 // The brand's two ends (INDIGO: indigo to magenta): the page's own soft key and the boot screen run between them.
 inline juce::Colour brand_a = hex(0x2F39BA), brand_b = hex(0xFF5EC4);
 inline bool brand_gradient = true; // NIGHT: off, the track's colour alone
+// INDIGO X DENIM: the place bar's colour while playing, and one colour for every waveform (wave_fixed: else the track's).
+inline juce::Colour place = hex(0xB46BFF), wave = hex(0x5CC8FF);
+inline bool wave_fixed = true;
 }
 
-// Sets the palette in use (0 NIGHT, 1 INDIGO): the colours above, the track and loop shades, the pads' lights.
+// Sets the palette in use (ui/palettes.h): the colours above, the track and loop shades, the pads' lights.
 inline void use_palette(unsigned palette) {
     palette %= palette_count;
     static unsigned applied = palette_count; // none yet
     if (applied == palette) return;          // each frame asks: only a change does anything
     applied = palette;
     palette_now.store(uint8_t(palette), std::memory_order_relaxed);
+    const auto& p = palettes[palette];
     using namespace colour;
-    if (palette == 0) { // NIGHT, as Melodee comes
-        bg = hex(0x17141F); panel = hex(0x1D1926); surf = hex(0x221E2C); raised = hex(0x262033); quiet = hex(0x1A1722);
-        line = hex(0x2E2939); text = hex(0xF3EEF8); sec = hex(0xC9C2D6); mid = hex(0x9A93A8); dim = hex(0x5A5468);
-        rec = hex(0xFF4848); amber = hex(0xFFC145); play = hex(0x5FD97A);
-        brand_a = hex(0xFF7A5C); brand_b = hex(0xFF6F93); brand_gradient = false;
-    } else { // INDIGO
-        bg = hex(0x060419); panel = hex(0x0A0822); surf = hex(0x0D0B28); raised = hex(0x141230); quiet = hex(0x08061D);
-        line = hex(0x262449); text = hex(0xFFFFFF); sec = hex(0xC4C2D6); mid = hex(0x9C9AB8); dim = hex(0x4E4E6C);
-        rec = hex(0xE5173A); amber = hex(0xFFC266); play = hex(0x7EE0B0);
-        brand_a = hex(0x2F39BA); brand_b = hex(0xFF5EC4); brand_gradient = true;
-    }
+    bg = hex(p.bg); panel = hex(p.panel); surf = hex(p.surf); raised = hex(p.raised); quiet = hex(p.quiet); line = hex(p.line);
+    text = hex(p.text); sec = hex(p.sec); mid = hex(p.mid); dim = hex(p.dim); rec = hex(p.rec); amber = hex(p.amber); play = hex(p.play);
+    brand_a = hex(p.brand_a); brand_b = hex(p.brand_b); brand_gradient = p.gradient;
+    place = hex(p.place); wave_fixed = p.wave != 0; wave = wave_fixed ? hex(p.wave) : text;
 }
 
 // Track colours 1-16 with their knob shades, and the Looper's L1-L4: ui/shades.h (the pads use them too).

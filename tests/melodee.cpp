@@ -1432,11 +1432,11 @@ void settings() {
     CHECK(c.screen == 20);
     c.step(Settings::PadLights, -1); CHECK(c.pad_lights == 2);
     // INDIGO X DENIM: INDIGO as it comes, NIGHT a step on, and back; kept in the text.
-    CHECK(c.palette == 1 && c.value_text(Settings::Palette) == "INDIGO");
-    c.step(Settings::Palette, 1); CHECK(c.value_text(Settings::Palette) == "NIGHT");
+    CHECK(c.palette == 1 && c.value_text(Settings::Palette) == "NEON LAB"); // INDIGO'S MEDIA LAB's own, as it comes
+    c.step(Settings::Palette, -1); CHECK(c.value_text(Settings::Palette) == "NIGHT");
     { Settings back; back.read(c.text()); CHECK(back.palette == 0); }
-    c.step(Settings::Palette, -1); CHECK(c.value_text(Settings::Palette) == "INDIGO");
-    c.step(Settings::Palette, 1);
+    c.step(Settings::Palette, -1); CHECK(c.value_text(Settings::Palette) == "VAPOR"); // round to the last
+    c.step(Settings::Palette, 1); CHECK(c.value_text(Settings::Palette) == "NIGHT");
     // Double Seq: Copy notes (the MPC's) or Empty, kept in the text.
     CHECK(c.double_copies && c.value_text(Settings::DoubleSeq) == "Copy notes");
     c.step(Settings::DoubleSeq, 1); CHECK(!c.double_copies && c.value_text(Settings::DoubleSeq) == "Empty");
@@ -5112,11 +5112,17 @@ void roll_indigo() {
     CHECK(roll_duplicate(d, 1) == 2 && d.events[2].tick == 8 * sixteenth_ticks);
     // The switches survive the settings file.
     Settings set;
-    CHECK(!set.roll_follow && !set.roll_scale);
-    set.roll_follow = true; set.roll_scale = true;
+    CHECK(set.roll_follow && !set.roll_scale); // follow on as it comes
+    set.roll_follow = false; set.roll_scale = true;
     Settings back;
     back.read(set.text());
-    CHECK(back.roll_follow && back.roll_scale);
+    CHECK(!back.roll_follow && back.roll_scale);
+    // The font, apart from the palette, kept too.
+    set.font = 3; set.palette = 7;
+    Settings again;
+    again.read(set.text());
+    CHECK(again.font == 3 && again.palette == 7 && again.value_text(Settings::Font) == "Outfit");
+    again.step(Settings::Font, -1); CHECK(again.value_text(Settings::Font) == "Space Grotesk");
 }
 
 void roll() {

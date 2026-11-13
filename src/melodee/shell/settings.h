@@ -12,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include "melodee/ui/shades.h"
+#include "melodee/ui/fonts.h"
 
 // Melodee's own settings, not the project's: how the pads respond and
 // light, whether their pressure is used, how the knobs, Knob FX and the fader take over a value, the screen and where its
@@ -34,7 +35,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Font, Rows };
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
@@ -50,9 +51,10 @@ struct Settings {
     uint8_t click_level = 40;
     // INDIGO X DENIM, Roll's VIEW sheet: the view turns its pages with the playhead while playing (the cursor stays
     // where it was), and the rows of keys outside the project's scale sink (keys only, not a kit's lanes).
-    bool roll_follow = false, roll_scale = false;
-    // INDIGO X DENIM: the screen's palette (ui/shades.h): 0 NIGHT, 1 INDIGO (as it comes).
-    uint8_t palette = 1;
+    bool roll_follow = true, roll_scale = false; // follow on as it comes: the playhead stays in view
+    // INDIGO X DENIM: the screen's palette (ui/palettes.h: 0 NIGHT, 1 NEON LAB as it comes, then the Media Lab's
+    // themes) and its typeface (ui/fonts.h: 0 Rubik as it comes), chosen apart.
+    uint8_t palette = uint8_t(ui::default_palette), font = 0;
     bool full_level() const { return pad_response == 3; }
     // Shift + Pad 1: full level on, or back to the curve it came from.
     void toggle_full_level() {
@@ -91,7 +93,7 @@ struct Settings {
     static const char* row_name(unsigned row) {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Screen", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
-                                    "Recall trim end", "Take auto end", "Auto end after", "Silence below"};
+                                    "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Font"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
@@ -99,6 +101,7 @@ struct Settings {
         static const char* lights[] {"Track colours", "White", "Off"};
         switch (row) {
         case Palette: return ui::palette_name(palette);
+        case Font: return ui::font_name(font);
         case PadResponse: return responses[pad_response % 4];
         case PadPressure: return pressure ? "On" : "Off";
         case PadLights: return lights[pad_lights % 3];
@@ -128,6 +131,7 @@ struct Settings {
     // One step along a row.
     void step(unsigned row, int way) {
         switch (row) {
+        case Font: font = uint8_t((font + ui::font_count + (way > 0 ? 1 : ui::font_count - 1)) % ui::font_count); break;
         case Palette: palette = uint8_t((palette + ui::palette_count + (way > 0 ? 1 : ui::palette_count - 1)) % ui::palette_count); break;
         case PadResponse: pad_response = uint8_t((pad_response + 4 + way) % 4); break;
         case PadPressure: pressure = !pressure; break;
@@ -186,7 +190,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
-            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
+            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nthreshold=" << int(input.threshold)
@@ -236,6 +240,7 @@ struct Settings {
             else if (key == "capture_quantize") capture_quantise = uint8_t(std::clamp(value, 0, 2));
             else if (key == "click") click = uint8_t(std::clamp(value, 0, 2));
             else if (key == "click_level") click_level = uint8_t(std::clamp(value, 0, 100));
+            else if (key == "font") font = uint8_t(std::clamp(value, 0, int(ui::font_count) - 1));
             else if (key == "palette") palette = uint8_t(std::clamp(value, 0, int(ui::palette_count) - 1));
             else if (key == "roll_follow") roll_follow = value != 0;
             else if (key == "roll_scale") roll_scale = value != 0;

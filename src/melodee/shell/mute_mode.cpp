@@ -16,7 +16,18 @@ void mute_button(Context& c, bool pressed) {
     if (!ui.mute) return;
     ui.mute = false;
     // A tap turns the latch on or off; a hold (or one that muted something) leaves it as it was.
-    if (!ui.mute_used && c.now - ui.mute_down <= mute_hold_ms) ui.mute_latch = !ui.mute_latch;
+    if (!ui.mute_used && c.now - ui.mute_down <= mute_hold_ms) {
+        ui.mute_latch = !ui.mute_latch;
+        // INDIGO X DENIM: the tap that latches it opens the mixer (Tracks, where the pads mute tracks); the one that lets
+        // go goes back to the page it came from, if still there. The Looper keeps its own mutes.
+        if (ui.mute_latch && ui.page != PageId::Tracks && ui.page != PageId::Looper) {
+            ui.mute_from = ui.page; ui.mute_opened = true;
+            c.open(PageId::Tracks);
+        } else if (!ui.mute_latch && ui.mute_opened) {
+            ui.mute_opened = false;
+            if (ui.page == PageId::Tracks) c.open(ui.mute_from);
+        }
+    }
 }
 
 void set_pad_mute(Context& c, unsigned t, unsigned kit, bool on) {

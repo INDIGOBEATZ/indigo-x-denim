@@ -17,7 +17,7 @@ using namespace ui;
 
 juce::Colour tone_colour(PlaceBar::Tone t) {
     switch (t) {
-    case PlaceBar::Tone::Playing: return colour::play;
+    case PlaceBar::Tone::Playing: return colour::place; // INDIGO X DENIM: the palette's (NEON LAB: a bright purple)
     case PlaceBar::Tone::Recording: return colour::rec;
     case PlaceBar::Tone::Waiting: return colour::amber;
     case PlaceBar::Tone::Stopped: break;
@@ -29,8 +29,8 @@ juce::Colour tone_colour(PlaceBar::Tone t) {
 void draw_place_bar(Paint& p, const Snapshot& s) {
     const PlaceBar bar = place_bar_of(s);
     bool top = !s.ui.settings.place_bottom;
-    constexpr int x0 = zone::pad, w = zone::width - 2 * zone::pad, h = 2, gap = 2;
-    const int y = top ? zone::soft_h - 1 : zone::height - h; // rows 21-22, or 238-239
+    constexpr int x0 = zone::pad, w = zone::width - 2 * zone::pad, h = 3, gap = 2; // INDIGO X DENIM: 3 px, easier to see
+    const int y = top ? zone::soft_h - 1 : zone::height - h; // rows 21-23, or 237-239
     p.fill(0, top ? y : y - 1, zone::width, h + 1, colour::bg); // the rows it and its tick take
     auto colour = tone_colour(bar.tone);
     if (bar.blocks) { // Count-In: the beats still to come, lit

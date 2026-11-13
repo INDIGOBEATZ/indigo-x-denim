@@ -68,6 +68,26 @@ void roll_write(Context& c, int key, uint8_t velocity);
 bool roll_erase(Context& c);
 // The sheet: accent, slide or tie on the note in focus, on or off.
 void roll_flag(Context& c, uint8_t flag);
+// INDIGO X DENIM, the selection (UiState::roll_sel), pure on the pattern and the UI state.
+// Whether the note on `tick` with `key` is picked.
+bool roll_picked(const UiState& ui, uint32_t tick, uint8_t key);
+// The note in focus picked, or let go; false when no note is in focus or the selection is full.
+bool roll_pick(const Pattern& pattern, UiState& ui);
+// Every note before the pattern's end picked (the first roll_picks); how many.
+unsigned roll_pick_all(const Pattern& pattern, UiState& ui);
+// The picks no note answers any more let go; how many are left.
+unsigned roll_picks_tidy(const Pattern& pattern, UiState& ui);
+// The picked notes moved `ticks` later (earlier when negative) and `keys` up; nothing moves when one would leave the
+// pattern or the keys (false). The picks go with them.
+bool roll_move_picks(Pattern& pattern, UiState& ui, int ticks, int keys);
+// A copy of the picked notes straight after them (their span, a whole number of steps of Q); the picks go to the
+// copies. -1 when a copy would start past the end, -2 when the pattern is full.
+int roll_duplicate_picks(Pattern& pattern, UiState& ui);
+// The picked notes onto their nearest steps; how many moved. The picks go with them.
+unsigned roll_quantize_picks(Pattern& pattern, UiState& ui);
+// The picked notes deleted; how many. The selection is empty after.
+unsigned roll_delete_picks(Pattern& pattern, UiState& ui);
+
 // INDIGO X DENIM: the note in focus quantized, made legato or duplicated (the cursor goes with it), and the VIEW
 // sheet's Quantize all and Legato all; each says what it did. A press on the page is one undo (PageEdit).
 void roll_quantize_note(Context& c);
@@ -75,5 +95,13 @@ void roll_legato_note(Context& c);
 void roll_duplicate_note(Context& c);
 void roll_quantize_every(Context& c);
 void roll_legato_every(Context& c);
+// INDIGO X DENIM: the selection's jobs (Shift + Push picks, the SELECTION sheet does), each one undo, each says what it did.
+void roll_pick_note(Context& c);
+void roll_pick_every(Context& c);
+void roll_picks_move(Context& c, int steps, int keys);
+void roll_picks_duplicate(Context& c);
+void roll_picks_quantize(Context& c);
+void roll_picks_delete(Context& c);
+void roll_picks_clear(Context& c);
 
 } // namespace melodee

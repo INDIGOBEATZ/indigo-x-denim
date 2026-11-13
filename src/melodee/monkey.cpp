@@ -175,6 +175,7 @@ private:
         juce::Image image(juce::Image::ARGB, 320, 240, true);
         juce::Graphics g(image);
         ui::use_palette(snap->ui.settings.palette); // INDIGO X DENIM: the palette chosen in Settings
+        ui::use_font(snap->ui.settings.font); // and the typeface, chosen apart
         ui::Paint p(g);
         g.fillAll(ui::colour::bg);
         page_spec(snap->ui.page).draw(p, *snap);

@@ -218,6 +218,132 @@ int roll_duplicate(Pattern& pattern, size_t index) {
     return -1;
 }
 
+// INDIGO X DENIM: the selection.
+namespace {
+int find_note(const Pattern& pattern, uint32_t tick, uint8_t key) {
+    for (size_t n = pattern.lower(tick); n < pattern.events.size() && pattern.events[n].tick == tick; ++n)
+        if (pattern.events[n].key == key) return int(n);
+    return -1;
+}
+void set_picks(UiState& ui, const std::vector<UiState::RollPick>& picks) {
+    ui.roll_sel_count = uint8_t(std::min<size_t>(picks.size(), UiState::roll_picks));
+    for (unsigned n = 0; n < ui.roll_sel_count; ++n) ui.roll_sel[n] = picks[n];
+}
+// The picked notes, as found in the pattern (the picks no note answers left out).
+std::vector<Event> picked_events(const Pattern& pattern, const UiState& ui) {
+    std::vector<Event> out;
+    for (unsigned n = 0; n < ui.roll_sel_count; ++n) {
+        int at = find_note(pattern, ui.roll_sel[n].tick, ui.roll_sel[n].key);
+        if (at >= 0) out.push_back(pattern.events[size_t(at)]);
+    }
+    return out;
+}
+void remove_events(Pattern& pattern, const std::vector<Event>& events) {
+    for (const auto& e : events) pattern.remove(e.tick, e.key);
+}
+void pick_events(UiState& ui, const std::vector<Event>& events) {
+    std::vector<UiState::RollPick> picks;
+    for (const auto& e : events) picks.push_back({e.tick, e.key});
+    set_picks(ui, picks);
+}
+} // namespace
+
+bool roll_picked(const UiState& ui, uint32_t tick, uint8_t key) {
+    for (unsigned n = 0; n < ui.roll_sel_count && n < UiState::roll_picks; ++n)
+        if (ui.roll_sel[n].tick == tick && ui.roll_sel[n].key == key) return true;
+    return false;
+}
+
+bool roll_pick(const Pattern& pattern, UiState& ui) {
+    int at = roll_focus(pattern, ui);
+    if (at < 0) return false;
+    const auto& e = pattern.events[size_t(at)];
+    for (unsigned n = 0; n < ui.roll_sel_count; ++n)
+        if (ui.roll_sel[n].tick == e.tick && ui.roll_sel[n].key == e.key) { // let go
+            for (unsigned k = n + 1; k < ui.roll_sel_count; ++k) ui.roll_sel[k - 1] = ui.roll_sel[k];
+            --ui.roll_sel_count;
+            return true;
+        }
+    if (ui.roll_sel_count >= UiState::roll_picks) return false;
+    ui.roll_sel[ui.roll_sel_count++] = {e.tick, e.key};
+    return true;
+}
+
+unsigned roll_pick_all(const Pattern& pattern, UiState& ui) {
+    std::vector<UiState::RollPick> picks;
+    for (const auto& e : pattern.events) {
+        if (e.tick >= pattern.length || picks.size() >= UiState::roll_picks) break;
+        picks.push_back({e.tick, e.key});
+    }
+    set_picks(ui, picks);
+    return ui.roll_sel_count;
+}
+
+unsigned roll_picks_tidy(const Pattern& pattern, UiState& ui) {
+    pick_events(ui, picked_events(pattern, ui));
+    return ui.roll_sel_count;
+}
+
+bool roll_move_picks(Pattern& pattern, UiState& ui, int ticks, int keys) {
+    auto events = picked_events(pattern, ui);
+    if (events.empty()) return false;
+    for (const auto& e : events) {
+        int64_t tick = int64_t(e.tick) + ticks;
+        int key = int(e.key) + keys;
+        if (tick < 0 || tick >= int64_t(pattern.length) || key < 0 || key > 127) return false;
+    }
+    remove_events(pattern, events);
+    for (auto& e : events) {
+        e.tick = uint32_t(int64_t(e.tick) + ticks);
+        e.key = uint8_t(int(e.key) + keys);
+        e.length = uint16_t(std::clamp<uint32_t>(std::min<uint32_t>(e.length, pattern.length - e.tick), 1, 0xffff));
+        pattern.add(e);
+    }
+    pick_events(ui, events);
+    return true;
+}
+
+int roll_duplicate_picks(Pattern& pattern, UiState& ui) {
+    auto events = picked_events(pattern, ui);
+    if (events.empty()) return -1;
+    uint32_t q = std::max(1u, pattern.q()), first = UINT32_MAX, last = 0;
+    for (const auto& e : events) { first = std::min(first, e.tick); last = std::max(last, e.tick + std::max<uint32_t>(e.length, 1)); }
+    uint32_t span = std::max(q, (last - first + q - 1) / q * q);
+    for (const auto& e : events) if (uint64_t(e.tick) + span >= pattern.length) return -1;
+    if (pattern.events.size() + events.size() > max_pattern_events) return -2;
+    for (auto& e : events) {
+        e.tick += span;
+        e.length = uint16_t(std::clamp<uint32_t>(std::min<uint32_t>(e.length, pattern.length - e.tick), 1, 0xffff));
+        pattern.add(e);
+    }
+    pick_events(ui, events);
+    return int(events.size());
+}
+
+unsigned roll_quantize_picks(Pattern& pattern, UiState& ui) {
+    auto events = picked_events(pattern, ui);
+    unsigned moved = 0;
+    uint32_t q = std::max(1u, pattern.q());
+    remove_events(pattern, events);
+    for (auto& e : events) {
+        uint32_t to = (e.tick + q / 2) / q * q;
+        if (pattern.length && to >= pattern.length) to = (pattern.length - 1) / q * q;
+        if (to != e.tick) ++moved;
+        e.tick = to;
+        e.length = uint16_t(std::clamp<uint32_t>(std::min<uint32_t>(e.length, pattern.length - e.tick), 1, 0xffff));
+        pattern.add(e);
+    }
+    pick_events(ui, events);
+    return moved;
+}
+
+unsigned roll_delete_picks(Pattern& pattern, UiState& ui) {
+    auto events = picked_events(pattern, ui);
+    remove_events(pattern, events);
+    ui.roll_sel_count = 0;
+    return unsigned(events.size());
+}
+
 std::string roll_position(uint32_t tick, unsigned bar_ticks, unsigned beat_ticks, unsigned q) {
     bar_ticks = std::max(1u, bar_ticks); beat_ticks = std::max(1u, beat_ticks); q = std::max(1u, q);
     unsigned bar = tick / bar_ticks + 1, beat = tick % bar_ticks / beat_ticks + 1;

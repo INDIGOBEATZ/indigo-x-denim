@@ -14,6 +14,7 @@ void waveform(Paint& p, float x, float y, float w, float h, const std::array<uin
 void waveform(Paint& p, float x, float y, float w, float h, const std::array<uint8_t, 512>& overview,
               float from, float to, float keep_from, float keep_to, juce::Colour colour,
               const WaveHead* heads, unsigned count, float bar) {
+    if (colour::wave_fixed && colour != colour::mid) colour = colour::wave; // INDIGO X DENIM: the palette's waveform colour
     float mid = y + h / 2, step = bar * 2;
     unsigned columns = unsigned(w / step);
     auto x_of = [&](float at) { return x + (at - from) / std::max(1e-6f, to - from) * w; };

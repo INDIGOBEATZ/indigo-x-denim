@@ -354,6 +354,7 @@ void Shell::press(Button b, bool pressed) {
     case Button::TopRight: if (!track_soft(context_, 2) && !repeat_soft(context_, 2)) page.soft(context_, 2); break;
     case Button::WheelPush:
         if (ui.shift && ui.page == PageId::Song) song_marker(context_);
+        else if (ui.shift && ui.page == PageId::Roll && !ui.sheet_open) { ui.shift_used = true; roll_pick_note(context_); } // INDIGO X DENIM: pick the note
         else if (ui.shift && ui.page == PageId::Project && ui.project_list && !ui.sheet_open && !ui.move_open && !context_.project_folder.empty()) {
             // up a folder
             auto& f = context_.project_folder;

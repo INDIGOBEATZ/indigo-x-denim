@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/ui/paint.h"
 #include "melodee/ui/rubik_data.h"
+#include "melodee/ui/fonts.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,29 +11,35 @@
 
 namespace melodee::ui {
 namespace {
-// One typeface per weight, cloned from the variable font's wght axis.
-const std::array<juce::Typeface::Ptr, 4>& faces() {
-    static const std::array<juce::Typeface::Ptr, 4> loaded = [] {
-        auto size = size_t(melodee_rubik_end - melodee_rubik_start);
-        auto base = juce::Typeface::createSystemTypefaceFor(melodee_rubik_start, size);
-        if (!base) throw std::runtime_error("Cannot load the embedded Rubik font");
-        std::array<juce::Typeface::Ptr, 4> out;
-        const float weights[] {400, 500, 600, 700};
-        for (size_t n = 0; n < out.size(); ++n) {
-            juce::FontVariableSetting setting {"wght", weights[n]};
-            auto face = base->cloneWithVariableSettings(juce::Span<const juce::FontVariableSetting>(&setting, 1));
-            out[n] = face ? face : base;
-        }
-        return out;
-    }();
-    return loaded;
+// One typeface per weight, cloned from each variable font's wght axis; INDIGO X DENIM: for each typeface
+// (ui/fonts.h), loaded the first time it is used.
+const std::array<juce::Typeface::Ptr, 4>& faces(unsigned font) {
+    static std::array<std::array<juce::Typeface::Ptr, 4>, font_count> loaded {};
+    static std::array<bool, font_count> ready {};
+    font %= font_count;
+    if (ready[font]) return loaded[font];
+    const auto& t = typefaces()[font];
+    auto base = juce::Typeface::createSystemTypefaceFor(t.start, size_t(t.end - t.start));
+    if (!base) {
+        if (font == 0) throw std::runtime_error("Cannot load the embedded Rubik font");
+        return faces(0); // a typeface that will not load: Rubik's
+    }
+    const float weights[] {400, 500, 600, 700};
+    for (size_t n = 0; n < 4; ++n) {
+        juce::FontVariableSetting setting {"wght", weights[n]};
+        auto face = base->cloneWithVariableSettings(juce::Span<const juce::FontVariableSetting>(&setting, 1));
+        loaded[font][n] = face ? face : base;
+    }
+    ready[font] = true;
+    return loaded[font];
 }
 
 juce::Font make_font(float size, Weight weight, bool caps) {
     // JUCE's kerning factor is a share of the font height (ascent + descent,
     // about 1.185 em for Rubik); capitals get type::caps_tracking.
-    auto options = juce::FontOptions(faces()[size_t(weight)]).withPointHeight(size);
-    if (caps) options = options.withKerningFactor(type::caps_tracking / 1.185f);
+    unsigned typeface = font_now.load(std::memory_order_relaxed) % font_count;
+    auto options = juce::FontOptions(faces(typeface)[size_t(weight)]).withPointHeight(size);
+    if (caps) options = options.withKerningFactor(type::caps_tracking / typefaces()[typeface].height_em);
     return juce::Font(options);
 }
 
@@ -43,11 +50,11 @@ juce::Font make_font(float size, Weight weight, bool caps) {
 // thread, or a host tool) and are dropped whole when they grow past `most`,
 // since a page reuses the same few hundred strings frame after frame.
 struct Style {
-    int size_hundredths; Weight weight; bool caps;
-    bool operator==(const Style& o) const { return size_hundredths == o.size_hundredths && weight == o.weight && caps == o.caps; }
-    size_t hash() const { return size_t(size_hundredths) * 31u + size_t(weight) * 7u + size_t(caps); }
+    int size_hundredths; Weight weight; bool caps; uint8_t typeface; // INDIGO X DENIM: the typeface in use too
+    bool operator==(const Style& o) const { return size_hundredths == o.size_hundredths && weight == o.weight && caps == o.caps && typeface == o.typeface; }
+    size_t hash() const { return size_t(size_hundredths) * 31u + size_t(weight) * 7u + size_t(caps) + size_t(typeface) * 1000003u; }
 };
-Style style_of(float size, Weight weight, bool caps) { return {int(std::lround(size * 100)), weight, caps}; }
+Style style_of(float size, Weight weight, bool caps) { return {int(std::lround(size * 100)), weight, caps, font_now.load(std::memory_order_relaxed)}; }
 
 struct FontHash { size_t operator()(const Style& s) const { return s.hash(); } };
 
@@ -113,6 +120,7 @@ const juce::GlyphArrangement& cached_layout(const juce::String& value, float siz
 juce::Font font(float size, Weight weight, bool caps) { return cached_font(std::max(size, type::floor), weight, caps); }
 
 void audit_text(std::vector<TextIssue>* sink) { audit = sink; }
+void use_font(unsigned typeface) { font_now.store(uint8_t(typeface % font_count), std::memory_order_relaxed); }
 void report_text_issue(const TextIssue& issue) { if (audit) audit->push_back(issue); }
 
 float Paint::width(const juce::String& value, const Text& style) const {

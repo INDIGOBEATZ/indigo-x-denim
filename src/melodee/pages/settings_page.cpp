@@ -44,7 +44,7 @@ const std::array<Door, 7> doors {{
     {Icon::Pads, "PADS", {Settings::PadResponse, Settings::PadPressure, Settings::PadLights, Settings::DoubleSeq, Settings::CaptureBars,
                           Settings::CaptureQuantize}},
     {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, none, none, none}},
-    {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Screen, Settings::PlaceBarRow, none, none, none}},
+    {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, none, none}}, // INDIGO X DENIM: Font
     {Icon::Speaker, "AUDIO", {Settings::SampleRate, Settings::AudioBuffer, none, none, none, none}},
     {Icon::Mic, "SAMPLING", {Settings::RecallGrabRow, Settings::RecallGap, Settings::RecallTrimEnd, Settings::TakeAutoEnd, Settings::AutoEndAfter,
                              Settings::SilenceBelow}},
@@ -155,8 +155,7 @@ void settings_wheel(Context& c, int delta) {
 }
 void settings_push(Context& c) {
     if (!c.ui.settings_in) { open_door(c); return; }
-    if (c.ui.settings_cursor == Settings::Palette) { c.change_setting(Settings::Palette, 1); return; } // Push: the next palette at once
-    c.ui.settings_editing = !c.ui.settings_editing;
+    c.ui.settings_editing = !c.ui.settings_editing; // Palette and Font too: the wheel then goes through them
 }
 void settings_nudge(Context& c, int way) {
     if (!c.ui.settings_in) { settings_wheel(c, way); return; }

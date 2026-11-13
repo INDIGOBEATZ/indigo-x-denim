@@ -15,6 +15,8 @@ enum class Weight { Regular, Medium, SemiBold, Bold };
 // Rubik, embedded in the binary, at its four weights (one variable font).
 // Loaded on first use; throws when the embedded data cannot be read.
 juce::Font font(float size, Weight weight = Weight::Regular, bool caps = false);
+// INDIGO X DENIM: the typeface every text after this uses (ui/fonts.h; Settings > Font). Screen thread.
+void use_font(unsigned typeface);
 
 class Paint {
 public:

@@ -624,6 +624,8 @@ struct Preview {
     const char* name;
     void (*set)(Shell&, Snapshot&);
 };
+// INDIGO X DENIM: another preview as it is, in palette `palette` and typeface `font`.
+void preview_as(Shell& shell, Snapshot& s, const char* name, unsigned palette, unsigned font);
 
 const Preview previews[] {
     {"stage", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.playing = true; }}, // track 1, a synth plug-in: B1 MIX
@@ -1897,6 +1899,30 @@ const Preview previews[] {
          roll_bass(shell, s, 24, 57);
          s.ui.settings.roll_scale = true; s.project.root = 9; s.project.scale = 1;
      }},
+    // INDIGO X DENIM: the selection (Shift + Push): three notes picked, one in focus; and its SELECTION sheet.
+    {"rollselect", [](Shell& shell, Snapshot& s) {
+         roll_bass(shell, s, 24, 57);
+         s.ui.roll_sel_count = 3; s.ui.roll_sel[0] = {24 * sixteenth_ticks, 57}; s.ui.roll_sel[1] = {25 * sixteenth_ticks, 69};
+         s.ui.roll_sel[2] = {28 * sixteenth_ticks, 62};
+     }},
+    {"rollselsheet", [](Shell& shell, Snapshot& s) {
+         roll_bass(shell, s, 24, 57);
+         s.ui.roll_sel_count = 3; s.ui.roll_sel[0] = {24 * sixteenth_ticks, 57}; s.ui.roll_sel[1] = {25 * sixteenth_ticks, 69};
+         s.ui.roll_sel[2] = {28 * sixteenth_ticks, 62};
+         s.ui.sheet_open = true; s.ui.roll_sheet_sel = true; s.ui.sheet_more = true; s.ui.sheet_row = 2;
+     }},
+    // The Media Lab's themes and the typefaces on pages full of colour and text (other previews, palette and font set).
+    {"themeterminal", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "song", 18, 0); }},
+    {"themevapor", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "pads", 24, 0); }},
+    {"themegolden", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "roll", 14, 0); }},
+    {"themedeepsea", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "stage", 4, 0); }},
+    {"themerack", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "looper", 19, 0); }},
+    {"themecinema", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "song", 17, 0); }},
+    {"fontinter", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "song", 1, 1); }},
+    {"fontspacegrotesk", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "stage", 1, 2); }},
+    {"fontoutfit", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "pads", 1, 3); }},
+    {"fontjetbrains", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "settingsscreen", 1, 7); }},
+    {"settingsfont", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 2; s.ui.settings_cursor = Settings::Font; s.ui.settings_editing = true; s.ui.settings.font = 2; }},
     // Roadmap P1 (drums and sequencer): these rewrite the shell's patterns too.
     {"rollratchet", [](Shell& shell, Snapshot& s) { // Roll's TRIG row (B2 again): the note in focus a ratchet of four, ramped down
          roll_bass(shell, s, 24, 57);
@@ -1987,8 +2013,15 @@ const Preview previews[] {
      }},
 };
 
+void preview_as(Shell& shell, Snapshot& s, const char* name, unsigned palette, unsigned font) {
+    for (const auto& p : previews)
+        if (!std::strcmp(p.name, name)) { p.set(shell, s); break; }
+    s.ui.settings.palette = uint8_t(palette); s.ui.settings.font = uint8_t(font);
+}
+
 void draw(juce::Graphics& g, const Snapshot& s) {
     ui::use_palette(s.ui.settings.palette); // INDIGO X DENIM: the palette chosen in Settings
+    ui::use_font(s.ui.settings.font); // and the typeface, chosen apart
     ui::Paint p(g);
     g.fillAll(ui::colour::bg);
     page_spec(s.ui.page).draw(p, s);

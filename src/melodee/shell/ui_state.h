@@ -68,6 +68,10 @@ struct UiState {
     // Mute mode (shell/mute_mode.cpp): a tap latches it, a hold lasts while held.
     bool mute_latch = false, mute_used = false;
     uint32_t mute_down = 0;
+    // INDIGO X DENIM: a tap on MUTE latches mute mode and opens the mixer (Tracks); the page it came from, to go back to
+    // when the latch goes off there.
+    bool mute_opened = false;
+    PageId mute_from = PageId::Stage;
     bool mute_mode() const { return mute || mute_latch; }
     // Note Repeat (shell/note_repeat.cpp): a tap latches, a hold lasts while held.
     bool repeat_held = false, repeat_turned_on = false;
@@ -167,6 +171,13 @@ struct UiState {
     // INDIGO X DENIM: Push with no note in focus opens Roll's VIEW sheet (Follow playhead, Scale lanes, Quantize all,
     // Legato all) on sheet_open, as a list (B3 or Push do the row, B1 back).
     bool roll_sheet_view = false;
+    // INDIGO X DENIM: Roll's selection, the notes picked by their tick and key (Shift + Push on the note in focus, or
+    // Select all on VIEW); Push with a selection opens the SELECTION sheet (roll_sheet_sel) of what it can do to them.
+    struct RollPick { uint32_t tick = 0; uint8_t key = 0; };
+    static constexpr unsigned roll_picks = 64;
+    std::array<RollPick, roll_picks> roll_sel {};
+    uint8_t roll_sel_count = 0;
+    bool roll_sheet_sel = false;
     bool map_open = false;    // the page map over Edit
     uint8_t map_cursor = 0;
     int8_t pattern_held = -1; // Patterns: a pad held, so the next one copies it

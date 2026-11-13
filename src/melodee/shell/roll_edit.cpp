@@ -118,4 +118,53 @@ void roll_legato_every(Context& c) {
     c.notice("Legato: " + std::to_string(changed) + (changed == 1 ? " note" : " notes"));
 }
 
+void roll_pick_note(Context& c) {
+    if (roll_focus(c.pattern(), c.ui) < 0) { c.notice("No note here"); return; }
+    unsigned before = c.ui.roll_sel_count;
+    if (!roll_pick(c.pattern(), c.ui)) { c.notice("64 notes at most"); return; }
+    unsigned now = c.ui.roll_sel_count;
+    c.notice(now > before ? "Picked: " + std::to_string(now) : now ? "Let go: " + std::to_string(now) + " left" : std::string("Selection empty"));
+}
+
+void roll_pick_every(Context& c) {
+    unsigned n = roll_pick_all(c.pattern(), c.ui);
+    c.notice(n ? "Picked all: " + std::to_string(n) : std::string("No notes"));
+}
+
+void roll_picks_move(Context& c, int steps, int keys) {
+    auto& pattern = c.pattern();
+    if (!roll_move_picks(pattern, c.ui, steps * int(std::max(1u, pattern.q())), keys)) { c.notice(keys ? "No room up there" : "No room there"); return; }
+    if (c.ui.roll_sel_count) { // the cursor with the first pick, so the view follows
+        const auto& first = c.ui.roll_sel[0];
+        c.ui.step_cursor = int16_t(std::min<unsigned>(first.tick / std::max(1u, pattern.q()), 0x7fff));
+        c.ui.roll_key = first.key;
+    }
+    roll_follow(pattern, c.ui);
+    roll_select(pattern, c.ui);
+    c.sync_pattern(c.ui.track, c.track().pattern);
+}
+
+void roll_picks_duplicate(Context& c) {
+    int n = roll_duplicate_picks(c.pattern(), c.ui);
+    if (n == -2) { c.notice("The pattern is full"); return; }
+    if (n < 0) { c.notice("No room after them"); return; }
+    roll_picks_move(c, 0, 0); // the cursor and view onto the copies
+    c.notice("Duplicated " + std::to_string(n));
+}
+
+void roll_picks_quantize(Context& c) {
+    unsigned n = roll_quantize_picks(c.pattern(), c.ui);
+    c.sync_pattern(c.ui.track, c.track().pattern);
+    c.notice(n ? "Quantized " + std::to_string(n) : std::string("On the grid already"));
+}
+
+void roll_picks_delete(Context& c) {
+    unsigned n = roll_delete_picks(c.pattern(), c.ui);
+    roll_select(c.pattern(), c.ui);
+    c.sync_pattern(c.ui.track, c.track().pattern);
+    c.notice("Deleted " + std::to_string(n) + (n == 1 ? " note" : " notes"));
+}
+
+void roll_picks_clear(Context& c) { c.ui.roll_sel_count = 0; c.notice("Selection empty"); }
+
 } // namespace melodee

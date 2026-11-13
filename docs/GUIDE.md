@@ -189,7 +189,8 @@ what is lost and whether undo brings it back.
 
 ### Mute and solo
 
-Press **MUTE** to turn on mute mode. Hold **MUTE** for mute mode only while
+Press **MUTE** to turn on mute mode and open the mixer (**Tracks**). Press
+it again to turn mute mode off and go back to the page you came from. Hold **MUTE** for mute mode only while
 it is held.
 
 - On a kit page, the pads mute kit pads.
@@ -820,7 +821,14 @@ Roll is a piano roll. On a kit, each row is a pad.
   - **Scale lanes**: the rows outside the project's scale go dark.
   - **Quantize all** and **Legato all**: every note in the pattern.
 
-  Follow playhead and Scale lanes stay as you set them.
+  Follow playhead (on as it comes) and Scale lanes stay as you set them.
+  - **Select all**: every note in the pattern is picked.
+- **SHIFT** + encoder push picks the note under the cursor, or lets it go.
+  Picked notes have a white ring; **SEL** and how many show in the header.
+  Push the encoder with notes picked for the **SELECTION** sheet: a step
+  earlier or later, a semitone or an octave up or down, duplicate after,
+  quantize, delete, or clear the selection. Moves keep the sheet open, so
+  you can do them again.
 - Press **ROLL** again for the note's ratchet.
 
 **Step Edit**

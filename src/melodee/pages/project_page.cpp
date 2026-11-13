@@ -28,7 +28,6 @@ namespace melodee {
 namespace {
 using namespace ui;
 constexpr unsigned visible = list_rows;
-const juce::Colour amber = colour::amber;
 
 enum Action { Load, Save, SaveAsNew, Rename, Duplicate, MoveTo, NewFolder, OpenAtStart, Delete, LoadKit };
 
@@ -87,8 +86,8 @@ juce::String count_text(unsigned n, const char* one, const char* many) { return 
 // The three jobs as tiles under the keys.
 void draw_tiles(Paint& p, const Snapshot& s, const ProjectStore::View& v) {
     Header h = header_of(s);
-    if (v.root.empty()) h.left.push_back(pill(Icon::Card, "NO CARD", amber));
-    else if (s.dirty) h.left.push_back(pill(Icon::Rec, "UNSAVED", amber));
+    if (v.root.empty()) h.left.push_back(pill(Icon::Card, "NO CARD", colour::amber));
+    else if (s.dirty) h.left.push_back(pill(Icon::Rec, "UNSAVED", colour::amber));
     h.right.push_back(label(s.project.name));
     SoftKeys keys {{"SAVE", "OPEN", "NEW"}, 0, colour::text};
     keys.glyphs = {Icon::Save, Icon::Folder, Icon::Plus};
@@ -134,7 +133,7 @@ void draw_row(Paint& p, const Snapshot& s, const ProjectStore::View& v, unsigned
             right -= cw;
             p.fill(right, cy - 7.5f, cw, 15, colour::text, 3);
             p.text("OPEN", right, cy - 7.5f, cw, 15, chip_style, juce::Justification::centred);
-            if (s.dirty) { right -= 9; p.circle(right + 2, cy, 2.5f, amber); }
+            if (s.dirty) { right -= 9; p.circle(right + 2, cy, 2.5f, colour::amber); }
             right -= 6;
         } else {
             juce::String meta = e->mpc() ? juce::String("MPC")
@@ -218,7 +217,7 @@ void draw(Paint& p, const Snapshot& s) {
         }
         MenuSheet m;
         m.title = e->name; m.accent = colour::text;
-        if (open_one && s.dirty) { m.detail = "UNSAVED"; m.detail_colour = amber; }
+        if (open_one && s.dirty) { m.detail = "UNSAVED"; m.detail_colour = colour::amber; }
         else if (mpc) { m.detail = "OPENS AS A COPY"; m.detail_colour = colour::mid; }
         for (unsigned k = 0; k < n; ++k) {
             juce::String name = action_name(list[k]);

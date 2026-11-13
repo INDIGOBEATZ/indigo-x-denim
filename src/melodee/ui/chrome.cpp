@@ -89,7 +89,12 @@ void soft_keys(Paint& p, const SoftKeys& keys) {
         bool toggle = (keys.toggles >> n) & 1, lit = (keys.lit >> n) & 1;
         bool on = n == keys.active || lit;
         float x = n * column, cx = x + column / 2;
-        if (on && !toggle) p.fill(cx - 15, -2, 30, 4, keys.accent, 1.5f); // drawn from above the edge: only the lower corners show
+        if (on && !toggle) { // drawn from above the edge: only the lower corners show
+            if (colour::brand_gradient) { // INDIGO X DENIM: the brand's indigo to magenta, a little wider
+                p.g.setGradientFill(juce::ColourGradient(colour::brand_a.brighter(0.35f), cx - 20, 0, colour::brand_b, cx + 20, 0, false));
+                p.g.fillRoundedRectangle(cx - 20, -2, 40, 4.5f, 1.5f);
+            } else p.fill(cx - 15, -2, 30, 4, keys.accent, 1.5f);
+        }
         const auto& text = keys.labels[k];
         auto tint = keys.tints[k];
         auto style = caps_text(!tint.isTransparent() ? tint : on ? colour::text : colour::mid, type::soft);

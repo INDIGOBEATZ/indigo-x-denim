@@ -49,15 +49,12 @@ def literal(name, png, what):
     return f"// {what}: {len(png)} bytes of PNG.\nconst char {name}[] =\n" + "\n".join(lines) + ";\n"
 
 
-BACKDROP = ("// SPDX-License-Identifier: LicenseRef-Melodee-Backdrop\n"
-            "// Copyright (C) Yasmine Elsen (https://www.smallcutekitty.net). All rights reserved.\n"
-            "// Made for Kerem Kilic (Ellic Studio), who alone may use it.\n"
-            "// The boot backdrop is not covered by the AGPL. A fork may keep this file, but no public\n"
-            "// release of a fork may contain it; see THIRD_PARTY.md, Boot art.\n")
-RESERVED = ("// SPDX-License-Identifier: LicenseRef-Melodee-Logo\n"
-            "// Copyright (C) 2026 Kerem Kilic (Ellic Studio). All rights reserved.\n"
-            "// The Melodee logo is not covered by the AGPL. A fork may keep this file, but no public\n"
-            "// release of a fork may contain it; see THIRD_PARTY.md, Boot art.\n")
+# INDIGO X DENIM: its own boot art (AGENTS.md: a fork replaces Melodee's before any public release).
+BACKDROP = ("// SPDX-License-Identifier: AGPL-3.0-only\n"
+            "// INDIGO X DENIM's boot backdrop: a deep indigo night, a glow, a faint denim twill (drawn by code).\n")
+RESERVED = ("// SPDX-License-Identifier: LicenseRef-INDIGO-Logo\n"
+            "// Copyright (C) 2026 INDIGO (INDIGOBEATZ). All rights reserved.\n"
+            "// The INDIGO logo is not covered by the AGPL; see THIRD_PARTY.md, Boot art.\n")
 
 
 def write(name, header, body):
@@ -68,8 +65,8 @@ def write(name, header, body):
 
 
 def main(logo, backdrop):
-    write("boot_logo.cpp", RESERVED, literal("boot_logo_png", image_chunks(logo), "The Melodee logo on transparency"))
-    write("boot_backdrop.cpp", BACKDROP, literal("boot_backdrop_png", image_chunks(backdrop), "The night city behind it"))
+    write("boot_logo.cpp", RESERVED, literal("boot_logo_png", image_chunks(logo), "The INDIGO X DENIM logo on transparency"))
+    write("boot_backdrop.cpp", BACKDROP, literal("boot_backdrop_png", image_chunks(backdrop), "The indigo night behind it"))
 
 
 if __name__ == "__main__":

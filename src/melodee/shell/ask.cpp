@@ -71,7 +71,7 @@ std::string ask_detail(const Project& project, const UiState& ui, const Pattern&
         count = unsigned(pattern.punches.size());
         return std::to_string(count) + (count == 1 ? " punch" : " punches") + where + " go.";
     }
-    if (ui.ask == UiState::Ask::ResetSettings) return "Every setting as Melodee comes; projects stay.";
+    if (ui.ask == UiState::Ask::ResetSettings) return "Every setting as it comes; projects stay.";
     if (ui.ask == UiState::Ask::TakeCardBack) return "What the computer was writing may be lost.";
     if (ui.ask == UiState::Ask::ClearLoop) return "Its audio and its undo go.";
     if (ui.ask == UiState::Ask::LooperOff) return "Every loop goes, and L1-L4 with them.";

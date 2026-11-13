@@ -327,6 +327,7 @@ void MelodeeApp::draw(juce::Graphics& g) {
         m.plugins = machine.plugins.load(std::memory_order_relaxed);
         m.plugins_load = machine.plugins_load.load(std::memory_order_relaxed);
     }
+    ui::use_palette(frame->ui.settings.palette); // INDIGO X DENIM: the palette chosen in Settings
     ui::Paint p(g);
     g.fillAll(ui::colour::bg);
     page_spec(frame->ui.page).draw(p, *frame);

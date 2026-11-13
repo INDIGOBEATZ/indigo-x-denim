@@ -155,7 +155,8 @@ void settings_wheel(Context& c, int delta) {
 }
 void settings_push(Context& c) {
     if (!c.ui.settings_in) { open_door(c); return; }
-    c.ui.settings_editing = !c.ui.settings_editing && c.ui.settings_cursor != Settings::Palette;
+    if (c.ui.settings_cursor == Settings::Palette) { c.change_setting(Settings::Palette, 1); return; } // Push: the next palette at once
+    c.ui.settings_editing = !c.ui.settings_editing;
 }
 void settings_nudge(Context& c, int way) {
     if (!c.ui.settings_in) { settings_wheel(c, way); return; }
@@ -237,7 +238,9 @@ void machine_draw(Paint& p, const Snapshot& s) {
 
 void credits_draw(Paint& p) {
     float x = zone::pad + 6, w = zone::width - 2 * zone::pad - 12, y = zone::picture_y + 4;
-    p.text("Melodee", x, y, w, 30, plain(colour::text, 26, Weight::SemiBold));
+    // INDIGO X DENIM: its name, INDIGO in the brand's magenta, and where it comes from (Melodee, by Kerem Kilic).
+    float iw = p.text("INDIGO", x, y, w, 30, plain(colour::brand_gradient ? colour::brand_b : colour::text, 26, Weight::Bold));
+    p.text(" X DENIM", x + iw, y, w - iw, 30, plain(colour::text, 26, Weight::Bold));
     juce::String version = juce::String("Version ") + MELODEE_VERSION;
     p.text(version, x, y + 30, w, 14, p.fit(version, plain(colour::sec, type::small), w, type::floor));
     unsigned effects = effect_count(); // as the effect picker counts them: not None, not the plug-in slot
@@ -247,8 +250,8 @@ void credits_draw(Paint& p) {
         {"EFFECTS", juce::String(effects) + " effects, " + juce::String(punch_count) + " punches"},
         {"TRACKS", juce::String(track_count) + " tracks, " + juce::String(pattern_count) + " patterns each"},
         {"BUILT ON", "sample-base, JUCE " + juce_version},
-        {"TYPE", "Rubik, SIL Open Font Licence"},
-        {"LICENCE", "AGPL-3.0"},
+        {"BASED ON", juce::String::fromUTF8("Melodee by Kerem Kili\xc3\xa7 (Ellic Studio)")},
+        {"LICENCE", "AGPL-3.0, Rubik under the SIL OFL"},
     };
     float ry = y + 54;
     for (const auto& row : rows) {

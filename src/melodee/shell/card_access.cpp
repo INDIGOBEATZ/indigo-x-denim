@@ -63,7 +63,7 @@ const char* card_detail(const CardView& card) {
     case lending: return "Projects and samples wait until it is back.";
     case returning: return "Projects and samples are read again.";
     case lent:
-        if (card.ejected) return "B1 brings the card back to Melodee.";
+        if (card.ejected) return "B1 brings the card back.";
         if (card.locked) return "The computer still has it. Eject it there, or B1 again.";
         return card.connected ? "Eject the drive on the computer, then press B1." : "The card waits for the computer.";
     default: break;

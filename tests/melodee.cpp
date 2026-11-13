@@ -1431,7 +1431,12 @@ void settings() {
     for (int n = 0; n < 20; ++n) c.step(Settings::Screen, -1);
     CHECK(c.screen == 20);
     c.step(Settings::PadLights, -1); CHECK(c.pad_lights == 2);
+    // INDIGO X DENIM: INDIGO as it comes, NIGHT a step on, and back; kept in the text.
+    CHECK(c.palette == 1 && c.value_text(Settings::Palette) == "INDIGO");
     c.step(Settings::Palette, 1); CHECK(c.value_text(Settings::Palette) == "NIGHT");
+    { Settings back; back.read(c.text()); CHECK(back.palette == 0); }
+    c.step(Settings::Palette, -1); CHECK(c.value_text(Settings::Palette) == "INDIGO");
+    c.step(Settings::Palette, 1);
     // Double Seq: Copy notes (the MPC's) or Empty, kept in the text.
     CHECK(c.double_copies && c.value_text(Settings::DoubleSeq) == "Copy notes");
     c.step(Settings::DoubleSeq, 1); CHECK(!c.double_copies && c.value_text(Settings::DoubleSeq) == "Empty");

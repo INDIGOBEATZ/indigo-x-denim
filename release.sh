@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build, strip and package a Melodee release: ./release.sh v0.1.0-alpha.1
-# writes dist/Melodee-MPC-Sample-<version>.zip and its .sha256.
+# writes dist/INDIGO-X-DENIM-MPC-Sample-<version>.zip and its .sha256.
 set -eu
 cd "$(dirname "$0")"
 [ $# -ge 1 ] || { echo "usage: ./release.sh VERSION [--allow-dirty]" >&2; exit 2; }

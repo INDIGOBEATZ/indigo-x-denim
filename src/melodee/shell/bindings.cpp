@@ -588,14 +588,16 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
         unsigned own = std::clamp<unsigned>((pattern.lane_length(unsigned(lane)) + q - 1) / q, 1, steps);
         Binding length = {Kind::LaneLength, lane, 1, int(std::max(steps, 2u)), int(own)};
         int n = lane_event(pattern, unsigned(std::max<int>(ui.step_cursor, 0)) % steps, lane);
-        if (!ui.trig_cards || n < 0) return {length, Binding {}, Binding {}};
+        Binding zoom {Kind::ViewZoom, 0, 0, 3, ui.steps_zoom & 3}; // INDIGO X DENIM: Shift + K3 the helicopter view
+        if (!ui.trig_cards || n < 0) return {length, Binding {}, zoom};
         return {length, Binding {Kind::StepPitchRamp, 0, -max_pitch_ramp, max_pitch_ramp, pattern.events[size_t(n)].pitch_ramp}, Binding {}};
     }
     case PageId::Roll: { // Shift + K1 NUDGE (round 2): the note in focus off its grid line; the TRIG row: Shift + K2 a kit pad's pitch ramp
+        Binding zoom {Kind::ViewZoom, 0, 0, 3, ui.roll_zoom & 3}; // INDIGO X DENIM: Shift + K3 the helicopter view
         int at = roll_focus(pattern, ui);
-        if (at < 0) return {};
+        if (at < 0) return {Binding {}, Binding {}, zoom};
         const auto& e = pattern.events[size_t(at)];
-        if (!ui.trig_cards) return {nudge_card(pattern, e), Binding {}, Binding {}};
+        if (!ui.trig_cards) return {nudge_card(pattern, e), Binding {}, zoom};
         if (track.engine != EngineKind::Sampler) return {};
         return {Binding {}, Binding {Kind::EventPitchRamp, 0, -max_pitch_ramp, max_pitch_ramp, e.pitch_ramp}, Binding {}};
     }

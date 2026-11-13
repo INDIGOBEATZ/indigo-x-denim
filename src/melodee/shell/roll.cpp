@@ -33,7 +33,8 @@ unsigned roll_cursor(const Pattern& pattern, const UiState& ui) {
 }
 
 unsigned roll_first(const Pattern& pattern, const UiState& ui) {
-    unsigned steps = pattern.steps(), last = steps > roll_columns ? steps - roll_columns : 0;
+    unsigned view = roll_columns * ui.roll_span(); // INDIGO X DENIM: zoomed out, more steps in view
+    unsigned steps = pattern.steps(), last = steps > view ? steps - view : 0;
     return std::min<unsigned>(unsigned(std::max<int>(ui.roll_view, 0)), last);
 }
 
@@ -46,7 +47,7 @@ int roll_focus(const Pattern& pattern, const UiState& ui) {
 
 void roll_follow(const Pattern& pattern, UiState& ui) {
     int cursor = int(roll_cursor(pattern, ui)), first = int(roll_first(pattern, ui));
-    int columns = int(roll_columns), margin = int(roll_margin);
+    int columns = int(roll_columns * ui.roll_span()), margin = int(roll_margin); // INDIGO X DENIM: the zoom's span
     if (cursor < first + margin) first = cursor - margin;
     if (cursor > first + columns - 1 - margin) first = cursor - columns + 1 + margin;
     int last = std::max(0, int(pattern.steps()) - columns);
@@ -118,11 +119,11 @@ void roll_pitch(const Pattern& pattern, UiState& ui, int way) {
     roll_select(pattern, ui);
 }
 
-unsigned roll_play_first(const Pattern& pattern, uint64_t position) {
-    unsigned steps = pattern.steps(), q = std::max(1u, pattern.q());
+unsigned roll_play_first(const Pattern& pattern, uint64_t position, unsigned span) {
+    unsigned steps = pattern.steps(), q = std::max(1u, pattern.q()), view = roll_columns * std::max(1u, span);
     if (!pattern.length) return 0;
     unsigned step = unsigned((position % pattern.length) / q);
-    unsigned first = step / roll_columns * roll_columns, last = steps > roll_columns ? steps - roll_columns : 0;
+    unsigned first = step / view * view, last = steps > view ? steps - view : 0;
     return std::min(first, last);
 }
 

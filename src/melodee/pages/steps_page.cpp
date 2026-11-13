@@ -12,6 +12,9 @@
 // over it for an accent, an arc under it for a tie, a ratchet as its hits
 // side by side as tall as they play; the numbers under them,
 // the step in hand lit; the pattern's bars as blocks at the foot.
+// INDIGO X DENIM: Shift + K3 ZOOM zooms out to 2, 4 or 8 bars in view (the
+// helicopter view): every note as a mark by its time and pitch, the bar in
+// hand lit (the pads still play its sixteen steps), the playhead over it.
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
@@ -26,6 +29,52 @@ using namespace ui;
 constexpr uint32_t tap_ms = 300;
 
 unsigned bars_of(const Pattern& p) { return std::max(1u, (p.steps() + bar_steps - 1) / bar_steps); } // pages of sixteen steps
+
+// INDIGO X DENIM: the helicopter view, `span` bars from the group the bar in hand is in.
+void draw_overview(Paint& p, const Snapshot& s, juce::Colour c, unsigned span) {
+    const auto& pattern = s.pattern;
+    unsigned bars = bars_of(pattern), bar = std::min<unsigned>(s.ui.steps_bar, bars - 1);
+    span = std::min(span, bars);
+    unsigned first_bar = std::min(bar / span * span, bars - span);
+    unsigned q = std::max(1u, pattern.q()), from_step = first_bar * bar_steps, view = span * bar_steps;
+    uint32_t from = from_step * q, to = (from_step + view) * q;
+    constexpr float x0 = zone::pad, top = zone::picture_y + 4, height = 104;
+    const float w = zone::width - 2 * zone::pad, step_w = w / float(view);
+    int low = 128, high = -1; // the pitches in view, top to bottom
+    for (const auto& e : pattern.events) {
+        if (e.tick >= std::min<uint32_t>(to, pattern.length)) break;
+        if (e.tick < from) continue;
+        low = std::min(low, int(e.key)); high = std::max(high, int(e.key));
+    }
+    for (unsigned b = 0; b < span; ++b) { // each bar: lit if in hand, its number under it
+        float bx = x0 + b * bar_steps * step_w, bw = bar_steps * step_w;
+        bool here = first_bar + b == bar;
+        p.fill(bx + 0.5f, top, bw - 1, height, here ? colour::raised : colour::panel, 3);
+        for (unsigned beat = 1; beat < 4; ++beat) p.fill(bx + beat * 4 * step_w, top + 2, 0.5f, height - 4, colour::line);
+        auto number = juce::String(int(first_bar + b + 1));
+        p.text(number, bx, top + height + 3, bw, 14, plain(here ? c : colour::mid, type::small, here ? Weight::Bold : Weight::SemiBold), juce::Justification::centred);
+    }
+    if (high >= 0) {
+        float rows = float(std::max(high - low, 11)), mid_pad = (rows - float(high - low)) / 2;
+        for (const auto& e : pattern.events) {
+            if (e.tick >= std::min<uint32_t>(to, pattern.length)) break;
+            if (e.tick < from) continue;
+            float x = x0 + float(e.tick - from) / float(q) * step_w;
+            float len = std::max(float(e.length) / float(q) * step_w - 1, std::max(step_w * 0.6f, 1.5f));
+            float y = top + 6 + (1 - (float(e.key - low) + mid_pad) / rows) * (height - 16);
+            p.fill(x + 0.5f, y, std::min(len, x0 + w - x - 1), 4, c.withAlpha(0.45f + e.velocity / 127.0f * 0.55f), 1.5f);
+        }
+    } else {
+        p.text("NO NOTES", x0, top + height / 2 - 7, w, 14, caps_text(colour::dim), juce::Justification::centred);
+    }
+    int cursor = s.ui.step_cursor;
+    if (cursor >= int(from_step) && cursor < int(from_step + view)) // the step in hand
+        p.fill(x0 + float(unsigned(cursor) - from_step) * step_w, top + height - 3, std::max(step_w, 2.0f), 3, c, 1);
+    if (s.playing && pattern.length) { // the playhead
+        uint32_t at = uint32_t(s.position % pattern.length);
+        if (at >= from && at < to) p.fill(x0 + float(at - from) / float(q) * step_w, top, 1.5f, height, colour::text);
+    }
+}
 
 void draw(Paint& p, const Snapshot& s) {
     const auto& pattern = s.pattern;
@@ -57,6 +106,7 @@ void draw(Paint& p, const Snapshot& s) {
     keys.dot_at[0] = s.ui.euclid_cards && kit_lane ? 2 : s.ui.trig_cards ? 1 : 0;
     if (s.ui.sheet_open) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     frame(p, s, keys, h);
+    if (s.ui.steps_zoom & 3) { draw_overview(p, s, c, 1u << (s.ui.steps_zoom & 3)); return; } // INDIGO X DENIM: zoomed out
 
     // Pitch as rows of the project's scale, six of them centred on the bar's notes.
     std::array<uint8_t, 12> degrees {};

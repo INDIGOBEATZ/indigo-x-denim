@@ -42,7 +42,7 @@ bool roll_jump(const Pattern& pattern, UiState& ui, int way);
 void roll_pitch(const Pattern& pattern, UiState& ui, int way);
 // INDIGO X DENIM, Follow playhead: the first step in view while playing at `position` (ticks from the pattern's
 // start, any number of passes): the page of roll_columns steps the playhead is in, so the view turns a page at a time.
-unsigned roll_play_first(const Pattern& pattern, uint64_t position);
+unsigned roll_play_first(const Pattern& pattern, uint64_t position, unsigned span = 1); // span: bars in view (the zoom)
 // INDIGO X DENIM, Scale lanes: whether `key` is in `scale` (scales()'s index) from `root` (0 C .. 11 B).
 bool roll_in_scale(int key, unsigned root, unsigned scale);
 // INDIGO X DENIM, the note sheet's and the VIEW sheet's edits, pure on the pattern (tests/melodee.cpp).

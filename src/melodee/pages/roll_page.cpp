@@ -45,8 +45,8 @@
 namespace melodee {
 namespace {
 using namespace ui;
-constexpr float gutter = 23, ruler = 13, row_h = 10.5f, column = 18.5f;
-constexpr unsigned rows = roll_rows, columns = roll_columns;
+constexpr float gutter = 23, ruler = 13, row_h = 10.5f, column_1x = 18.5f;
+constexpr unsigned rows = roll_rows, columns_1x = roll_columns, columns_most = roll_columns * 8;
 enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowQuantize, RowLegato, RowDuplicate, RowDelete, sheet_rows };
 enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, ViewSelectAll, view_rows };
 enum SelRow : uint8_t { SelEarlier, SelLater, SelUp, SelDown, SelOctaveUp, SelOctaveDown, SelDuplicate, SelQuantize, SelDelete, SelClear, sel_rows };
@@ -63,7 +63,10 @@ void draw(Paint& p, const Snapshot& s) {
     roll_follow(pattern, ui); // the view onto the cursor, even when it came from another page
     auto c = colour_of(s);
     bool following = ui.settings.roll_follow && s.playing && pattern.length; // Follow playhead: the playhead's page
-    unsigned q = pattern.q(), cursor = roll_cursor(pattern, ui), first = following ? roll_play_first(pattern, s.position) : roll_first(pattern, ui);
+    // INDIGO X DENIM, the zoom (Shift + K3): `columns` steps in view, each `column` wide, the picture as wide as ever.
+    const unsigned span = ui.roll_span(), columns = columns_1x * span;
+    const float column = column_1x / float(span);
+    unsigned q = pattern.q(), cursor = roll_cursor(pattern, ui), first = following ? roll_play_first(pattern, s.position, span) : roll_first(pattern, ui);
     unsigned bar = s.project.bar_ticks(), beat = s.project.beat_ticks();
     uint32_t from = first * q, to = (first + columns) * q;
     int focus = roll_focus(pattern, ui), top_key = ui.roll_top;
@@ -99,7 +102,7 @@ void draw(Paint& p, const Snapshot& s) {
     float last_label = -100;
     for (unsigned k = 0; k < columns; ++k) {
         uint32_t tick = (first + k) * q;
-        if (tick % beat || gutter + k * column < last_label + 34) continue;
+        if (tick % (span >= 4 ? bar : beat) || gutter + k * column < last_label + 34) continue; // zoomed far out: the bars
         last_label = gutter + k * column;
         p.text(juce::String(tick / bar + 1) + "." + juce::String(tick % bar / beat + 1), last_label + 2, zone::picture_y, 32, 13,
                plain(colour::mid, type::small, Weight::SemiBold));
@@ -133,6 +136,7 @@ void draw(Paint& p, const Snapshot& s) {
     for (unsigned k = 1; k < columns; ++k) {
         uint32_t tick = (first + k) * q;
         bool on_bar = tick % bar == 0, on_beat = tick % beat == 0;
+        if (span > 1 && !on_beat) continue; // zoomed out: the beats and bars alone
         p.fill(gutter + k * column, top, on_beat ? 1 : 0.5f, height, on_bar ? colour::mid.withAlpha(0.45f) : on_beat ? colour::line : colour::bg);
     }
     // The cursor: its step's column and its pitch's row.
@@ -140,7 +144,7 @@ void draw(Paint& p, const Snapshot& s) {
     int cursor_row = top_key - int(ui.roll_key);
     if (cursor_row >= 0 && cursor_row < int(rows)) p.fill(gutter, top + cursor_row * row_h, right - gutter, row_h - 0.5f, c.withAlpha(0.09f));
     // The notes, each at its own tick and for its own length; those above or below the rows are dots on the edge.
-    std::array<uint8_t, columns> above {}, below {};
+    std::array<uint8_t, columns_most> above {}, below {};
     for (size_t n = 0; n < pattern.events.size(); ++n) {
         const auto& e = pattern.events[n];
         if (e.tick >= pattern.length) break;
@@ -148,7 +152,7 @@ void draw(Paint& p, const Snapshot& s) {
         if (end <= from || e.tick >= to) continue;
         int r = top_key - int(e.key);
         if (r < 0 || r >= int(rows)) {
-            if (e.tick >= from) (r < 0 ? above : below)[(e.tick - from) / q] = 1;
+            if (e.tick >= from && (e.tick - from) / q < columns) (r < 0 ? above : below)[(e.tick - from) / q] = 1;
             continue;
         }
         float x = std::max(x_of(e.tick), gutter) + 1, xe = std::min(x_of(end), right + 1), y = top + r * row_h + 1;

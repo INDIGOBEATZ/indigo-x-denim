@@ -195,14 +195,15 @@ on **PADS** (on a track that is not a kit, on **TRACKS**), the next tap shows
 by accident.
 
 The mixer shows eight strips: the name on top (lit for the strip in hand),
-the level as a tall bar, **M** and **S** under it, and **FX** where the
-track has effects.
+the level as a tall bar with a VU meter beside it that moves as the strip
+plays, **M** and **S** under it, and **FX** where it has effects.
 
 - **B1** **PADS** / **B2** **TRACKS**: press again for the other eight.
 - A pad, the encoder or **−** / **+** pick a strip (on PADS the pad plays).
 - **K1** level, **K2** pan, **K3** the pad's tune or the track's send to bus A.
 - Encoder push mutes the strip in hand; **SHIFT** + encoder push solos it.
-- **B3** **FX** opens the track's effects. **SHIFT** + **B3** unmutes all.
+- **B3** **FX** opens the effects: the pad's own chain on PADS, the
+  track's on TRACKS. **SHIFT** + **B3** unmutes all.
 - **SHIFT** + **MUTE** on a kit: **ALL PADS**. The pad pages' knobs then set
   every used pad of the kit at once (level, pan, tune, filter, envelopes,
   Mono/Poly and more; each pad keeps its own sample region).
@@ -834,6 +835,9 @@ Roll is a piano roll. On a kit, each row is a pad.
   - **Quantize all** and **Legato all**: every note in the pattern.
 
   Follow playhead (on as it comes) and Scale lanes stay as you set them.
+- **SHIFT** + **K3** **ZOOM**: 1, 2, 4 or 8 bars in view (the helicopter
+  view). Steps zooms out the same way: every note as a mark, the bar in hand
+  lit, the pads still on its sixteen steps.
   - **Select all**: every note in the pattern is picked.
 - **SHIFT** + encoder push picks the note under the cursor, or lets it go.
   Picked notes have a white ring; **SEL** and how many show in the header.

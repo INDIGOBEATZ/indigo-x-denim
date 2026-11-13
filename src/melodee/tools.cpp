@@ -1931,6 +1931,9 @@ const Preview previews[] {
          auto& t = s.project.tracks[s.ui.track];
          t.last_pad = 4; t.pads[2].level = 70; t.pads[5].level = 120; t.pads[6].level = 40;
          t.set_pad_muted(3, true);
+         // Pads sounding: their VU meters up (A01 loud, A05 in hand, A08 fading).
+         const std::pair<int, float> voices[] {{0, 0.95f}, {4, 0.6f}, {7, 0.25f}, {1, 0.4f}};
+         for (unsigned n = 0; n < 4; ++n) { auto& hd = s.heads[n]; hd.pad = int16_t(voices[n].first); hd.level = voices[n].second; hd.wake = 1; hd.serial = n + 1; }
      }},
     {"mixertracks", [](Shell& shell, Snapshot& s) {
          preview_as(shell, s, "pads", 1, 0);
@@ -1938,6 +1941,17 @@ const Preview previews[] {
          s.project.tracks[1].mix.mute = true; s.project.tracks[4].mix.solo = true;
          s.project.tracks[0].mix.level = 110; s.project.tracks[2].mix.level = 80; s.project.tracks[3].mix.level = 64;
          auto& chain = s.project.chain(2); if (chain.size) chain.slots[0].kind = 1;
+         const float peaks[] {0.9f, 0.5f, 0.7f, 0.2f, 0.98f, 0.05f, 0.35f, 0.6f}; // the tracks' VU meters
+         for (unsigned t = 0; t < 8; ++t) s.meters[t] = peaks[t];
+     }},
+    {"rollzoom", [](Shell& shell, Snapshot& s) { // Shift + K3 ZOOM: four bars of Roll in view, playing
+         roll_bass(shell, s, 24, 57);
+         s.ui.roll_zoom = 2; s.ui.roll_view = 0; s.ui.settings.roll_follow = false; s.playing = true; s.position = 30 * sixteenth_ticks;
+         s.ui.shift = true;
+     }},
+    {"stepszoom", [](Shell& shell, Snapshot& s) { // Steps zoomed out to four bars: the helicopter view, bar 2 in hand
+         roll_bass(shell, s, 24, 57);
+         s.ui.page = PageId::Steps; s.ui.steps_zoom = 2; s.ui.steps_bar = 1; s.playing = true; s.position = 37 * sixteenth_ticks;
      }},
     {"mixershift", [](Shell& shell, Snapshot& s) {
          preview_as(shell, s, "pads", 1, 0);

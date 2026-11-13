@@ -77,6 +77,9 @@ struct UiState {
     uint8_t mixer_view = 0, mixer_half = 0;
     // ALL (Shift + MUTE on a kit): the pad pages' knobs set every used pad of the kit, not the last one alone.
     bool all_pads = false;
+    // Roll's and Steps' zoom (Shift + K3): 0..3, 1, 2, 4 or 8 bars in view (the helicopter view).
+    uint8_t roll_zoom = 0, steps_zoom = 0;
+    unsigned roll_span() const { return 1u << (roll_zoom & 3); }
     bool mute_mode() const { return mute || mute_latch; }
     // Note Repeat (shell/note_repeat.cpp): a tap latches, a hold lasts while held.
     bool repeat_held = false, repeat_turned_on = false;

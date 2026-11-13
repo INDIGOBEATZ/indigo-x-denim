@@ -316,13 +316,20 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         bool input = ui.page == PageId::Record || ui.page == PageId::InputConfig || take == S::Armed || take == S::Cued
                   || take == S::Recording;
         uint32_t bits = uint32_t(input) << 16;
+        std::array<uint8_t, 2> banks_lit {};
         for (unsigned side = 0; side < surface_meter_lights; ++side) {
             uint8_t lit = input ? meter_lit(host.in_level(side), meter_input_db) : meter_lit(host.out_level(side), meter_mix_db);
-            if (ui.settings.level_leds) lit = 0; // INDIGO X DENIM: Settings > AUDIO > Level LEDs Off
+            // INDIGO X DENIM, Settings > AUDIO > Level LEDs: the bank lights as two meters of four (A-D left, E-H right),
+            // the steps of the strips' second to fifth LED; while both sides are silent they show the bank as ever.
+            unsigned mode = ui.settings.level_leds % 4;
+            if (mode >= 2) banks_lit[side] = uint8_t(lit >> 1);
+            if (mode == 1 || mode == 2) lit = 0;
             lights.meter(side, lit);
             bits |= uint32_t(lit) << (8 * side);
         }
         meter_bits.store(bits, std::memory_order_relaxed);
+        if (banks_lit[0] || banks_lit[1])
+            for (unsigned n = 0; n < surface_bank_lights; ++n) lights.bank(n, (banks_lit[n / 4] >> (n % 4)) & 1);
     }
 
     using B = SurfaceButton;

@@ -258,6 +258,7 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         break;
     case Kind::TcSwing: c.label = "SWING"; c.value = juce::String(b.value); c.unit = "%"; break;
     case Kind::Swing: c.label = "SWING"; c.value = juce::String(b.value); c.unit = "%"; break;
+    case Kind::ViewZoom: c.label = "ZOOM"; c.value = juce::String(1 << (b.value & 3)); c.unit = b.value ? "bars" : "bar"; break; // INDIGO X DENIM
     case Kind::SongZoom: c.label = "ZOOM"; c.value = juce::String(song_zooms[b.value]); c.unit = "bars"; break;
     case Kind::SongPattern: c.label = "PATTERN"; c.value = "P" + juce::String(b.value + 1); break;
     case Kind::SongLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "bar" : "bars"; break;

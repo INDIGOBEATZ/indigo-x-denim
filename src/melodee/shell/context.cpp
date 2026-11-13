@@ -578,6 +578,10 @@ void Context::apply(const Binding& b, int value) {
         send({Type::Swing, 0, 0, 0, int16_t(value)});
         break;
     case Kind::SongZoom: ui.song_zoom = uint8_t(value); break;
+    case Kind::ViewZoom: // INDIGO X DENIM: Roll's or Steps' bars in view
+        if (ui.page == PageId::Steps) ui.steps_zoom = uint8_t(value & 3);
+        else { ui.roll_zoom = uint8_t(value & 3); roll_follow(pattern(), ui); }
+        break;
     case Kind::SongPattern:
     case Kind::SongLength:
         if (b.id >= 0) { // the clip under the cursor

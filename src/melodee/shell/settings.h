@@ -56,7 +56,8 @@ struct Settings {
     // INDIGO X DENIM: the screen's palette (ui/palettes.h: 0 NIGHT, 1 NEON LAB as it comes, then the Media Lab's
     // themes) and its typeface (ui/fonts.h: 0 Rubik as it comes), chosen apart.
     uint8_t palette = uint8_t(ui::default_palette), font = 0;
-    // INDIGO X DENIM: the level LEDs beside the screen (0 on: main out, or the input while sampling; 1 off), and the
+    // INDIGO X DENIM: the level LEDs (main out, or the input while sampling): 0 the strips beside the screen, 1 none,
+    // 2 the bank lights A-H (A-D the left, E-H the right; the bank in view while it is silent), 3 both; and the
     // folder Sample Select opens in ("card:" and a path under the card's top, or a path on the internal drive;
     // empty: the browser as Melodee has it). Set on Samples with Shift + B1, cleared here.
     uint8_t level_leds = 0;
@@ -113,7 +114,7 @@ struct Settings {
         switch (row) {
         case Palette: return ui::palette_name(palette);
         case Font: return ui::font_name(font);
-        case LevelLeds: return level_leds ? "Off" : "On";
+        case LevelLeds: { static const char* modes[] {"Side", "Off", "Banks", "Side + Banks"}; return modes[level_leds % 4]; }
         case StartFolder: {
             auto path = start_folder_text();
             if (path.empty()) return "Samples";
@@ -150,7 +151,7 @@ struct Settings {
     // One step along a row.
     void step(unsigned row, int way) {
         switch (row) {
-        case LevelLeds: level_leds = level_leds ? 0 : 1; break;
+        case LevelLeds: level_leds = uint8_t((level_leds + 4 + (way < 0 ? -1 : 1)) % 4); break;
         case StartFolder: start_folder.fill(0); break; // back to the browser's own start
         case Font: font = uint8_t((font + ui::font_count + (way > 0 ? 1 : ui::font_count - 1)) % ui::font_count); break;
         case Palette: palette = uint8_t((palette + ui::palette_count + (way > 0 ? 1 : ui::palette_count - 1)) % ui::palette_count); break;
@@ -261,7 +262,7 @@ struct Settings {
             else if (key == "capture_quantize") capture_quantise = uint8_t(std::clamp(value, 0, 2));
             else if (key == "click") click = uint8_t(std::clamp(value, 0, 2));
             else if (key == "click_level") click_level = uint8_t(std::clamp(value, 0, 100));
-            else if (key == "level_leds") level_leds = value ? 1 : 0;
+            else if (key == "level_leds") level_leds = uint8_t(std::clamp(value, 0, 3));
             else if (key == "start_folder") set_start_folder(line.substr(eq + 1));
             else if (key == "font") font = uint8_t(std::clamp(value, 0, int(ui::font_count) - 1));
             else if (key == "palette") palette = uint8_t(std::clamp(value, 0, int(ui::palette_count) - 1));

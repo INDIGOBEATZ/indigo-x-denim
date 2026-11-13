@@ -101,7 +101,8 @@ struct Binding {
         // Roadmap P5, Song's Shift + K1 / K2: the tempo lane's point at the cursor's bar, its tempo in whole BPM (29: none
         // there; with none, the lane's tempo there) and its shape (0 a step on its bar, 1 a ramp from the point before).
         SongTempo, SongTempoShape,
-        PitchBend // a PLUGIN track's pitch bend (the fader's Pitch Bend), -64..63 around the centre
+        PitchBend, // a PLUGIN track's pitch bend (the fader's Pitch Bend), -64..63 around the centre
+        ViewZoom   // INDIGO X DENIM: Roll's or Steps' zoom (Shift + K3), 0..3: 1, 2, 4 or 8 bars in view
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter

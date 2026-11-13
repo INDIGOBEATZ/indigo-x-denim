@@ -4,12 +4,15 @@
 // colour, M and S under it, and FX where its track has effects. PADS: the kit's pads (the bank in view), TRACKS: the
 // sixteen tracks; B1 or B2 again shows the other eight. A pad picks a strip (on PADS it also plays), as do the wheel
 // and Minus / Plus; K1 its level, K2 its pan, K3 the pad's tune or the track's send to bus A. Push mutes the strip in
-// hand, Shift + Push solos it; B3 FX opens the track's effects, Shift + B3 unmutes everything.
+// hand, Shift + Push solos it; B3 FX opens the effects (the pad's own chain on PADS, the track's on TRACKS),
+// Shift + B3 unmutes everything. Beside each bar a VU meter moves with what the strip plays: a track's peak as the
+// engine measures it, a pad's voices as loud as their envelopes and its level.
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/mute_mode.h"
 #include "melodee/ui/widgets.h"
 #include <algorithm>
+#include <cmath>
 
 namespace melodee {
 namespace {
@@ -22,11 +25,12 @@ struct Strip {
     juce::String name;
     juce::Colour colour;
     float level = 0; // 0..1
+    float meter = 0; // linear peak, 1 = full scale
     bool used = false, muted = false, soloed = false, fx = false, current = false;
 };
 
-bool track_fx(const Project& project, unsigned t) {
-    const auto& chain = project.chain(t);
+bool chain_fx(const Project& project, unsigned n) {
+    const auto& chain = project.chain(n);
     for (unsigned n = 0; n < chain.size; ++n) if (chain.slots[n].kind != 0) return true;
     return false;
 }
@@ -57,10 +61,13 @@ void draw(Paint& p, const Snapshot& s) {
             st.name = label; st.colour = c; st.used = pad.used();
             st.level = pad.level / 127.0f; st.muted = track.pad_muted(kit); st.soloed = pad.used() && pad_soloed(track, kit);
             st.current = kit == unsigned(track.last_pad % sampler_pads);
+            st.fx = chain_fx(s.project, pad_chain(s.ui.track % track_count, kit));
+            for (const auto& head : s.heads) // its voices heard now
+                if (head.shown() && head.pad == int(kit)) st.meter = std::max(st.meter, head.level * head.wake * pad.level / 127.0f);
         } else {
             const auto& t = s.project.tracks[index];
             st.name = "T" + juce::String(int(index + 1)); st.colour = track_colour(index); st.used = t.used();
-            st.level = t.mix.level / 127.0f; st.muted = t.mix.mute; st.soloed = t.mix.solo; st.fx = track_fx(s.project, index);
+            st.level = t.mix.level / 127.0f; st.muted = t.mix.mute; st.soloed = t.mix.solo; st.fx = chain_fx(s.project, index); st.meter = s.meters[index];
             st.current = index == unsigned(s.ui.track % track_count);
         }
     }
@@ -81,13 +88,24 @@ void draw(Paint& p, const Snapshot& s) {
         p.fill(x, top, w, label_h, st.current ? st.colour : colour::surf, 3);
         p.text(st.name, x, top, w, label_h, p.fit(st.name, name_style, w - 2, type::floor), juce::Justification::centred);
         // The level: a tall bar from the bottom, dim while muted.
-        float bw = w - 10, bx = x + (w - bw) / 2;
+        float bw = w - 15, bx = x + 3;
         p.fill(bx, fader_top, bw, fader_h, colour::quiet, 3);
         if (st.used) {
             float fill = std::clamp(st.level, 0.0f, 1.0f) * fader_h;
             auto ink = st.muted ? st.colour.withAlpha(0.3f) : st.colour;
             if (fill >= 1) p.fill(bx, fader_top + fader_h - fill, bw, fill, ink, 3);
             p.fill(bx - 2, fader_top + fader_h * (1 - 100.0f / 127.0f), bw + 4, 1, colour::mid.withAlpha(0.6f)); // unity (100)
+        }
+        // The VU meter: -48 to 0 dBFS up its height, green, then yellow from -12 and red from -3.
+        float mx = x + w - 8, vw = 4;
+        p.fill(mx, fader_top, vw, fader_h, colour::quiet, 1.5f);
+        if (st.meter > 0.0039f) {
+            float db = 20 * std::log10(st.meter), up = std::clamp((db + 48) / 48, 0.0f, 1.0f) * fader_h;
+            auto band = [&](float from_db, float to_db, juce::Colour col) {
+                float a = std::clamp((from_db + 48) / 48, 0.0f, 1.0f) * fader_h, b = std::min(up, std::clamp((to_db + 48) / 48, 0.0f, 1.0f) * fader_h);
+                if (b > a) p.fill(mx, fader_top + fader_h - b, vw, b - a, col, 1);
+            };
+            band(-48, -12, juce::Colour(0xff7ee0b0)); band(-12, -3, juce::Colour(0xffffe07a)); band(-3, 0, colour::rec);
         }
         // M and S.
         float mw = (w - 2) / 2;
@@ -153,7 +171,8 @@ void soft(Context& c, int key) {
         else { ui.mixer_view = 1; ui.mixer_half = uint8_t(ui.track % track_count / strips); }
         return;
     }
-    c.open(PageId::Rack); // FX: the track's effects
+    // FX: the pad's own chain on PADS (the pad in hand), the track's on TRACKS
+    c.open(ui.mixer_view == 0 && c.track().engine == EngineKind::Sampler ? PageId::PadFx : PageId::Rack);
 }
 } // namespace
 

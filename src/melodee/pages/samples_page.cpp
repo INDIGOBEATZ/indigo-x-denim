@@ -13,6 +13,10 @@
 // file as the cursor lands on it. Shift + pad loads the file onto the
 // kit's next empty pad (here instead of the printed Shift + pad jobs). K2
 // jumps. The pads play the kit.
+// INDIGO X DENIM: Shift + B3 STAR stars the file under the cursor, or takes
+// its star off; starred rows carry a star. B2 goes on from the internal
+// drive to FAVOURITES: every starred file, from either drive, by name, which
+// Push loads as anywhere else (a star taken off there leaves the list).
 #include "melodee/shell/smf_jobs.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
@@ -29,6 +33,7 @@ using namespace ui;
 constexpr unsigned visible = list_rows;
 
 juce::String folder_title(const Snapshot& s) {
+    if (s.ui.files_drive == unsigned(Drive::Favourites)) return "STARRED";
     if (s.ui.files_drive == unsigned(Drive::Internal) && s.files_top) return "CATEGORIES";
     if (s.files_folder.empty()) return "NO CARD";
     return juce::String(std::filesystem::path(s.files_folder).filename().string());
@@ -39,22 +44,28 @@ void draw(Paint& p, const Snapshot& s) {
     auto c = colour_of(s);
     Header h = header_of(s);
     Drive drive = Drive(s.ui.files_drive);
-    auto drive_chip = chip(drive_name(drive), c);
+    auto drive_chip = drive == Drive::Favourites ? chip(Icon::Star, "FAVS", c) : chip(drive_name(drive), c);
     drive_chip.spare = true; // a long folder name keeps its room: B2 names the other drive
     h.left.push_back(drive_chip);
     h.left.push_back(pill(folder_title(s) + juce::String::fromUTF8(" \xc2\xb7 ") + juce::String(s.files.size()), c));
     h.right.push_back(tag_of(s, s.ui.track));
-    juce::String other = drive == Drive::Card ? "INTERNAL" : "CARD";
+    juce::String other = drive_name(Drive((unsigned(drive) + 1) % unsigned(Drive::Count)));
     // The file under the cursor as it previews (mock 7): its row fills as it plays; B3 lit while there is sound.
     PreviewPlace heard = s.ui.preview ? preview_place(s.heads, int(sampler_pads), uint16_t(preview_slot), dsp::model_rate) : PreviewPlace {};
     SoftKeys keys {{s.files_top ? "" : "BACK", other, "PREVIEW"}, -1, c, {s.files_top ? KeyIcon::None : KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
     keys.toggles = 4; // PREVIEW names a thing that is on or off: its LED, never ON / OFF (the row fills while it sounds)
     keys.lit = s.ui.preview ? 4 : 0;
+    if (s.ui.shift) { // Shift + B3: the file under the cursor starred, or its star off
+        bool on_file = !s.files.empty() && !s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].folder;
+        bool starred = on_file && s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].starred;
+        keys = SoftKeys {{"", "", on_file ? (starred ? "UNSTAR" : "STAR") : ""}, -1, c};
+        keys.glyphs = {Icon::None, Icon::None, on_file ? Icon::Star : Icon::None};
+    }
     frame(p, s, keys, h);
     if (s.files.empty()) { // a glyph and two words: no card, or nothing here
-        bool no_card = drive == Drive::Card && s.sample_root.empty();
-        icon(p, no_card ? Icon::Card : Icon::Folder, zone::width / 2.0f - 14, zone::picture_y + 40, 28, colour::dim, 1.4f);
-        p.text(no_card ? "NO CARD" : "EMPTY", 0, zone::picture_y + 76, zone::width, 14, caps_text(colour::dim), juce::Justification::centred);
+        bool no_card = drive == Drive::Card && s.sample_root.empty(), favs = drive == Drive::Favourites;
+        icon(p, favs ? Icon::Star : no_card ? Icon::Card : Icon::Folder, zone::width / 2.0f - 14, zone::picture_y + 40, 28, colour::dim, 1.4f);
+        p.text(favs ? "NONE YET" : no_card ? "NO CARD" : "EMPTY", 0, zone::picture_y + 76, zone::width, 14, caps_text(colour::dim), juce::Justification::centred);
         return;
     }
     unsigned count = unsigned(s.files.size()), cursor = std::min<unsigned>(s.ui.files_cursor, count - 1);
@@ -63,6 +74,7 @@ void draw(Paint& p, const Snapshot& s) {
         const auto& file = s.files[first + row];
         ListRow r;
         r.name = name_case(juce::String(file.name)); r.accent = c; r.current = first + row == cursor;
+        r.starred = file.starred;
         const juce::String path(file.path);
         juce::String format = path.endsWithIgnoreCase(".xpm") ? "XPM" : path.endsWithIgnoreCase(".xty") ? "XTY" : path.endsWithIgnoreCase(".exs") ? "EXS"
                             : path.endsWithIgnoreCase(".xpn") ? "XPN" : path.endsWithIgnoreCase(".sf2") || path.contains(".sf2#") || path.contains(".SF2#") ? "SF2"
@@ -115,6 +127,16 @@ void push(Context& c) {
 void soft(Context& c, int key) {
     if (!c.library) return;
     auto& ui = c.ui;
+    if (ui.shift) { // Shift + B3 STAR; Shift + B1 / B2 have no job here
+        ui.shift_used = true;
+        if (key != 2) return;
+        auto files = c.library->files();
+        if (ui.files_cursor >= files.size() || files[ui.files_cursor].folder) { c.notice("Star: a file first"); return; }
+        const auto& file = files[ui.files_cursor];
+        c.library->star(file.path, file.name);
+        c.notice(file.starred ? "Star off" : "Starred");
+        return;
+    }
     if (key == 0) c.library->browse_up();
     if (key == 1) { ui.files_drive = uint8_t((ui.files_drive + 1) % unsigned(Drive::Count)); c.library->browse(Drive(ui.files_drive), ""); }
     if (key == 2) { ui.preview = !ui.preview; c.preview_cursor(); } // its LED says which

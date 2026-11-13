@@ -36,8 +36,9 @@ namespace melodee {
 
 class EngineHost;
 
-enum class Drive : uint8_t { Card, Internal, Count };
-inline const char* drive_name(Drive d) { return d == Drive::Internal ? "INTERNAL" : "CARD"; }
+// INDIGO X DENIM: a third place, FAVOURITES: every file starred (Shift + B3 on Samples), from either drive, by name.
+enum class Drive : uint8_t { Card, Internal, Favourites, Count };
+inline const char* drive_name(Drive d) { return d == Drive::Internal ? "INTERNAL" : d == Drive::Favourites ? "FAVOURITES" : "CARD"; }
 
 struct SampleFile {
     std::string path, name; // name: the stem in capitals, or the folder's
@@ -49,6 +50,7 @@ struct SampleFile {
     bool expansion = false;  // an MPC expansion (".xpn"): Push installs it onto the card
     bool presets = false;    // a SoundFont (".sf2", roadmap P3): listed as a folder, its presets inside it
     bool midi = false;       // a Standard MIDI File (".mid", roadmap P4): Push lays its notes on the track's pattern
+    bool starred = false;    // INDIGO X DENIM: among the favourites (a star at the row's start)
 };
 struct LoadedSample {
     std::string name, path, error;
@@ -114,6 +116,9 @@ public:
     // up one folder, or the other drive.
     void browse(Drive drive, const std::string& folder);
     void browse_up();
+    // INDIGO X DENIM, MIDI thread: a file starred, or its star taken off (a folder has none). The favourites are kept
+    // on the card as Melodee/Favourites.txt (a path and its name a line), read again when a card comes in.
+    void star(const std::string& path, const std::string& name);
     // MIDI thread: a file to hear (preview_slot), empty for none; ready()
     // counts the previews that arrived, so the MIDI thread knows when to play one.
     void preview(const std::string& path);
@@ -204,6 +209,9 @@ public:
 private:
     struct Request { uint8_t slot = 0; char path[160] {}; };
     void scan();
+    void stars_service(); // INDIGO X DENIM: stars asked for, applied and written
+    void read_stars();
+    void write_stars() const;
     void read(const Request& request);
     void make(const SampleJob& job);
     void hear(const std::string& path);
@@ -294,6 +302,9 @@ private:
     // Under `lock`: what the MIDI thread asked of the browser.
     struct Wanted { bool pending = false, up = false; Drive drive = Drive::Card; std::string folder; } wanted;
     std::string preview_wanted, preview_heard; // under `lock`
+    // INDIGO X DENIM: the favourites (path, name) in the order starred, the service thread's own; the stars asked for,
+    // under `lock`.
+    std::vector<std::pair<std::string, std::string>> stars, stars_wanted;
     std::vector<std::pair<std::string, std::vector<uint8_t>>> bank_writes; // under `lock`: name, bytes
     std::vector<std::string> bank_reads;  // under `lock`: paths
     std::vector<BankBytes> banks_read;    // under `lock`: what came of them

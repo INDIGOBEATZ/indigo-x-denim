@@ -5071,6 +5071,49 @@ void roll_opens_on_notes() {
     roll_open(empty, ui); CHECK(ui.roll_key == 80 && ui.roll_top == 85);                      // nothing to find
 }
 
+// INDIGO X DENIM: Roll's Follow playhead page, Scale lanes, and the note and VIEW sheets' Quantize, Legato and
+// Duplicate; the two switches kept in the settings file.
+void roll_indigo() {
+    Pattern p;
+    p.length = 4 * 4 * ticks_per_quarter; // 64 steps of 1/16
+    CHECK(roll_play_first(p, 0) == 0 && roll_play_first(p, 15 * sixteenth_ticks) == 0);
+    CHECK(roll_play_first(p, 16 * sixteenth_ticks) == 16 && roll_play_first(p, 37 * sixteenth_ticks) == 32);
+    CHECK(roll_play_first(p, 63 * sixteenth_ticks) == 48 && roll_play_first(p, uint64_t(p.length) * 3 + 20 * sixteenth_ticks) == 16); // any pass
+    CHECK(roll_in_scale(57, 9, 1) && roll_in_scale(60, 9, 1) && !roll_in_scale(61, 9, 1) && !roll_in_scale(-1, 0, 0)); // A minor
+    CHECK(roll_in_scale(61, 0, chromatic_scale));
+    auto add = [&](uint32_t tick, uint8_t key, uint16_t length) { Event e; e.tick = tick; e.key = key; e.length = length; CHECK(p.add(e)); };
+    add(2 * sixteenth_ticks + 5, 60, sixteenth_ticks);      // a little late
+    add(4 * sixteenth_ticks - 3, 62, sixteenth_ticks);      // a little early
+    add(8 * sixteenth_ticks, 64, 2 * sixteenth_ticks);      // on the grid
+    add(63 * sixteenth_ticks + 10, 65, 4);                  // late in the last step: stays in it
+    CHECK(!roll_quantize(p, 2));
+    CHECK(roll_quantize(p, 0) && p.events[0].tick == 2 * sixteenth_ticks && p.events[0].key == 60);
+    CHECK(roll_quantize_all(p) == 2);
+    CHECK(p.events[1].tick == 4 * sixteenth_ticks && p.events.back().tick == 63 * sixteenth_ticks);
+    CHECK(roll_quantize_all(p) == 0 && std::is_sorted(p.events.begin(), p.events.end(), [](const Event& a, const Event& b) { return a.tick < b.tick; }));
+    // Legato: up to the next note's start (any key), the last up to the pattern's end.
+    CHECK(roll_legato(p, 0) && p.events[0].length == 2 * sixteenth_ticks);
+    CHECK(!roll_legato(p, 0));
+    CHECK(roll_legato_all(p) == 3 && p.events[1].length == 4 * sixteenth_ticks && p.events.back().length == sixteenth_ticks);
+    // Duplicate: straight after it, a whole number of steps on; nothing past the end.
+    int copy = roll_duplicate(p, 2); // the note at step 8, 55 steps long now: its copy at step 63, cut at the end
+    CHECK(copy == 3 && p.events[3].tick == 63 * sixteenth_ticks && p.events[3].key == 64 && p.events[3].length == sixteenth_ticks);
+    CHECK(roll_duplicate(p, 4) == -1); // the last note's copy would start past the end
+    Pattern d;
+    d.length = p.length;
+    Event e; e.tick = 4 * sixteenth_ticks; e.key = 48; e.length = sixteenth_ticks + 6; CHECK(d.add(e));
+    copy = roll_duplicate(d, 0);
+    CHECK(copy == 1 && d.events[1].tick == 6 * sixteenth_ticks && d.events[1].key == 48 && d.events[1].length == sixteenth_ticks + 6);
+    CHECK(roll_duplicate(d, 1) == 2 && d.events[2].tick == 8 * sixteenth_ticks);
+    // The switches survive the settings file.
+    Settings set;
+    CHECK(!set.roll_follow && !set.roll_scale);
+    set.roll_follow = true; set.roll_scale = true;
+    Settings back;
+    back.read(set.text());
+    CHECK(back.roll_follow && back.roll_scale);
+}
+
 void roll() {
     Pattern p;
     p.length = 4 * 4 * ticks_per_quarter; // four bars of 4/4 at 1/16: 64 steps
@@ -11322,6 +11365,7 @@ int main() {
     looper_engine();
     looper_rates();
     roll();
+    roll_indigo();
     roll_opens_on_notes();
     stage();
     midi_tracks();

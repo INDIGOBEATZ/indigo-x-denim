@@ -7,6 +7,7 @@
 #include "melodee/shell/context.h"
 #include "melodee/shell/step_edit.h"
 #include <algorithm>
+#include <string>
 
 namespace melodee {
 
@@ -43,6 +44,78 @@ void roll_flag(Context& c, uint8_t flag) {
     if (at < 0) return;
     pattern.events[size_t(at)].flags ^= flag;
     c.sync_pattern(c.ui.track, c.track().pattern);
+}
+
+} // namespace melodee
+
+// INDIGO X DENIM: the note sheet's Quantize, Legato and Duplicate, and the VIEW sheet's Quantize all and Legato all.
+namespace melodee {
+namespace {
+// The cursor onto the note at `index` (a quantized note or a copy moves it), and the track's pattern sent on.
+void land(Context& c, int index) {
+    auto& pattern = c.pattern();
+    if (index >= 0 && size_t(index) < pattern.events.size()) {
+        const auto& e = pattern.events[size_t(index)];
+        c.ui.step_cursor = int16_t(std::min<unsigned>(e.tick / std::max(1u, pattern.q()), 0x7fff));
+        c.ui.steps_bar = uint8_t(std::min<unsigned>(unsigned(c.ui.step_cursor) / bar_steps, 255));
+        c.ui.roll_key = e.key;
+    }
+    roll_follow(pattern, c.ui);
+    roll_select(pattern, c.ui);
+    c.sync_pattern(c.ui.track, c.track().pattern);
+}
+// The index of the note on `tick` with `key`, -1 when none.
+int find(const Pattern& pattern, uint32_t tick, uint8_t key) {
+    for (size_t n = pattern.lower(tick); n < pattern.events.size() && pattern.events[n].tick == tick; ++n)
+        if (pattern.events[n].key == key) return int(n);
+    return -1;
+}
+} // namespace
+
+void roll_quantize_note(Context& c) {
+    auto& pattern = c.pattern();
+    int at = roll_focus(pattern, c.ui);
+    if (at < 0) return;
+    Event before = pattern.events[size_t(at)];
+    if (!roll_quantize(pattern, size_t(at))) { c.notice("On the grid already"); return; }
+    uint32_t q = std::max(1u, pattern.q()), to = (before.tick + q / 2) / q * q;
+    if (pattern.length && to >= pattern.length) to = (pattern.length - 1) / q * q;
+    land(c, find(pattern, to, before.key));
+    c.notice("Note quantized");
+}
+
+void roll_legato_note(Context& c) {
+    auto& pattern = c.pattern();
+    int at = roll_focus(pattern, c.ui);
+    if (at < 0) return;
+    if (!roll_legato(pattern, size_t(at))) { c.notice("Legato already"); return; }
+    land(c, at);
+    c.notice("Note legato");
+}
+
+void roll_duplicate_note(Context& c) {
+    auto& pattern = c.pattern();
+    int at = roll_focus(pattern, c.ui);
+    if (at < 0) return;
+    int copy = roll_duplicate(pattern, size_t(at));
+    if (copy == -2) { c.notice("The pattern is full"); return; }
+    if (copy < 0) { c.notice("No room after it"); return; }
+    land(c, copy);
+    c.notice("Note duplicated");
+}
+
+void roll_quantize_every(Context& c) {
+    unsigned moved = roll_quantize_all(c.pattern());
+    if (!moved) { c.notice("All on the grid"); return; }
+    land(c, -1);
+    c.notice("Quantized " + std::to_string(moved) + (moved == 1 ? " note" : " notes"));
+}
+
+void roll_legato_every(Context& c) {
+    unsigned changed = roll_legato_all(c.pattern());
+    if (!changed) { c.notice("Legato already"); return; }
+    land(c, -1);
+    c.notice("Legato: " + std::to_string(changed) + (changed == 1 ? " note" : " notes"));
 }
 
 } // namespace melodee

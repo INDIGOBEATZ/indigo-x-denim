@@ -3,6 +3,7 @@
 #pragma once
 #include "melodee/model/pattern.h"
 #include "melodee/shell/ui_state.h"
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -39,6 +40,25 @@ void roll_step(const Pattern& pattern, UiState& ui, int way);
 bool roll_jump(const Pattern& pattern, UiState& ui, int way);
 // Minus / Plus: to the next note up (or down) starting in the cursor's step; past the last, a semitone.
 void roll_pitch(const Pattern& pattern, UiState& ui, int way);
+// INDIGO X DENIM, Follow playhead: the first step in view while playing at `position` (ticks from the pattern's
+// start, any number of passes): the page of roll_columns steps the playhead is in, so the view turns a page at a time.
+unsigned roll_play_first(const Pattern& pattern, uint64_t position);
+// INDIGO X DENIM, Scale lanes: whether `key` is in `scale` (scales()'s index) from `root` (0 C .. 11 B).
+bool roll_in_scale(int key, unsigned root, unsigned scale);
+// INDIGO X DENIM, the note sheet's and the VIEW sheet's edits, pure on the pattern (tests/melodee.cpp).
+// Quantize: note `index` onto its nearest step of Q (the last step's start at most); false when it was on it.
+bool roll_quantize(Pattern& pattern, size_t index);
+// Every note before the pattern's end onto its nearest step; how many moved.
+unsigned roll_quantize_all(Pattern& pattern);
+// Legato: note `index` as long as it takes to reach the next note starting after it (any key), or the pattern's end;
+// false when it already was.
+bool roll_legato(Pattern& pattern, size_t index);
+// Every note so; how many changed.
+unsigned roll_legato_all(Pattern& pattern);
+// Duplicate: a copy of note `index` straight after it, a whole number of steps of Q on (at least one); the copy's index,
+// -1 when it would start past the pattern's end, -2 when the pattern is full.
+int roll_duplicate(Pattern& pattern, size_t index);
+
 // Where a tick sits as the MPC counts it: bar.beat.step of Q within the beat ("2.2.3"), 1-based.
 std::string roll_position(uint32_t tick, unsigned bar_ticks, unsigned beat_ticks, unsigned q);
 
@@ -48,5 +68,12 @@ void roll_write(Context& c, int key, uint8_t velocity);
 bool roll_erase(Context& c);
 // The sheet: accent, slide or tie on the note in focus, on or off.
 void roll_flag(Context& c, uint8_t flag);
+// INDIGO X DENIM: the note in focus quantized, made legato or duplicated (the cursor goes with it), and the VIEW
+// sheet's Quantize all and Legato all; each says what it did. A press on the page is one undo (PageEdit).
+void roll_quantize_note(Context& c);
+void roll_legato_note(Context& c);
+void roll_duplicate_note(Context& c);
+void roll_quantize_every(Context& c);
+void roll_legato_every(Context& c);
 
 } // namespace melodee

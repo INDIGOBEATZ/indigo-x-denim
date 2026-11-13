@@ -1079,6 +1079,40 @@ const Preview previews[] {
              s.files.push_back({std::string("/content/Samples/") + name, name, 0, true});
          s.ui.files_count = uint16_t(s.files.size());
      }},
+    // INDIGO X DENIM: starred samples. The card's Samples with two stars, the cursor on one; Shift held (STAR on B3);
+    // and FAVOURITES (B2 past INTERNAL): every starred file by name, and none yet.
+    {"browserstarred", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 4;
+         s.sample_root = "/media/card/Samples"; s.files_folder = s.sample_root + "/DRUMS"; s.files_top = false;
+         for (auto name : {"CLAP DRY", "HAT CLOSED", "HAT OPEN", "KICK DEEP", "KICK PUNCH", "RIM", "SNARE TIGHT"}) {
+             SampleFile f; f.path = s.files_folder + "/" + name + ".wav"; f.name = name;
+             f.starred = std::string(name) == "KICK PUNCH" || std::string(name) == "SNARE TIGHT";
+             s.files.push_back(f);
+         }
+         s.ui.files_count = uint16_t(s.files.size());
+     }},
+    {"browserstar", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 3; s.ui.shift = true;
+         s.sample_root = "/media/card/Samples"; s.files_folder = s.sample_root + "/DRUMS"; s.files_top = false;
+         for (auto name : {"CLAP DRY", "HAT CLOSED", "HAT OPEN", "KICK DEEP", "KICK PUNCH", "RIM"}) {
+             SampleFile f; f.path = s.files_folder + "/" + name + ".wav"; f.name = name; f.starred = std::string(name) == "KICK PUNCH";
+             s.files.push_back(f);
+         }
+         s.ui.files_count = uint16_t(s.files.size());
+     }},
+    {"browserfavourites", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = uint8_t(Drive::Favourites); s.ui.files_cursor = 2; s.ui.preview = true;
+         s.sample_root = "/media/card/Samples"; s.files_folder = ""; s.files_top = true;
+         const char* starred[][2] {{"/media/card/Samples/BREAKS/AMEN 136.wav", "AMEN 136"}, {"/content/Samples/BASS/BASS 808 LONG.wav", "BASS 808 LONG"},
+                                   {"/media/card/Samples/DRUMS/KICK PUNCH.wav", "KICK PUNCH"}, {"/media/card/Samples/KEYS/RHODES C3.wav", "RHODES C3"},
+                                   {"/media/card/Samples/DRUMS/SNARE TIGHT.wav", "SNARE TIGHT"}, {"/media/card/Samples/VOX/VOX CHOP 4.wav", "VOX CHOP 4"}};
+         for (auto& pair : starred) { SampleFile f; f.path = pair[0]; f.name = pair[1]; f.starred = true; s.files.push_back(f); }
+         s.ui.files_count = uint16_t(s.files.size());
+     }},
+    {"browserfavouritesempty", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = uint8_t(Drive::Favourites);
+         s.sample_root = "/media/card/Samples"; s.files_folder = ""; s.files_top = true;
+     }},
     {"trim", [](Shell&, Snapshot& s) { // Stage on a kit: B1 TRIM, the last pad's region
          on_stage(s, 3, 0, 0); s.playing = true; s.sample = break_sample();
          auto& pad = s.project.tracks[3].pads[8]; pad.start = 18000; pad.end = 150000;
@@ -1846,6 +1880,20 @@ const Preview previews[] {
     {"rolledges", [](Shell& shell, Snapshot& s) { // the rows lower: notes above and below are dots on the edges
          roll_bass(shell, s, 30, 55);
          s.ui.roll_top = 63;
+     }},
+    // INDIGO X DENIM: Push with no note in focus, the VIEW sheet; Follow playhead turning the view to the playhead's
+    // page (the cursor left behind); Scale lanes in A minor.
+    {"rollview", [](Shell& shell, Snapshot& s) {
+         roll_bass(shell, s, 21, 59);
+         s.ui.sheet_open = true; s.ui.roll_sheet_view = true; s.ui.sheet_more = true; s.ui.sheet_row = 0;
+     }},
+    {"rollfollow", [](Shell& shell, Snapshot& s) {
+         roll_bass(shell, s, 21, 59);
+         s.ui.settings.roll_follow = true; s.playing = true; s.position = 37 * sixteenth_ticks;
+     }},
+    {"rollscale", [](Shell& shell, Snapshot& s) {
+         roll_bass(shell, s, 24, 57);
+         s.ui.settings.roll_scale = true; s.project.root = 9; s.project.scale = 1;
      }},
     // Roadmap P1 (drums and sequencer): these rewrite the shell's patterns too.
     {"rollratchet", [](Shell& shell, Snapshot& s) { // Roll's TRIG row (B2 again): the note in focus a ratchet of four, ramped down

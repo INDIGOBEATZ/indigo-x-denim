@@ -364,9 +364,14 @@ Press **SAMPLE SELECT** on a kit to open the sample browser.
 | Encoder, **−** / **+** | Move through the list. |
 | Encoder push | Open a folder, or load the file onto the last pad you hit. |
 | **B1** | Go back out of a folder. |
-| **B2** | Switch between the card (**CARD**) and the MPC's factory samples (**INTERNAL**). The internal drive is read only. |
+| **B2** | Switch between the card (**CARD**), the MPC's factory samples (**INTERNAL**) and your starred files (**FAVOURITES**). The internal drive is read only. |
 | **B3** | **PREVIEW**: play each file when you move to it. |
 | **SHIFT** + pad | Load the file onto the next empty pad. |
+| **SHIFT** + **B3** | **STAR**: make the file a favourite, or take its star off. Starred files show a star. |
+
+**B2** also has **FAVOURITES**, after **INTERNAL**: every starred file, from
+both drives, by name. The favourites are kept on the card in
+`Melodee/Favourites.txt`.
 
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV files: 16, 24 or 32-bit, any sample rate, up to 60
@@ -806,7 +811,16 @@ Roll is a piano roll. On a kit, each row is a pad.
   **SHIFT** + **K1**: nudge the note early or late.
 - **ERASE** pressed alone deletes the note under the cursor.
 - Push the encoder for the note sheet: **B3** toggles **ACCENT**. **B2**
-  (**MORE**) lists accent, slide, tie and delete.
+  (**MORE**) lists accent, slide, tie, quantize (onto the nearest step),
+  legato (up to the next note), duplicate (a copy straight after it) and
+  delete.
+- Push the encoder where there is no note for the **VIEW** sheet:
+  - **Follow playhead**: while playing, the view turns its pages with the
+    playhead. **FOLLOW** shows in the header.
+  - **Scale lanes**: the rows outside the project's scale go dark.
+  - **Quantize all** and **Legato all**: every note in the pattern.
+
+  Follow playhead and Scale lanes stay as you set them.
 - Press **ROLL** again for the note's ratchet.
 
 **Step Edit**

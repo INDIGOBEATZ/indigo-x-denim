@@ -17,11 +17,19 @@
 // closes), B2 MORE lists Accent, Slide, Tie and Delete (B3 or Push do the
 // row, B1 back); a pad or a pot closes it. With Seq Record on while
 // playing, pads play in live.
+// INDIGO X DENIM: MORE also lists Quantize (the note onto its nearest step),
+// Legato (as long as it takes to reach the next note) and Duplicate (a copy
+// straight after it; the cursor goes with each). Push with no note in focus
+// opens the VIEW sheet: Follow playhead (while playing the view turns its
+// pages with the playhead, the cursor staying put; FOLLOW in the header),
+// Scale lanes (the keys outside the project's scale sink), Quantize all and
+// Legato all. The two switches are Melodee's settings, kept on the card.
 #include "melodee/engine/engine_host.h"
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/ask.h"
+#include "melodee/shell/project_store.h"
 #include "melodee/shell/roll.h"
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/step_lane.h"
@@ -33,7 +41,8 @@ namespace {
 using namespace ui;
 constexpr float gutter = 23, ruler = 13, row_h = 10.5f, column = 18.5f;
 constexpr unsigned rows = roll_rows, columns = roll_columns;
-enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowDelete, sheet_rows };
+enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowQuantize, RowLegato, RowDuplicate, RowDelete, sheet_rows };
+enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, view_rows };
 
 bool black(int key) { return (0x54A >> (key % 12)) & 1; } // C#, D#, F#, G#, A#
 
@@ -46,7 +55,8 @@ void draw(Paint& p, const Snapshot& s) {
     UiState ui = s.ui;
     roll_follow(pattern, ui); // the view onto the cursor, even when it came from another page
     auto c = colour_of(s);
-    unsigned q = pattern.q(), cursor = roll_cursor(pattern, ui), first = roll_first(pattern, ui);
+    bool following = ui.settings.roll_follow && s.playing && pattern.length; // Follow playhead: the playhead's page
+    unsigned q = pattern.q(), cursor = roll_cursor(pattern, ui), first = following ? roll_play_first(pattern, s.position) : roll_first(pattern, ui);
     unsigned bar = s.project.bar_ticks(), beat = s.project.beat_ticks();
     uint32_t from = first * q, to = (first + columns) * q;
     int focus = roll_focus(pattern, ui), top_key = ui.roll_top;
@@ -59,12 +69,15 @@ void draw(Paint& p, const Snapshot& s) {
         if (focused && ui.held_note >= 0) h.left.push_back(pill("LOCK", c)); // its pad held: the pots lock it (roadmap P1)
         if (focused) h.left.push_back(chip(Icon::Note, juce::String(key_label(track, focused->key)), c)); // where it sits: the place bar's
         else h.left.push_back(pill("BAR " + juce::String(cursor * q / bar + 1) + " / " + juce::String((pattern.length + bar - 1) / bar)));
+        if (!focused && ui.settings.roll_follow) h.left.push_back(pill("FOLLOW", following ? c : colour::mid)); // lit while it turns
     }
     h.right.push_back(tag_of(s, ui.track));
-    bool sheet = ui.sheet_open && focused;
+    bool view_sheet = ui.sheet_open && ui.roll_sheet_view;
+    bool sheet = ui.sheet_open && !ui.roll_sheet_view && focused;
     SoftKeys keys {{"STEPS", "ROLL", "MOTION"}, 1, c};
     keys.dots[1] = 2; keys.dot_at[1] = ui.trig_cards ? 1 : 0; // ROLL again: the TRIG row of cards
-    if (sheet && ui.sheet_more) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+    if (view_sheet) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+    else if (sheet && ui.sheet_more) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (sheet) { // the likely job, Accent, under B3; MORE the rest
         keys = SoftKeys {{"BACK", "MORE", "ACCENT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
         keys.glyphs = {Icon::None, Icon::Layers, Icon::Accent};
@@ -85,7 +98,8 @@ void draw(Paint& p, const Snapshot& s) {
     for (unsigned r = 0; r < rows; ++r) {
         int key = top_key - int(r);
         bool shade = kit ? (key - int(sampler_first_note)) / 4 % 2 != 0 : key >= 0 && black(key); // a kit: pads in fours
-        p.fill(0, top + r * row_h, zone::width, row_h - 0.5f, shade ? colour::quiet : colour::panel);
+        bool outside = !kit && ui.settings.roll_scale && !roll_in_scale(key, s.project.root, s.project.scale); // Scale lanes
+        p.fill(0, top + r * row_h, zone::width, row_h - 0.5f, outside ? colour::bg : shade ? colour::quiet : colour::panel);
     }
     if (kit) { // the pads' numbers in their bank, every other lane so each has room, the cursor's always
         for (unsigned r = 0; r < rows; ++r) {
@@ -187,8 +201,22 @@ void draw(Paint& p, const Snapshot& s) {
         m.rows[RowAccent] = {"Accent", flag(step_accent) ? "On" : "Off", flag(step_accent), false, false};
         m.rows[RowSlide] = {"Slide", flag(step_slide) ? "On" : "Off", flag(step_slide), false, false};
         m.rows[RowTie] = {"Tie to next", flag(step_tie) ? "On" : "Off", flag(step_tie), false, false};
+        m.rows[RowQuantize] = {"Quantize", "", false, false, focused->tick % q == 0};
+        m.rows[RowLegato] = {"Legato", "", false, false, false};
+        m.rows[RowDuplicate] = {"Duplicate", "", false, false, false};
         m.rows[RowDelete] = {"Delete note", "", false, true, false};
         m.count = sheet_rows; m.current = ui.sheet_row % sheet_rows;
+        menu_sheet(p, m);
+    } else if (view_sheet) {
+        p.dim_zone(zone::picture_y, zone::picture_h, 0.7f);
+        MenuSheet m;
+        m.title = "VIEW"; m.detail = "ROLL"; m.accent = c;
+        bool follow = ui.settings.roll_follow, lanes = ui.settings.roll_scale, empty = pattern.empty();
+        m.rows[ViewFollow] = {"Follow playhead", follow ? "On" : "Off", follow, false, false};
+        m.rows[ViewScale] = {"Scale lanes", lanes ? "On" : "Off", lanes, false, kit};
+        m.rows[ViewQuantize] = {"Quantize all", "", false, false, empty};
+        m.rows[ViewLegato] = {"Legato all", "", false, false, empty};
+        m.count = view_rows; m.current = ui.sheet_row % view_rows;
         menu_sheet(p, m);
     }
 }
@@ -211,6 +239,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
 }
 
 void wheel(Context& c, int delta) {
+    if (c.ui.sheet_open && c.ui.roll_sheet_view) { c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(view_rows) - 1)); return; }
     if (c.ui.sheet_open) {
         if (!c.ui.sheet_more) return; // the likely tile: a turn opens nothing (B2 MORE lists the rest)
         c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(sheet_rows) - 1));
@@ -224,12 +253,32 @@ void wheel(Context& c, int delta) {
     roll_step(c.pattern(), c.ui, delta);
 }
 
+void save_settings(Context& c) { if (c.store) c.store->save_settings(c.ui.settings.text()); }
+
+// The VIEW sheet's row: the switches flip and the sheet stays; the edits close it.
+void do_view_row(Context& c) {
+    auto& settings = c.ui.settings;
+    switch (c.ui.sheet_row % view_rows) {
+    case ViewFollow: settings.roll_follow = !settings.roll_follow; save_settings(c); c.notice(settings.roll_follow ? "Follow playhead on" : "Follow playhead off"); break;
+    case ViewScale:
+        if (c.track().engine == EngineKind::Sampler || drum_pads(c.track())) { c.notice("Keys only"); break; }
+        settings.roll_scale = !settings.roll_scale; save_settings(c); c.notice(settings.roll_scale ? "Scale lanes on" : "Scale lanes off"); break;
+    case ViewQuantize: c.ui.sheet_open = false; roll_quantize_every(c); break;
+    case ViewLegato: c.ui.sheet_open = false; roll_legato_every(c); break;
+    default: break;
+    }
+}
+
 void do_row(Context& c) {
+    if (c.ui.roll_sheet_view) { do_view_row(c); return; }
     if (!c.ui.sheet_more) { roll_flag(c, step_accent); c.ui.sheet_open = false; return; } // the likely job: Accent, and done
     switch (c.ui.sheet_row % sheet_rows) {
     case RowAccent: roll_flag(c, step_accent); break;
     case RowSlide: roll_flag(c, step_slide); break;
     case RowTie: roll_flag(c, step_tie); break;
+    case RowQuantize: c.ui.sheet_open = false; roll_quantize_note(c); break;
+    case RowLegato: c.ui.sheet_open = false; roll_legato_note(c); break;
+    case RowDuplicate: c.ui.sheet_open = false; roll_duplicate_note(c); break;
     case RowDelete: c.ui.sheet_open = false; roll_erase(c); break;
     default: break;
     }
@@ -237,12 +286,17 @@ void do_row(Context& c) {
 
 void push(Context& c) {
     if (c.ui.sheet_open) { do_row(c); return; }
-    if (roll_focus(c.pattern(), c.ui) < 0) { c.notice("No note here"); return; }
-    c.ui.sheet_open = true; c.ui.sheet_more = false;
     c.ui.sheet_row = 0;
+    if (roll_focus(c.pattern(), c.ui) < 0) { c.ui.sheet_open = true; c.ui.roll_sheet_view = true; c.ui.sheet_more = true; return; } // VIEW
+    c.ui.sheet_open = true; c.ui.sheet_more = false; c.ui.roll_sheet_view = false;
 }
 
 void soft(Context& c, int key) {
+    if (c.ui.sheet_open && c.ui.roll_sheet_view) { // VIEW: BACK, -, DO IT
+        if (key == 0) c.ui.sheet_open = false;
+        if (key == 2) do_view_row(c);
+        return;
+    }
     if (c.ui.sheet_open) { // BACK, MORE, ACCENT; on the list BACK, -, DO IT
         if (key == 0) { if (c.ui.sheet_more) c.ui.sheet_more = false; else c.ui.sheet_open = false; }
         if (key == 1 && !c.ui.sheet_more) { c.ui.sheet_more = true; c.ui.sheet_row = 0; }

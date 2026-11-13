@@ -47,6 +47,9 @@ struct Settings {
     uint8_t capture_bars = 0, capture_quantise = 1;
     uint8_t click = 0;        // the metronome: 0 off, 1 on, 2 only while Seq Record (Shift + Tap Tempo)
     uint8_t click_level = 40;
+    // INDIGO X DENIM, Roll's VIEW sheet: the view turns its pages with the playhead while playing (the cursor stays
+    // where it was), and the rows of keys outside the project's scale sink (keys only, not a kit's lanes).
+    bool roll_follow = false, roll_scale = false;
     bool full_level() const { return pad_response == 3; }
     // Shift + Pad 1: full level on, or back to the curve it came from.
     void toggle_full_level() {
@@ -179,7 +182,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
-            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
+            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nthreshold=" << int(input.threshold)
@@ -229,6 +232,8 @@ struct Settings {
             else if (key == "capture_quantize") capture_quantise = uint8_t(std::clamp(value, 0, 2));
             else if (key == "click") click = uint8_t(std::clamp(value, 0, 2));
             else if (key == "click_level") click_level = uint8_t(std::clamp(value, 0, 100));
+            else if (key == "roll_follow") roll_follow = value != 0;
+            else if (key == "roll_scale") roll_scale = value != 0;
             else if (key == "response_before") response_before = uint8_t(std::clamp(value, 0, 2));
             else if (key == "input_source") input.source = InputSource(std::clamp(value, 0, int(InputSource::Count) - 1));
             else if (key == "monitor") input.monitor = Monitor(std::clamp(value, 0, int(Monitor::Count) - 1));

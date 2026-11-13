@@ -164,6 +164,9 @@ struct UiState {
     uint8_t roll_key = 62, roll_top = 65;
     int16_t roll_view = 0;
     uint16_t roll_new = 0;
+    // INDIGO X DENIM: Push with no note in focus opens Roll's VIEW sheet (Follow playhead, Scale lanes, Quantize all,
+    // Legato all) on sheet_open, as a list (B3 or Push do the row, B1 back).
+    bool roll_sheet_view = false;
     bool map_open = false;    // the page map over Edit
     uint8_t map_cursor = 0;
     int8_t pattern_held = -1; // Patterns: a pad held, so the next one copies it

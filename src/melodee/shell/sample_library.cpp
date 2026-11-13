@@ -125,6 +125,54 @@ void SampleLibrary::install_service() {
     installing.reset();
 }
 
+void SampleLibrary::star(const std::string& path, const std::string& name) {
+    if (path.empty()) return;
+    std::lock_guard<std::mutex> guard(lock);
+    stars_wanted.emplace_back(path, name);
+}
+
+namespace {
+std::string stars_file(const std::string& card_top) { return card_top.empty() ? std::string() : card_top + "/Melodee/Favourites.txt"; }
+} // namespace
+
+void SampleLibrary::read_stars() {
+    stars.clear();
+    std::ifstream in(stars_file(card_top));
+    std::string line;
+    while (in && std::getline(in, line) && stars.size() < 4000) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        auto tab = line.find('\t');
+        std::string path = line.substr(0, tab), name = tab == std::string::npos ? std::string() : line.substr(tab + 1);
+        if (path.empty() || path[0] != '/') continue;
+        if (name.empty()) name = fs::path(path).stem().string();
+        stars.emplace_back(path, name);
+    }
+}
+
+void SampleLibrary::write_stars() const {
+    auto file = stars_file(card_top);
+    if (file.empty()) return; // no card: kept until it goes
+    std::error_code error;
+    fs::create_directories(fs::path(file).parent_path(), error);
+    std::ofstream out(file + ".new", std::ios::trunc);
+    for (const auto& [path, name] : stars) out << path << '\t' << name << '\n';
+    out.close();
+    if (out) fs::rename(file + ".new", file, error);
+}
+
+void SampleLibrary::stars_service() {
+    std::vector<std::pair<std::string, std::string>> asked;
+    { std::lock_guard<std::mutex> guard(lock); asked.swap(stars_wanted); }
+    if (asked.empty()) return;
+    for (const auto& [path, name] : asked) {
+        auto at = std::find_if(stars.begin(), stars.end(), [&](const auto& s) { return s.first == path; });
+        if (at != stars.end()) stars.erase(at);
+        else if (stars.size() < 4000) stars.emplace_back(path, name);
+    }
+    write_stars();
+    scan_wanted.store(true); // the rows' stars, and the FAVOURITES list, anew
+}
+
 void SampleLibrary::browse_up() {
     std::lock_guard<std::mutex> guard(lock);
     wanted.pending = true; wanted.up = true;
@@ -224,6 +272,18 @@ void list_into(const std::string& folder, std::vector<SampleFile>& out, bool car
         out.push_back(std::move(f));
     }
 }
+// INDIGO X DENIM: a starred file's row, as list_into would make it, under the name it was starred with.
+SampleFile file_entry(const std::string& path, const std::string& name) {
+    SampleFile f;
+    f.path = path;
+    fs::path p(path);
+    f.bank = is_bank(p); f.instrument = is_instrument(p); f.expansion = is_expansion(p); f.midi = is_midi_file(p);
+    if (f.instrument && is_drum_program(f.path)) { f.kit = true; f.instrument = false; }
+    f.name = upper(name.empty() ? p.stem().string() : name).substr(0, 26);
+    std::error_code error;
+    if (fs::is_regular_file(p, error)) f.bytes = fs::file_size(p, error);
+    return f;
+}
 } // namespace
 
 void SampleLibrary::service(Hardware& hardware) {
@@ -242,6 +302,7 @@ void SampleLibrary::service(Hardware& hardware) {
     SampleJob job;
     bank_files();
     install_service();
+    stars_service();
     if (requests.pop(request)) { // one file per pass keeps the thread answering
         read(request);
         landings_open.store(unsigned(landings.size()), std::memory_order_relaxed); // an instrument begun lands from here
@@ -267,6 +328,7 @@ void SampleLibrary::service(Hardware& hardware) {
         bool changed = root != root_seen;
         if (changed) { root_seen = root; std::lock_guard<std::mutex> guard(lock); card_top = top; known.root = root; }
         if (changed) {
+            read_stars(); // INDIGO X DENIM: this card's favourites
             cache.set_folder(top.empty() ? std::string() : top + "/Melodee/Cache");
             if (!top.empty() && !cache_tidied) { cache_tidied = true; cache.tidy(); }
         }
@@ -288,8 +350,29 @@ void SampleLibrary::scan() {
     }
     auto tops = internal_tops();
     std::error_code error;
-    auto start_of = [&](Drive d) { return d == Drive::Internal ? std::string() : fs::is_directory(root_seen, error) ? root_seen : card_top; };
+    auto start_of = [&](Drive d) { return d != Drive::Card ? std::string() : fs::is_directory(root_seen, error) ? root_seen : card_top; };
     std::string left; // going up: the folder left, to put the cursor on
+    if (ask.pending && !ask.up) { drive = ask.drive; folder = ask.folder; }
+    if (drive == Drive::Favourites) { // INDIGO X DENIM: the starred files that are still there, by name
+        std::vector<SampleFile> files;
+        for (const auto& [path, name] : stars) {
+            std::string file = path.substr(0, path.find('#')); // an .sf2's preset, a program's pad: the file itself
+            if (!fs::exists(file, error)) continue;
+            SampleFile f = file_entry(path, name);
+            f.starred = true;
+            files.push_back(std::move(f));
+        }
+        std::sort(files.begin(), files.end(), [](const SampleFile& a, const SampleFile& b) { return a.name != b.name ? a.name < b.name : a.path < b.path; });
+        std::lock_guard<std::mutex> guard(lock);
+        bool same = known.drive == drive && known.files.size() == files.size()
+            && std::equal(files.begin(), files.end(), known.files.begin(), [](const SampleFile& a, const SampleFile& b) { return a.path == b.path; });
+        if (same && !ask.pending) return;
+        known.drive = drive; known.folder.clear(); known.top = true;
+        known.files = std::move(files);
+        known.came_from = -1;
+        changes.fetch_add(1, std::memory_order_release);
+        return;
+    }
     if (ask.pending && ask.up) {
         bool at_top = drive == Drive::Internal ? folder.empty() : (folder.empty() || folder == card_top);
         if (!at_top) {
@@ -299,7 +382,6 @@ void SampleLibrary::scan() {
             folder = to_top ? std::string() : parent;
         }
     } else if (ask.pending) {
-        drive = ask.drive;
         folder = ask.folder.empty() ? start_of(drive) : ask.folder;
     }
     // A card taken out, or a folder gone: back to the drive's start.
@@ -316,12 +398,14 @@ void SampleLibrary::scan() {
         if (a.instrument != b.instrument) return a.instrument;
         return a.folder != b.folder ? a.folder : a.name != b.name ? a.name < b.name : a.path < b.path;
     });
+    for (auto& f : files) // INDIGO X DENIM: the rows' stars
+        f.starred = !f.folder && std::any_of(stars.begin(), stars.end(), [&](const auto& s) { return s.first == f.path; });
     int came_from = -1;
     for (size_t n = 0; n < files.size() && !left.empty(); ++n) if (files[n].path == left) came_from = int(n);
     bool top = drive == Drive::Internal ? folder.empty() : (folder.empty() || folder == card_top);
     std::lock_guard<std::mutex> guard(lock);
     bool same = known.drive == drive && known.folder == folder && known.files.size() == files.size()
-        && std::equal(files.begin(), files.end(), known.files.begin(), [](const SampleFile& a, const SampleFile& b) { return a.path == b.path; });
+        && std::equal(files.begin(), files.end(), known.files.begin(), [](const SampleFile& a, const SampleFile& b) { return a.path == b.path && a.starred == b.starred; });
     if (same && !ask.pending) return;
     known.drive = drive; known.folder = folder; known.top = top;
     known.files = std::move(files);

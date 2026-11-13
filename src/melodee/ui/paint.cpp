@@ -9,8 +9,32 @@
 #include <stdexcept>
 #include <unordered_map>
 
+extern "C" const unsigned char indigo_font_inter_start[], indigo_font_inter_end[];
+extern "C" const unsigned char indigo_font_spacegrotesk_start[], indigo_font_spacegrotesk_end[];
+extern "C" const unsigned char indigo_font_outfit_start[], indigo_font_outfit_end[];
+extern "C" const unsigned char indigo_font_sora_start[], indigo_font_sora_end[];
+extern "C" const unsigned char indigo_font_manrope_start[], indigo_font_manrope_end[];
+extern "C" const unsigned char indigo_font_lexend_start[], indigo_font_lexend_end[];
+extern "C" const unsigned char indigo_font_jetbrainsmono_start[], indigo_font_jetbrainsmono_end[];
+
 namespace melodee::ui {
 namespace {
+// INDIGO X DENIM: each typeface's file (ui/fonts_data.cpp) in font_names' order, and its ascent + descent in em,
+// which turns type::caps_tracking (em) into JUCE's kerning factor.
+struct Typeface { const unsigned char* start; const unsigned char* end; float height_em; };
+const std::array<Typeface, font_count>& typefaces() {
+    static const std::array<Typeface, font_count> list {{
+        {melodee_rubik_start, melodee_rubik_end, 1.185f},
+        {indigo_font_inter_start, indigo_font_inter_end, 1.21f},
+        {indigo_font_spacegrotesk_start, indigo_font_spacegrotesk_end, 1.276f},
+        {indigo_font_outfit_start, indigo_font_outfit_end, 1.26f},
+        {indigo_font_sora_start, indigo_font_sora_end, 1.26f},
+        {indigo_font_manrope_start, indigo_font_manrope_end, 1.366f},
+        {indigo_font_lexend_start, indigo_font_lexend_end, 1.25f},
+        {indigo_font_jetbrainsmono_start, indigo_font_jetbrainsmono_end, 1.32f},
+    }};
+    return list;
+}
 // One typeface per weight, cloned from each variable font's wght axis; INDIGO X DENIM: for each typeface
 // (ui/fonts.h), loaded the first time it is used.
 const std::array<juce::Typeface::Ptr, 4>& faces(unsigned font) {

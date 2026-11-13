@@ -136,6 +136,35 @@ namespace {
 std::string stars_file(const std::string& card_top) { return card_top.empty() ? std::string() : card_top + "/Melodee/Favourites.txt"; }
 } // namespace
 
+void SampleLibrary::set_layout(const std::string& folder, uint8_t layout) {
+    std::lock_guard<std::mutex> guard(lock);
+    layouts_wanted.emplace_back(folder, layout);
+}
+uint8_t SampleLibrary::layout() const { std::lock_guard<std::mutex> guard(lock); return known.layout; }
+
+void SampleLibrary::read_layouts() {
+    layouts.clear();
+    if (card_top.empty()) return;
+    std::ifstream in(card_top + "/Melodee/Layouts.txt");
+    std::string line;
+    while (in && std::getline(in, line) && layouts.size() < 4000) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.size() < 3 || line[1] != '\t' || (line[0] != '1' && line[0] != '2')) continue;
+        layouts[line.substr(2)] = uint8_t(line[0] - '0');
+    }
+}
+
+void SampleLibrary::write_layouts() const {
+    if (card_top.empty()) return;
+    std::error_code error;
+    auto file = card_top + "/Melodee/Layouts.txt";
+    fs::create_directories(fs::path(file).parent_path(), error);
+    std::ofstream out(file + ".new", std::ios::trunc);
+    for (const auto& [folder, layout] : layouts) out << int(layout) << '\t' << folder << '\n';
+    out.close();
+    if (out) fs::rename(file + ".new", file, error);
+}
+
 void SampleLibrary::read_stars() {
     stars.clear();
     std::ifstream in(stars_file(card_top));
@@ -200,6 +229,16 @@ std::shared_ptr<const std::vector<uint32_t>> SampleLibrary::cover_of(const std::
 }
 
 void SampleLibrary::stars_service() {
+    std::vector<std::pair<std::string, uint8_t>> laid;
+    { std::lock_guard<std::mutex> guard(lock); laid.swap(layouts_wanted); }
+    if (!laid.empty()) { // INDIGO X DENIM: a folder's layout chosen
+        for (const auto& [folder, layout] : laid) { if (layout) layouts[folder] = layout; else layouts.erase(folder); }
+        write_layouts();
+        std::lock_guard<std::mutex> guard(lock);
+        auto found = layouts.find(known.folder);
+        known.layout = found == layouts.end() ? 0 : found->second;
+        changes.fetch_add(1, std::memory_order_release);
+    }
     std::vector<std::pair<std::string, std::string>> asked;
     { std::lock_guard<std::mutex> guard(lock); asked.swap(stars_wanted); }
     if (asked.empty()) return;
@@ -368,6 +407,7 @@ void SampleLibrary::service(Hardware& hardware) {
         if (changed) { root_seen = root; std::lock_guard<std::mutex> guard(lock); card_top = top; known.root = root; }
         if (changed) {
             read_stars(); // INDIGO X DENIM: this card's favourites
+            read_layouts(); // and its folders' layouts
             cache.set_folder(top.empty() ? std::string() : top + "/Melodee/Cache");
             if (!top.empty() && !cache_tidied) { cache_tidied = true; cache.tidy(); }
         }
@@ -407,6 +447,7 @@ void SampleLibrary::scan() {
             && std::equal(files.begin(), files.end(), known.files.begin(), [](const SampleFile& a, const SampleFile& b) { return a.path == b.path; });
         if (same && !ask.pending) return;
         known.drive = drive; known.folder.clear(); known.top = true;
+        { auto found = layouts.find(""); known.layout = found == layouts.end() ? 0 : found->second; }
         known.files = std::move(files);
         known.came_from = -1;
         changes.fetch_add(1, std::memory_order_release);
@@ -449,6 +490,7 @@ void SampleLibrary::scan() {
         && std::equal(files.begin(), files.end(), known.files.begin(), [](const SampleFile& a, const SampleFile& b) { return a.path == b.path && a.starred == b.starred; });
     if (same && !ask.pending) return;
     known.drive = drive; known.folder = folder; known.top = top;
+    { auto found = layouts.find(folder); known.layout = found == layouts.end() ? 0 : found->second; } // INDIGO X DENIM
     known.files = std::move(files);
     known.came_from = came_from;
     changes.fetch_add(1, std::memory_order_release);
@@ -615,9 +657,10 @@ void SampleLibrary::make(const SampleJob& job) {
 // The browser's preview (B3): the file in the preview slot, at most 30 s of it.
 void SampleLibrary::hear(const std::string& path) {
     // An MPC program with a preview of its own (an expansion's [Previews]): that, as the MPC plays it.
-    const std::string preview = is_mpc_program(path) ? program_preview(path) : std::string();
+    std::string preview = is_mpc_program(path) ? program_preview(path) : std::string();
     if (preview.empty() && is_expansion(path)) return;
-    if (preview.empty() && is_drum_program(path)) return; // a kit with no preview: nothing to hear
+    // INDIGO X DENIM: a kit with no preview of its own is heard by its first sample, not left silent.
+    if (preview.empty() && is_drum_program(path)) { preview = program_first_sample(path); if (preview.empty()) return; }
     if (preview.empty() && is_instrument(path)) { hear_instrument(path); return; }
     auto data = std::make_unique<SampleData>();
     if (!(preview.empty() ? read_wav(path, *data, 30, nullptr, dsp::sample_rate()) : read_audio(preview, *data, 30, nullptr, dsp::sample_rate())).empty()

@@ -385,7 +385,13 @@ Press **SAMPLE SELECT** on a kit to open the sample browser.
 both drives, by name. The favourites are kept on the card in
 `Melodee/Favourites.txt`.
 
-A folder of MPC expansions shows as a grid of their covers.
+A folder of MPC expansions shows as a grid of their covers. **SHIFT** +
+**B2** switches the folder in view between the grid and the list; each folder
+keeps its own choice (on the card in `Melodee/Layouts.txt`).
+
+With **PREVIEW** on, an MPC program plays its preview (from `[Previews]`
+beside it or up to three folders up, as `.mp3` or `.wav`); a drum program
+without one plays its first sample.
 
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV files: 16, 24 or 32-bit, any sample rate, up to 60

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <mutex>
 #include <sstream>
+#include <iterator>
 
 namespace melodee {
 namespace fs = std::filesystem;
@@ -128,8 +129,40 @@ bool is_drum_program(const std::string& path) {
 
 std::string program_preview(const std::string& path) {
     const fs::path where(path);
-    auto found = found_beside(where.parent_path(), "[Previews]/" + where.filename().string() + ".mp3");
-    return found.empty() ? std::string() : found.string();
+    // INDIGO X DENIM: expansions name their previews more than one way and keep [Previews] at the expansion's top
+    // as often as beside the program: <program>.xpm.mp3, <program>.mp3, or WAV, in [Previews] here or up to three
+    // folders up.
+    const std::string file = where.filename().string(), stem = where.stem().string();
+    const std::string names[] {file + ".mp3", stem + ".mp3", file + ".wav", stem + ".wav"};
+    fs::path folder = where.parent_path();
+    for (int up = 0; up < 4 && !folder.empty(); ++up, folder = folder.parent_path()) {
+        for (const auto& name : names) {
+            auto found = found_beside(folder, "[Previews]/" + name);
+            if (!found.empty()) return found.string();
+        }
+        if (folder == folder.parent_path()) break;
+    }
+    return {};
+}
+
+// INDIGO X DENIM: with no preview of its own, a program is heard by its first sample (the lowest pad or zone).
+std::string program_first_sample(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return {};
+    std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    KeygroupProgram program;
+    if (!read_program(path, bytes, program).empty()) return {};
+    const fs::path folder = fs::path(path).parent_path();
+    for (const auto& instrument : program.instruments) {
+        const auto layers = keygroup_layers(instrument);
+        if (layers.empty()) continue;
+        auto sample = keygroup_sample(*layers.front());
+        if (sample.empty()) continue;
+        auto found = found_beside(folder, sample);
+        if (found.empty() && fs::path(sample).extension().empty()) found = found_beside(folder, sample + ".wav");
+        if (!found.empty()) return found.string();
+    }
+    return {};
 }
 
 std::string import_mpc_program(const std::vector<uint8_t>& file, const std::string& path, Project& project, MpcImport& report) {

@@ -1981,6 +1981,8 @@ const Preview previews[] {
          }
          s.ui.files_count = uint16_t(s.files.size());
      }},
+    {"browsergrid", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "browserstarred", 1, 0); s.files_layout = 2; }}, // Shift + B2: the grid
+    {"expansionslist", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "expansions", 1, 0); s.files_layout = 1; }}, // and back to the list
     {"settingsaudioleds", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::LevelLeds; }},
     {"settingsfolder", [](Shell&, Snapshot& s) {
          s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 2; s.ui.settings_cursor = Settings::StartFolder;

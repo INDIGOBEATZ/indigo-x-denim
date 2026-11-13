@@ -22,6 +22,8 @@ std::string parse_mpc_program(const std::string& text, KeygroupProgram& program)
 // Any MPC program's bytes, read into that tree: an .xpm's XML, or the MPC 3's
 // gzip JSON (an .xty track, or an .xpm saved by MPC 3). Empty on success.
 std::string read_program(const std::string& path, const std::string& bytes, KeygroupProgram& program);
+// INDIGO X DENIM: a program's first sample (its lowest pad or zone), found beside it; empty when none is.
+std::string program_first_sample(const std::string& path);
 
 // An .xpm or an .xty: an MPC program, by its name.
 bool is_mpc_program(const std::string& path);

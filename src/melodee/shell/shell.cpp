@@ -616,7 +616,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
                     out.pad_waves_shown = uint16_t(out.pad_waves_shown | 1u << n);
             }
         if (ui_.page == PageId::Samples) {
-            out.files = library_->files(); out.sample_root = library_->root(); out.files_folder = library_->folder(); out.files_top = library_->top();
+            out.files = library_->files(); out.sample_root = library_->root(); out.files_folder = library_->folder(); out.files_top = library_->top(); out.files_layout = library_->layout();
         }
     }
     for (unsigned t = 0; t < track_count; ++t)

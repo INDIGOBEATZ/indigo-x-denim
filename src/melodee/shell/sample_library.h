@@ -124,6 +124,10 @@ public:
     // INDIGO X DENIM, MIDI thread: a file starred, or its star taken off (a folder has none). The favourites are kept
     // on the card as Melodee/Favourites.txt (a path and its name a line), read again when a card comes in.
     void star(const std::string& path, const std::string& name);
+    // INDIGO X DENIM, MIDI thread: the folder in view drawn as a list (1) or a grid of covers (2), or as it comes (0:
+    // a grid where its folders have covers); kept per folder on the card as Melodee/Layouts.txt.
+    void set_layout(const std::string& folder, uint8_t layout);
+    uint8_t layout() const;
     // MIDI thread: a file to hear (preview_slot), empty for none; ready()
     // counts the previews that arrived, so the MIDI thread knows when to play one.
     void preview(const std::string& path);
@@ -184,6 +188,7 @@ public:
         bool top = true;    // nothing above it to go back to
         std::vector<SampleFile> files; // folders first, then WAV files, each by name
         int came_from = -1; // after going up: the folder it came out of
+        uint8_t layout = 0; // INDIGO X DENIM: the folder's layout (set_layout)
         std::array<LoadedSample, sample_slots> slots;
     };
     void view(View& out) const;
@@ -312,6 +317,10 @@ private:
     // INDIGO X DENIM: the favourites (path, name) in the order starred, the service thread's own; the stars asked for,
     // under `lock`.
     std::vector<std::pair<std::string, std::string>> stars, stars_wanted;
+    std::map<std::string, uint8_t> layouts;                  // service thread: each folder's chosen layout
+    std::vector<std::pair<std::string, uint8_t>> layouts_wanted; // under `lock`
+    void read_layouts();
+    void write_layouts() const;
     std::vector<std::pair<std::string, std::vector<uint8_t>>> bank_writes; // under `lock`: name, bytes
     std::vector<std::string> bank_reads;  // under `lock`: paths
     std::vector<BankBytes> banks_read;    // under `lock`: what came of them

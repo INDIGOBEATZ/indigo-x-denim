@@ -21,7 +21,8 @@
 // in (Settings > SCREEN > Sample folder, where −/+ clears it).
 // A folder of folders where any has a cover (MPC expansions: the art their
 // Expansion.xml names) shows as a grid of covers, three across, its name
-// under each; the wheel moves through them as through the list.
+// under each; the wheel moves through them as through the list. Shift + B2
+// GRID / LIST switches the folder in view between the two, kept per folder.
 #include "melodee/shell/smf_jobs.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
@@ -59,6 +60,15 @@ const juce::Image& cover_image(const std::shared_ptr<const std::vector<uint32_t>
     return made.emplace(cover.get(), std::make_pair(cover, image)).first->second.second;
 }
 
+// INDIGO X DENIM: the grid where the folder asks for it (Shift + B2), or as it comes: a folder of folders with covers.
+bool grid_of(const std::vector<SampleFile>& files, uint8_t layout) {
+    if (layout == 1) return false;
+    if (layout == 2) return !files.empty();
+    return !files.empty() && std::all_of(files.begin(), files.end(), [](const SampleFile& f) { return f.folder; })
+           && std::any_of(files.begin(), files.end(), [](const SampleFile& f) { return bool(f.cover); });
+}
+bool grid_view(const Snapshot& s) { return grid_of(s.files, s.files_layout); }
+
 // The covers' grid: three across, two rows in view, the row with the cursor kept in it.
 void draw_covers(Paint& p, const Snapshot& s, juce::Colour c) {
     constexpr unsigned across = 3, rows = 2;
@@ -77,7 +87,12 @@ void draw_covers(Paint& p, const Snapshot& s, juce::Colour c) {
             p.fill(x, y, w, h, current ? colour::raised : colour::panel, 4);
             float ax = x + (w - art) / 2, ay = y + 3;
             if (file.cover) p.g.drawImage(cover_image(file.cover), int(ax), int(ay), int(art), int(art), 0, 0, int(SampleFile::cover_size), int(SampleFile::cover_size));
-            else { p.fill(ax, ay, art, art, colour::surf, 3); icon(p, Icon::Folder, ax + art / 2 - 11, ay + art / 2 - 11, 22, colour::dim, 1.4f); }
+            else {
+                p.fill(ax, ay, art, art, colour::surf, 3);
+                Icon glyph = file.folder ? Icon::Folder : file.kit ? Icon::Pads : file.instrument ? Icon::Keyboard : file.bank ? Icon::Layers
+                           : file.midi ? Icon::Note : Icon::Wav;
+                icon(p, glyph, ax + art / 2 - 11, ay + art / 2 - 11, 22, file.starred ? c : colour::dim, 1.4f);
+            }
             if (current) p.ring(x, y, w, h, c, 4, 1.5f);
             auto name = name_case(juce::String(file.name));
             auto style = plain(current ? colour::text : colour::sec, type::small, current ? Weight::SemiBold : Weight::Regular);
@@ -105,7 +120,7 @@ void draw(Paint& p, const Snapshot& s) {
         bool on_file = !s.files.empty() && !s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].folder;
         bool starred = on_file && s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].starred;
         bool folder_here = drive != Drive::Favourites && !s.files_folder.empty();
-        keys = SoftKeys {{folder_here ? "SET START" : "", "", on_file ? (starred ? "UNSTAR" : "STAR") : ""}, -1, c};
+        keys = SoftKeys {{folder_here ? "SET START" : "", grid_view(s) ? "LIST" : "GRID", on_file ? (starred ? "UNSTAR" : "STAR") : ""}, -1, c};
         keys.glyphs = {folder_here ? Icon::Folder : Icon::None, Icon::None, on_file ? Icon::Star : Icon::None};
     }
     frame(p, s, keys, h);
@@ -115,9 +130,7 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(favs ? "NONE YET" : no_card ? "NO CARD" : "EMPTY", 0, zone::picture_y + 76, zone::width, 14, caps_text(colour::dim), juce::Justification::centred);
         return;
     }
-    bool covers = std::all_of(s.files.begin(), s.files.end(), [](const SampleFile& f) { return f.folder; })
-                  && std::any_of(s.files.begin(), s.files.end(), [](const SampleFile& f) { return bool(f.cover); });
-    if (covers) { draw_covers(p, s, c); return; } // INDIGO X DENIM: a folder of expansions as their covers
+    if (grid_view(s)) { draw_covers(p, s, c); return; } // INDIGO X DENIM: a folder of expansions as their covers
     unsigned count = unsigned(s.files.size()), cursor = std::min<unsigned>(s.ui.files_cursor, count - 1);
     unsigned first = cursor < 2 ? 0 : std::min(cursor - 2, count > visible ? count - visible : 0);
     for (unsigned row = 0; row < visible && first + row < count; ++row) {
@@ -177,8 +190,14 @@ void push(Context& c) {
 void soft(Context& c, int key) {
     if (!c.library) return;
     auto& ui = c.ui;
-    if (ui.shift) { // Shift + B3 STAR, Shift + B1 SET START; Shift + B2 has no job here
+    if (ui.shift) { // Shift + B3 STAR, Shift + B1 SET START, Shift + B2 GRID / LIST
         ui.shift_used = true;
+        if (key == 1) { // INDIGO X DENIM: the folder in view as a grid or a list, kept for it
+            bool grid = grid_of(c.library->files(), c.library->layout());
+            c.library->set_layout(c.library->folder(), grid ? 1 : 2);
+            c.notice(grid ? "List" : "Grid");
+            return;
+        }
         if (key == 0) { // INDIGO X DENIM: this folder where Sample Select opens
             auto folder = c.library->folder();
             if (folder.empty() || Drive(ui.files_drive) == Drive::Favourites) { c.notice("A folder first"); return; }

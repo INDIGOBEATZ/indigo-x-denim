@@ -17,6 +17,11 @@
 // its star off; starred rows carry a star. B2 goes on from the internal
 // drive to FAVOURITES: every starred file, from either drive, by name, which
 // Push loads as anywhere else (a star taken off there leaves the list).
+// Shift + B1 SET START makes the folder in view the one Sample Select opens
+// in (Settings > SCREEN > Sample folder, where −/+ clears it).
+// A folder of folders where any has a cover (MPC expansions: the art their
+// Expansion.xml names) shows as a grid of covers, three across, its name
+// under each; the wheel moves through them as through the list.
 #include "melodee/shell/smf_jobs.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
@@ -24,7 +29,9 @@
 #include "melodee/shell/sample_library.h"
 #include "melodee/ui/widgets.h"
 #include <cstdio>
+#include <algorithm>
 #include <filesystem>
+#include <map>
 #include <vector>
 
 namespace melodee {
@@ -37,6 +44,45 @@ juce::String folder_title(const Snapshot& s) {
     if (s.ui.files_drive == unsigned(Drive::Internal) && s.files_top) return "CATEGORIES";
     if (s.files_folder.empty()) return "NO CARD";
     return juce::String(std::filesystem::path(s.files_folder).filename().string());
+}
+
+// INDIGO X DENIM: a cover's pixels as an image, made once (screen thread).
+const juce::Image& cover_image(const std::shared_ptr<const std::vector<uint32_t>>& cover) {
+    static std::map<const void*, std::pair<std::shared_ptr<const std::vector<uint32_t>>, juce::Image>> made;
+    auto found = made.find(cover.get());
+    if (found != made.end()) return found->second.second;
+    if (made.size() > 128) made.clear();
+    constexpr int n = int(SampleFile::cover_size);
+    juce::Image image(juce::Image::ARGB, n, n, false);
+    for (int y = 0; y < n; ++y)
+        for (int x = 0; x < n; ++x) image.setPixelAt(x, y, juce::Colour((*cover)[size_t(y * n + x)]));
+    return made.emplace(cover.get(), std::make_pair(cover, image)).first->second.second;
+}
+
+// The covers' grid: three across, two rows in view, the row with the cursor kept in it.
+void draw_covers(Paint& p, const Snapshot& s, juce::Colour c) {
+    constexpr unsigned across = 3, rows = 2;
+    unsigned count = unsigned(s.files.size()), cursor = std::min<unsigned>(s.ui.files_cursor, count - 1);
+    unsigned row = cursor / across, total_rows = (count + across - 1) / across;
+    unsigned first_row = row < 1 ? 0 : std::min(row - 1, total_rows > rows ? total_rows - rows : 0);
+    constexpr float gap = 4, x0 = zone::pad, w = (zone::width - 2 * zone::pad - gap * (across - 1)) / float(across);
+    constexpr float h = (zone::picture_h - 6 - gap) / float(rows), art = h - 19;
+    for (unsigned r = 0; r < rows; ++r)
+        for (unsigned k = 0; k < across; ++k) {
+            unsigned n = (first_row + r) * across + k;
+            if (n >= count) continue;
+            const auto& file = s.files[n];
+            float x = x0 + k * (w + gap), y = zone::picture_y + 3 + r * (h + gap);
+            bool current = n == cursor;
+            p.fill(x, y, w, h, current ? colour::raised : colour::panel, 4);
+            float ax = x + (w - art) / 2, ay = y + 3;
+            if (file.cover) p.g.drawImage(cover_image(file.cover), int(ax), int(ay), int(art), int(art), 0, 0, int(SampleFile::cover_size), int(SampleFile::cover_size));
+            else { p.fill(ax, ay, art, art, colour::surf, 3); icon(p, Icon::Folder, ax + art / 2 - 11, ay + art / 2 - 11, 22, colour::dim, 1.4f); }
+            if (current) p.ring(x, y, w, h, c, 4, 1.5f);
+            auto name = name_case(juce::String(file.name));
+            auto style = plain(current ? colour::text : colour::sec, type::small, current ? Weight::SemiBold : Weight::Regular);
+            p.text(name, x + 3, y + h - 15, w - 6, 13, p.fit(name, style, w - 6, type::floor), juce::Justification::centred);
+        }
 }
 
 void draw(Paint& p, const Snapshot& s) {
@@ -58,8 +104,9 @@ void draw(Paint& p, const Snapshot& s) {
     if (s.ui.shift) { // Shift + B3: the file under the cursor starred, or its star off
         bool on_file = !s.files.empty() && !s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].folder;
         bool starred = on_file && s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].starred;
-        keys = SoftKeys {{"", "", on_file ? (starred ? "UNSTAR" : "STAR") : ""}, -1, c};
-        keys.glyphs = {Icon::None, Icon::None, on_file ? Icon::Star : Icon::None};
+        bool folder_here = drive != Drive::Favourites && !s.files_folder.empty();
+        keys = SoftKeys {{folder_here ? "SET START" : "", "", on_file ? (starred ? "UNSTAR" : "STAR") : ""}, -1, c};
+        keys.glyphs = {folder_here ? Icon::Folder : Icon::None, Icon::None, on_file ? Icon::Star : Icon::None};
     }
     frame(p, s, keys, h);
     if (s.files.empty()) { // a glyph and two words: no card, or nothing here
@@ -68,6 +115,9 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(favs ? "NONE YET" : no_card ? "NO CARD" : "EMPTY", 0, zone::picture_y + 76, zone::width, 14, caps_text(colour::dim), juce::Justification::centred);
         return;
     }
+    bool covers = std::all_of(s.files.begin(), s.files.end(), [](const SampleFile& f) { return f.folder; })
+                  && std::any_of(s.files.begin(), s.files.end(), [](const SampleFile& f) { return bool(f.cover); });
+    if (covers) { draw_covers(p, s, c); return; } // INDIGO X DENIM: a folder of expansions as their covers
     unsigned count = unsigned(s.files.size()), cursor = std::min<unsigned>(s.ui.files_cursor, count - 1);
     unsigned first = cursor < 2 ? 0 : std::min(cursor - 2, count > visible ? count - visible : 0);
     for (unsigned row = 0; row < visible && first + row < count; ++row) {
@@ -127,8 +177,20 @@ void push(Context& c) {
 void soft(Context& c, int key) {
     if (!c.library) return;
     auto& ui = c.ui;
-    if (ui.shift) { // Shift + B3 STAR; Shift + B1 / B2 have no job here
+    if (ui.shift) { // Shift + B3 STAR, Shift + B1 SET START; Shift + B2 has no job here
         ui.shift_used = true;
+        if (key == 0) { // INDIGO X DENIM: this folder where Sample Select opens
+            auto folder = c.library->folder();
+            if (folder.empty() || Drive(ui.files_drive) == Drive::Favourites) { c.notice("A folder first"); return; }
+            auto top = c.library->card();
+            bool card = !top.empty() && folder.rfind(top, 0) == 0;
+            std::string stored = card ? "card:" + folder.substr(std::min(folder.size(), top.size() + 1)) : folder;
+            if (stored.size() >= ui.settings.start_folder.size()) { c.notice("Folder name too long"); return; }
+            ui.settings.set_start_folder(stored);
+            c.change_setting(Settings::Rows, 0); // saves the settings (no row steps)
+            c.notice("Start folder set");
+            return;
+        }
         if (key != 2) return;
         auto files = c.library->files();
         if (ui.files_cursor >= files.size() || files[ui.files_cursor].folder) { c.notice("Star: a file first"); return; }

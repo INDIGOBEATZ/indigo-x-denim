@@ -931,6 +931,16 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
     case PageId::SettingsPage: case PageId::About: case PageId::MidiConfig: return {};
+    case PageId::Mixer: { // INDIGO X DENIM: the strip in hand. PADS: the pad's level, pan, tune; TRACKS: level, pan, send A
+        if (ui.mixer_view == 0 && track.engine == EngineKind::Sampler) {
+            const auto& pd = track.pads[track.last_pad % sampler_pads];
+            if (!pd.used()) return {};
+            return {Binding {Kind::PadLevel, 0, 0, 127, pd.level}, Binding {Kind::PadPan, 0, -50, 50, pd.pan},
+                    Binding {Kind::PadPitch, 0, -24, 24, pd.pitch}};
+        }
+        return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
+                Binding {Kind::Send, 0, 0, 100, track.mix.sends[0]}};
+    }
     case PageId::Tracks: // the strip in hand: K1 the track, K2 its level, K3 its pan
         return {Binding {Kind::TrackPick, 0, 0, int(track_count) - 1, ui.track % int(track_count)},
                 Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan}};

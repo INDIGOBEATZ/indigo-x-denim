@@ -1923,6 +1923,56 @@ const Preview previews[] {
     {"fontoutfit", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "pads", 1, 3); }},
     {"fontjetbrains", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "settingsscreen", 1, 7); }},
     {"settingsfont", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 2; s.ui.settings_cursor = Settings::Font; s.ui.settings_editing = true; s.ui.settings.font = 2; }},
+    // INDIGO X DENIM: MUTE's mixer. PADS on the kit (a pad muted, one soloed), TRACKS (mutes, a solo, effects),
+    // Shift held (UNMUTE ALL); ALL PADS on a kit page; the covers of a folder of expansions; Sample folder and Level LEDs.
+    {"mixerpads", [](Shell& shell, Snapshot& s) {
+         preview_as(shell, s, "pads", 1, 0);
+         s.ui.page = PageId::Mixer; s.ui.mixer_view = 0; s.ui.mixer_half = 0;
+         auto& t = s.project.tracks[s.ui.track];
+         t.last_pad = 4; t.pads[2].level = 70; t.pads[5].level = 120; t.pads[6].level = 40;
+         t.set_pad_muted(3, true);
+     }},
+    {"mixertracks", [](Shell& shell, Snapshot& s) {
+         preview_as(shell, s, "pads", 1, 0);
+         s.ui.page = PageId::Mixer; s.ui.mixer_view = 1; s.ui.mixer_half = 0; s.ui.track = 2;
+         s.project.tracks[1].mix.mute = true; s.project.tracks[4].mix.solo = true;
+         s.project.tracks[0].mix.level = 110; s.project.tracks[2].mix.level = 80; s.project.tracks[3].mix.level = 64;
+         auto& chain = s.project.chain(2); if (chain.size) chain.slots[0].kind = 1;
+     }},
+    {"mixershift", [](Shell& shell, Snapshot& s) {
+         preview_as(shell, s, "pads", 1, 0);
+         s.ui.page = PageId::Mixer; s.ui.mixer_view = 1; s.ui.shift = true;
+     }},
+    {"allpads", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "pads", 1, 0); s.ui.all_pads = true; }},
+    {"expansions", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 1;
+         s.sample_root = "/media/card/Samples"; s.files_folder = s.sample_root + "/Expansions"; s.files_top = false;
+         const char* names[] {"BOOM BAP SOUL", "LOFI DUSK", "TRAP ANTHEMS", "VINTAGE KEYS", "DRILL ZONE"};
+         const uint32_t hues[][2] {{0x2F39BA, 0xFF5EC4}, {0xFFB347, 0x3B1F66}, {0x111214, 0xFF6363}, {0x17110C, 0xE8B25A}, {0x06243F, 0x3FE0D0}};
+         for (unsigned n = 0; n < 5; ++n) {
+             SampleFile f; f.path = s.files_folder + "/" + names[n]; f.name = names[n]; f.folder = true;
+             if (n != 3) { // one without art: a folder glyph
+                 constexpr unsigned size = SampleFile::cover_size;
+                 auto pixels = std::make_shared<std::vector<uint32_t>>(size * size);
+                 auto a = juce::Colour(0xff000000 | hues[n][0]), b = juce::Colour(0xff000000 | hues[n][1]);
+                 for (unsigned y = 0; y < size; ++y)
+                     for (unsigned x = 0; x < size; ++x) {
+                         float t = float(x + y) / float(2 * size);
+                         bool ring = std::abs(std::hypot(float(x) - 32.f, float(y) - 28.f) - 14.f) < 2.f;
+                         (*pixels)[y * size + x] = (ring ? juce::Colours::white : a.interpolatedWith(b, t)).getARGB();
+                     }
+                 f.cover = pixels;
+             }
+             s.files.push_back(f);
+         }
+         s.ui.files_count = uint16_t(s.files.size());
+     }},
+    {"settingsaudioleds", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::LevelLeds; }},
+    {"settingsfolder", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 2; s.ui.settings_cursor = Settings::StartFolder;
+         s.ui.settings.set_start_folder("card:Samples/Expansions/BOOM BAP SOUL");
+     }},
+    {"browsersetstart", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "browserstarred", 1, 0); s.ui.shift = true; }},
     // Roadmap P1 (drums and sequencer): these rewrite the shell's patterns too.
     {"rollratchet", [](Shell& shell, Snapshot& s) { // Roll's TRIG row (B2 again): the note in focus a ratchet of four, ramped down
          roll_bass(shell, s, 24, 57);

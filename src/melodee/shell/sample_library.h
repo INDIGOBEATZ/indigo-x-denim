@@ -13,6 +13,7 @@
 #include "surface/midi.h"
 #include <array>
 #include <atomic>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -51,6 +52,10 @@ struct SampleFile {
     bool presets = false;    // a SoundFont (".sf2", roadmap P3): listed as a folder, its presets inside it
     bool midi = false;       // a Standard MIDI File (".mid", roadmap P4): Push lays its notes on the track's pattern
     bool starred = false;    // INDIGO X DENIM: among the favourites (a star at the row's start)
+    // INDIGO X DENIM: a folder's cover (an MPC expansion's image, as Expansion.xml names it, else the first JPEG or
+    // PNG at its top), cover_size x cover_size pixels as 0xAARRGGBB; none when it has no image.
+    static constexpr unsigned cover_size = 64;
+    std::shared_ptr<const std::vector<uint32_t>> cover {};
 };
 struct LoadedSample {
     std::string name, path, error;
@@ -210,6 +215,8 @@ private:
     struct Request { uint8_t slot = 0; char path[160] {}; };
     void scan();
     void stars_service(); // INDIGO X DENIM: stars asked for, applied and written
+    std::shared_ptr<const std::vector<uint32_t>> cover_of(const std::string& folder); // a folder's cover, read once
+    std::map<std::string, std::shared_ptr<const std::vector<uint32_t>>> covers; // service thread: each folder's, null for none
     void read_stars();
     void write_stars() const;
     void read(const Request& request);

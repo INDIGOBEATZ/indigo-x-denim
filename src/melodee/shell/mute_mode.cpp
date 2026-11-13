@@ -6,27 +6,32 @@
 
 namespace melodee {
 
+// INDIGO X DENIM: MUTE is the mixer's button, never mute mode (no pad mutes by accident). A tap opens the mixer on
+// PADS (TRACKS on a track that is not a kit), the next shows TRACKS, the next goes back to the page it came from.
+// Shift + MUTE: ALL on a kit (the pad pages' knobs set every used pad), else everything unmuted.
 void mute_button(Context& c, bool pressed) {
     auto& ui = c.ui;
-    if (pressed) {
-        if (ui.shift) { ui.shift_used = true; unmute_all(c); return; } // its release changes nothing: Mute was not held
-        ui.mute = true; ui.mute_down = c.now; ui.mute_used = false;
+    ui.mute = false; ui.mute_latch = false;
+    if (!pressed) return;
+    if (ui.shift) {
+        ui.shift_used = true;
+        if (c.track().engine == EngineKind::Sampler) {
+            ui.all_pads = !ui.all_pads;
+            c.notice(ui.all_pads ? "ALL pads: on" : "ALL pads: off");
+        } else unmute_all(c);
         return;
     }
-    if (!ui.mute) return;
-    ui.mute = false;
-    // A tap turns the latch on or off; a hold (or one that muted something) leaves it as it was.
-    if (!ui.mute_used && c.now - ui.mute_down <= mute_hold_ms) {
-        ui.mute_latch = !ui.mute_latch;
-        // INDIGO X DENIM: the tap that latches it opens the mixer (Tracks, where the pads mute tracks); the one that lets
-        // go goes back to the page it came from, if still there. The Looper keeps its own mutes.
-        if (ui.mute_latch && ui.page != PageId::Tracks && ui.page != PageId::Looper) {
-            ui.mute_from = ui.page; ui.mute_opened = true;
-            c.open(PageId::Tracks);
-        } else if (!ui.mute_latch && ui.mute_opened) {
-            ui.mute_opened = false;
-            if (ui.page == PageId::Tracks) c.open(ui.mute_from);
-        }
+    bool kit = c.track().engine == EngineKind::Sampler;
+    if (ui.page != PageId::Mixer) {
+        ui.mute_from = ui.page; ui.mute_opened = true;
+        ui.mixer_view = kit ? 0 : 1;
+        ui.mixer_half = uint8_t(kit ? c.track().last_pad % 16 / 8 : ui.track % track_count / 8);
+        c.open(PageId::Mixer);
+    } else if (ui.mixer_view == 0) {
+        ui.mixer_view = 1; ui.mixer_half = uint8_t(ui.track % track_count / 8);
+    } else {
+        ui.mute_opened = false;
+        c.open(ui.mute_from == PageId::Mixer ? PageId::Stage : ui.mute_from);
     }
 }
 

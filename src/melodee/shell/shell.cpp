@@ -27,6 +27,7 @@
 #include "melodee/shell/shift_pads.h"
 #include "surface/controls.h"
 #include <algorithm>
+#include <filesystem>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -299,8 +300,20 @@ void Shell::press(Button b, bool pressed) {
         }
         if (!ui.shift) {
             bool kit = context_.track().engine == EngineKind::Sampler;
+            bool coming = ui.page != PageId::Samples;
             context_.open(kit ? PageId::Samples : PageId::Sounds);
-            if (kit && library_) library_->rescan();
+            if (kit && library_) {
+                // INDIGO X DENIM: the browser opens in the folder set in Settings (Sample folder), when it is there.
+                auto start = ui.settings.start_folder_text();
+                if (coming && !start.empty()) {
+                    bool card = start.rfind("card:", 0) == 0;
+                    std::string path = card ? library_->card() + "/" + start.substr(5) : start;
+                    std::error_code error;
+                    if ((!card || !library_->card().empty()) && std::filesystem::is_directory(path, error))
+                        library_->browse(card ? Drive::Card : Drive::Internal, path);
+                }
+                library_->rescan();
+            }
         }
         break;
     case Button::SampleRecord: // a sampler track: the Record page; there, a take ends and Sample Mode has its pad
@@ -354,6 +367,7 @@ void Shell::press(Button b, bool pressed) {
     case Button::TopRight: if (!track_soft(context_, 2) && !repeat_soft(context_, 2)) page.soft(context_, 2); break;
     case Button::WheelPush:
         if (ui.shift && ui.page == PageId::Song) song_marker(context_);
+        else if (ui.shift && ui.page == PageId::Mixer) { ui.shift_used = true; mixer_solo(context_); } // INDIGO X DENIM: solo the strip
         else if (ui.shift && ui.page == PageId::Roll && !ui.sheet_open) { ui.shift_used = true; roll_pick_note(context_); } // INDIGO X DENIM: pick the note
         else if (ui.shift && ui.page == PageId::Project && ui.project_list && !ui.sheet_open && !ui.move_open && !context_.project_folder.empty()) {
             // up a folder

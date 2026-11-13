@@ -318,6 +318,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         uint32_t bits = uint32_t(input) << 16;
         for (unsigned side = 0; side < surface_meter_lights; ++side) {
             uint8_t lit = input ? meter_lit(host.in_level(side), meter_input_db) : meter_lit(host.out_level(side), meter_mix_db);
+            if (ui.settings.level_leds) lit = 0; // INDIGO X DENIM: Settings > AUDIO > Level LEDs Off
             lights.meter(side, lit);
             bits |= uint32_t(lit) << (8 * side);
         }
@@ -407,7 +408,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     // Tap Tempo flashes on the beat while playing.
     unsigned beat = project.beat_ticks();
     on(B::TapTempo, playing && ticks % beat < beat / 3);
-    on(B::Mute, ui.mute_mode());           // bright while mute mode is on, latched or held
+    on(B::Mute, ui.mute_mode() || ui.page == PageId::Mixer); // INDIGO X DENIM: bright while the mixer is in view
     on(B::PadBank, tracks_on_pads(ui));    // held, or a track copy under way
     on(B::Erase, ui.erase || ui.copying != UiState::Copying::Off); // lit while copying
     button_levels.store(levels, std::memory_order_relaxed);

@@ -30,6 +30,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Steps, Roll, Motion, Pa
                             LayersPage,                        // roadmap P3: a kit pad's four layers
                             ModPage,                           // roadmap P4: modulators and macros (MOTION again on Motion)
                             Scenes,                            // roadmap P5: scenes and follow actions (Push on Patterns)
+                            Mixer,                             // INDIGO X DENIM: MUTE's mixer, PADS and TRACKS (pages/mixer_page.cpp)
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has
@@ -72,6 +73,10 @@ struct UiState {
     // when the latch goes off there.
     bool mute_opened = false;
     PageId mute_from = PageId::Stage;
+    // The mixer: 0 PADS (the kit's pads) or 1 TRACKS, and which eight strips of the sixteen are in view.
+    uint8_t mixer_view = 0, mixer_half = 0;
+    // ALL (Shift + MUTE on a kit): the pad pages' knobs set every used pad of the kit, not the last one alone.
+    bool all_pads = false;
     bool mute_mode() const { return mute || mute_latch; }
     // Note Repeat (shell/note_repeat.cpp): a tap latches, a hold lasts while held.
     bool repeat_held = false, repeat_turned_on = false;

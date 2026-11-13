@@ -293,6 +293,7 @@ public:
     bool plugin_came_back = true; // false after going up, until the cursor lands on the folder it came out of
     // Sampler tracks
     SampleLibrary* library = nullptr; // set by the app; the service thread reads the files
+    bool all_applying = false;        // INDIGO X DENIM: ALL is setting the other pads (no ALL inside ALL)
     // Projects on the card
     ProjectStore* store = nullptr;
     CardLink* card = nullptr;          // SD card access (shell/card_access.h): set by the shell

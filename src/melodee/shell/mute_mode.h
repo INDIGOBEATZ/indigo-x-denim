@@ -22,6 +22,8 @@ void mute_pad(Context& c, unsigned pad, bool kit_pads);
 void set_pad_mute(Context& c, unsigned track, unsigned kit, bool on);
 // Shift + Mute: every track, every solo, every kit pad of every track.
 void unmute_all(Context& c);
+// INDIGO X DENIM, pages/mixer_page.cpp: Shift + Push on the mixer solos the strip in hand.
+void mixer_solo(Context& c);
 // A kit pad soloed: the only used pad of the kit not muted.
 inline bool pad_soloed(const Track& t, unsigned kit) {
     kit %= sampler_pads;

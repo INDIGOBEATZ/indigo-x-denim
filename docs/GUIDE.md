@@ -189,14 +189,23 @@ what is lost and whether undo brings it back.
 
 ### Mute and solo
 
-Press **MUTE** to turn on mute mode and open the mixer (**Tracks**). Press
-it again to turn mute mode off and go back to the page you came from. Hold **MUTE** for mute mode only while
-it is held.
+**MUTE** is the mixer's button (INDIGO X DENIM): a tap opens the **MIXER**
+on **PADS** (on a track that is not a kit, on **TRACKS**), the next tap shows
+**TRACKS**, the next goes back to the page you came from. The pads never mute
+by accident.
 
-- On a kit page, the pads mute kit pads.
-- On other pages, the pads mute tracks.
-- **SHIFT** + pad solos.
-- **SHIFT** + **MUTE** unmutes everything.
+The mixer shows eight strips: the name on top (lit for the strip in hand),
+the level as a tall bar, **M** and **S** under it, and **FX** where the
+track has effects.
+
+- **B1** **PADS** / **B2** **TRACKS**: press again for the other eight.
+- A pad, the encoder or **−** / **+** pick a strip (on PADS the pad plays).
+- **K1** level, **K2** pan, **K3** the pad's tune or the track's send to bus A.
+- Encoder push mutes the strip in hand; **SHIFT** + encoder push solos it.
+- **B3** **FX** opens the track's effects. **SHIFT** + **B3** unmutes all.
+- **SHIFT** + **MUTE** on a kit: **ALL PADS**. The pad pages' knobs then set
+  every used pad of the kit at once (level, pan, tune, filter, envelopes,
+  Mono/Poly and more; each pad keeps its own sample region).
 
 Muted pads light red. Soloed pads light white.
 
@@ -369,10 +378,13 @@ Press **SAMPLE SELECT** on a kit to open the sample browser.
 | **B3** | **PREVIEW**: play each file when you move to it. |
 | **SHIFT** + pad | Load the file onto the next empty pad. |
 | **SHIFT** + **B3** | **STAR**: make the file a favourite, or take its star off. Starred files show a star. |
+| **SHIFT** + **B1** | **SET START**: Sample Select opens in this folder from now on (Settings > SCREEN > Sample folder; **−** / **+** there clears it). |
 
 **B2** also has **FAVOURITES**, after **INTERNAL**: every starred file, from
 both drives, by name. The favourites are kept on the card in
 `Melodee/Favourites.txt`.
+
+A folder of MPC expansions shows as a grid of their covers.
 
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV files: 16, 24 or 32-bit, any sample rate, up to 60

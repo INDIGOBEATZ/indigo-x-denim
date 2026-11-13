@@ -5,6 +5,7 @@
 #include "melodee/shell/chop.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/sample_decode.h"
+#include <juce_graphics/juce_graphics.h>
 #include "drivers/mixer.h"
 #include "drivers/platform.h"
 #include "runtime/app.h"
@@ -158,6 +159,44 @@ void SampleLibrary::write_stars() const {
     for (const auto& [path, name] : stars) out << path << '\t' << name << '\n';
     out.close();
     if (out) fs::rename(file + ".new", file, error);
+}
+
+std::shared_ptr<const std::vector<uint32_t>> SampleLibrary::cover_of(const std::string& folder) {
+    if (auto found = covers.find(folder); found != covers.end()) return found->second;
+    if (covers.size() > 2000) covers.clear();
+    std::shared_ptr<const std::vector<uint32_t>> cover;
+    std::error_code error;
+    fs::path image;
+    // An MPC expansion names its art in Expansion.xml (<img>), beside it.
+    fs::path xml = fs::path(folder) / "Expansion.xml";
+    if (fs::is_regular_file(xml, error)) {
+        if (auto doc = juce::XmlDocument::parse(juce::File(xml.string()))) {
+            auto name = doc->getChildElementAllSubText("img", {}).trim().toStdString();
+            if (!name.empty() && fs::is_regular_file(fs::path(folder) / name, error)) image = fs::path(folder) / name;
+        }
+    }
+    if (image.empty()) // else the first JPEG or PNG at its top
+        for (auto it = fs::directory_iterator(folder, fs::directory_options::skip_permission_denied, error);
+             !error && it != fs::directory_iterator(); it.increment(error)) {
+            auto kind = it->path().extension().string();
+            std::transform(kind.begin(), kind.end(), kind.begin(), [](unsigned char ch) { return char(std::toupper(ch)); });
+            if ((kind == ".JPG" || kind == ".JPEG" || kind == ".PNG") && it->path().filename().string()[0] != '.') { image = it->path(); break; }
+        }
+    if (!image.empty() && fs::file_size(image, error) < (8u << 20)) {
+        auto picture = juce::ImageFileFormat::loadFrom(juce::File(image.string()));
+        if (picture.isValid()) {
+            constexpr int n = int(SampleFile::cover_size);
+            int side = std::min(picture.getWidth(), picture.getHeight()); // the middle square
+            auto square = picture.getClippedImage({(picture.getWidth() - side) / 2, (picture.getHeight() - side) / 2, side, side});
+            auto small = square.rescaled(n, n, juce::Graphics::highResamplingQuality).convertedToFormat(juce::Image::ARGB);
+            auto pixels = std::make_shared<std::vector<uint32_t>>(size_t(n * n));
+            for (int y = 0; y < n; ++y)
+                for (int x = 0; x < n; ++x) (*pixels)[size_t(y * n + x)] = small.getPixelAt(x, y).getARGB();
+            cover = pixels;
+        }
+    }
+    covers[folder] = cover;
+    return cover;
 }
 
 void SampleLibrary::stars_service() {
@@ -398,6 +437,8 @@ void SampleLibrary::scan() {
         if (a.instrument != b.instrument) return a.instrument;
         return a.folder != b.folder ? a.folder : a.name != b.name ? a.name < b.name : a.path < b.path;
     });
+    if (files.size() <= 200) // INDIGO X DENIM: the folders' covers (an expansion's art), read once each
+        for (auto& f : files) if (f.folder && !f.presets) f.cover = cover_of(f.path);
     for (auto& f : files) // INDIGO X DENIM: the rows' stars
         f.starred = !f.folder && std::any_of(stars.begin(), stars.end(), [&](const auto& s) { return s.first == f.path; });
     int came_from = -1;

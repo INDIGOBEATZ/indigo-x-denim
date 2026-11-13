@@ -472,6 +472,26 @@ void Context::apply(const Binding& b, int value) {
     if (mod_binding(*this, b, value)) return;
     if (midi_binding(*this, b, value)) return; // roadmap P4: a MIDI track's device and SysEx file
     auto& t = track();
+    // INDIGO X DENIM, ALL (Shift + MUTE): a pad's sound turned on one pad is set on every used pad of the kit. Its
+    // region, layers and zones stay each pad's own.
+    if (ui.all_pads && !all_applying && t.engine == EngineKind::Sampler) {
+        static const Kind every[] {Kind::PadPitch, Kind::PadFine, Kind::PadLevel, Kind::PadPan, Kind::PadPlayMode, Kind::PadGroup,
+                                   Kind::PadReverse, Kind::PadAttack, Kind::PadDecay, Kind::PadRelease, Kind::PadSustain, Kind::PadLoop,
+                                   Kind::PadMono, Kind::PadOffset, Kind::PadVelSense, Kind::PadDecayFrom, Kind::PadFilterType, Kind::PadCutoff,
+                                   Kind::PadResonance, Kind::PadFAttack, Kind::PadFDecay, Kind::PadFSustain, Kind::PadFRelease,
+                                   Kind::PadFAmount, Kind::PadWarp};
+        if (std::find(std::begin(every), std::end(every), b.kind) != std::end(every)) {
+            all_applying = true;
+            uint8_t keep = t.last_pad;
+            for (unsigned k = 0; k < sampler_pads; ++k) {
+                if (k == keep % sampler_pads || !t.pads[k].used()) continue;
+                t.last_pad = uint8_t(k);
+                apply(b, value);
+            }
+            t.last_pad = keep;
+            all_applying = false;
+        }
+    }
     switch (b.kind) {
     case Kind::Param:
         set_param(ui.track, b.id, value);
@@ -1511,6 +1531,7 @@ void Context::chop_to_pads() {
         if (pad >= sampler_pads) break;
         PadSound sound;
         sound.sample = ui.chop_sample; sound.start = ui.slices.start[n]; sound.end = ui.slices.end(n, frames);
+        sound.mono = true; // INDIGO X DENIM: a chop's slices cut each other off (Mono), as one played break
         t.pads[pad] = sound;
         send_pad(ui.track, pad);
     }

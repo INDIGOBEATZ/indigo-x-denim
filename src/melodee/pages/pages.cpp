@@ -36,6 +36,7 @@ const PageSpec& page_spec(PageId page) {
     case PageId::LayersPage: return layers_page;
     case PageId::ModPage: return mod_page; // roadmap P4
     case PageId::Scenes: return scenes_page; // roadmap P5
+    case PageId::Mixer: return mixer_page; // INDIGO X DENIM
     case PageId::EnvelopePage: return envelope_page;
     case PageId::FilterPage: return filter_page;
     case PageId::FollowPage: return follow_page;

@@ -660,6 +660,13 @@ const Preview previews[] {
          chain.slots[0].kind = uint8_t(EffectKind::Eq); chain.slots[1].kind = uint8_t(EffectKind::Echo);
          s.ui.fx_cursor[UiState::cursor_of(pad_chain(3, s.project.tracks[3].last_pad % sampler_pads))] = 1;
      }},
+    {"stagekitpadfxshift", [](Shell&, Snapshot& s) { // LAB: Shift: REPLACE, REMOVE, BYPASS the echo in hand (bypassed: lit)
+         on_stage(s, 3, 0, 1); s.sample = break_sample();
+         unsigned n = pad_chain(3, s.project.tracks[3].last_pad % sampler_pads);
+         auto& chain = s.project.chain(n);
+         chain.slots[0].kind = uint8_t(EffectKind::Eq); chain.slots[1].kind = uint8_t(EffectKind::Echo); chain.slots[1].bypass = true;
+         s.ui.fx_cursor[UiState::cursor_of(n)] = 1; s.ui.shift = true;
+     }},
     {"stagekitpadfxadd", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); }}, // LAB: no effects yet: Push adds one
     {"stagekittrackfx", [](Shell&, Snapshot& s) { // LAB: B3's fourth: the kit's own chain
          on_stage(s, 3, 2, 3); s.sample = break_sample(); s.playing = true;

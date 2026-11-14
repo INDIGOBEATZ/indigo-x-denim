@@ -412,6 +412,13 @@ void chord_picture(Paint& p, const Snapshot& s) {
 
 // FX: the track's whole chain as a strip of six slots, then the one in hand: its name, family, and what it does
 // drawn (pages/fx_drawing.cpp, as FX Select draws it). An empty chain: Push and a plus.
+// LAB: the chain a Stage FX page works on: a kit's PAD FX the last pad's, else (FX, TRACK FX) the track's.
+unsigned stage_chain(const UiState& ui, const Track& t) {
+    if (stage_page_now(ui, t).kind == StageKind::PadFx && t.engine == EngineKind::Sampler) return pad_chain(ui.track % track_count, t.last_pad % sampler_pads);
+    return ui.track % track_count;
+}
+bool fx_stage(StageKind kind) { return kind == StageKind::Fx || kind == StageKind::PadFx; }
+
 void fx_picture(Paint& p, const Snapshot& s) {
     const auto& t = s.track();
     // LAB: on a kit's PAD FX, the last pad's chain; else the track's.
@@ -871,6 +878,16 @@ void draw(Paint& p, const Snapshot& s) {
         { keys = SoftKeys {{"LOOP LOCK", "NORMALIZE", "PROCESS"}, -1, c}; keys.toggles = 1; keys.lit = sampler_pad(s).loop_lock ? 1 : 0; keys.leds[0] = c; } // LAB: PROCESS
     if (s.ui.process_open) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     if (s.ui.shift && page.kind == StageKind::Layers && t.engine == EngineKind::Sampler) keys = layers_keys(s);
+    if (s.ui.shift && fx_stage(page.kind) && t.used()) { // LAB: the effect in hand: REPLACE, REMOVE, BYPASS
+        unsigned chain = stage_chain(s.ui, t);
+        const auto& fx = s.project.chain(chain);
+        unsigned slot = s.ui.fx_cursor[UiState::cursor_of(chain)];
+        bool here = slot < fx.count();
+        keys = SoftKeys {{"REPLACE", "REMOVE", "BYPASS"}, -1, c};
+        keys.toggles = 4; keys.lit = here && fx.slots[slot].bypass ? 4 : 0;
+        if (!here) keys.tints = {colour::dim, colour::dim, colour::dim};
+        else keys.tints[1] = colour::rec;
+    }
     if (!t.used()) { keys.active = stage_focus(s.ui, t); keys.dots = {}; } // the doors: the one Push makes lit
     frame(p, s, keys, h);
     switch (page.picture) {
@@ -919,6 +936,30 @@ void soft(Context& c, int key) {
     if (c.ui.shift && page.kind == StageKind::Layers && c.track().engine == EngineKind::Sampler) {
         if (key == 0) c.layer_load();  // Shift + B1: Samples, Push onto the layer in hand
         if (key == 1) c.layer_clear(); // Shift + B2
+        return;
+    }
+    if (c.ui.shift && fx_stage(page.kind) && c.track().used()) { // LAB: Shift + B1 REPLACE, B2 REMOVE, B3 BYPASS the effect in hand
+        c.ui.shift_used = true;
+        auto& t = c.track();
+        unsigned chain = stage_chain(c.ui, t);
+        const auto& fx = c.project.chain(chain);
+        unsigned slot = c.ui.fx_cursor[UiState::cursor_of(chain)];
+        if (slot >= fx.count()) { c.notice("Pick an effect first (Push)"); return; }
+        if (key == 0) { // FX Select over it; chosen or cancelled, back here
+            bool pad = page.kind == StageKind::PadFx;
+            if (!pad) c.ui.fx_loop = -1;
+            c.open(pad ? PageId::PadFx : PageId::Rack);
+            c.ui.fx_cursor[UiState::cursor_of(chain)] = uint8_t(slot);
+            c.ui.picker_open = true; c.ui.picker_items = false; c.ui.picker_replaces = true;
+            c.ui.picker_from_stage = true;
+        }
+        if (key == 1) {
+            c.set_effect(chain, slot, EffectKind::None);
+            const auto& after = c.project.chain(chain);
+            c.ui.fx_cursor[UiState::cursor_of(chain)] = uint8_t(after.count() ? std::min<unsigned>(slot, after.count() - 1) : 0);
+            c.notice("Effect removed");
+        }
+        if (key == 2) c.toggle_bypass(chain, slot);
         return;
     }
     c.stage_tick(UINT32_MAX); // a sound still waiting to load lands first

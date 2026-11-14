@@ -1345,6 +1345,9 @@ TUNE, PLAY, LAYERS, FOLLOW, CLOUD.
 - **B3** now ends with **TRACK FX**, the kit's own chain, which works the same way. On a synth's FX page Push also
   reaches **+** to add an effect.
 - Hit another pad and PAD FX shows that pad's effects.
+- **Hold Shift** on PAD FX, TRACK FX or a synth's FX page (v0.7.0) and the buttons work on the effect in hand:
+  **Shift+B1 REPLACE** opens FX Select over it and comes back here, **Shift+B2 REMOVE** takes it out of the
+  chain, **Shift+B3 BYPASS** turns it off and on (the LED is lit while it is bypassed).
 
 ### Chop (v0.6.7)
 

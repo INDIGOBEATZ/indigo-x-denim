@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/tools.h"
+#include "melodee/shell/arrange_lanes.h"
 #include "melodee/shell/expansion_install.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/mpc_project.h"
@@ -2061,6 +2062,34 @@ const Preview previews[] {
          static const EffectKind kinds[] {EffectKind::Compressor, EffectKind::Eq, EffectKind::Tape, EffectKind::Chorus, EffectKind::Echo, EffectKind::Room, EffectKind::Limiter};
          auto& fx = s.project.buses[0].fx;
          for (unsigned k = 0; k < 7; ++k) { fx.slots[k] = EffectSlot {}; fx.slots[k].kind = uint8_t(kinds[k]); }
+     }},
+    {"arrange", [](Shell& shell, Snapshot& s) { // LAB: ARRANGE: eight lanes over 8 bars, a marquee over three, the loop brace
+         s.ui.page = PageId::Arrange; s.ui.track = 1; s.playing = true; s.ui.arr_zoom = 3; s.ui.arr_lanes = 1;
+         const uint32_t bar = s.project.bar_ticks();
+         s.ui.arr_cursor = 2 * bar; s.ui.arr_selected = true; s.ui.arr_from = 2 * bar; s.ui.arr_to = 4 * bar; s.ui.arr_t0 = 0; s.ui.arr_t1 = 2;
+         s.ui.brace_from = 0; s.ui.brace_to = 4 * bar;
+         fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
+     }},
+    {"arrangeedit", [](Shell& shell, Snapshot& s) { // LAB: its EDIT sheet
+         s.ui.page = PageId::Arrange; s.ui.track = 1; s.ui.arr_zoom = 3; s.ui.arr_lanes = 1; s.ui.arr_sheet = true; s.ui.arr_row = 4;
+         const uint32_t bar = s.project.bar_ticks();
+         s.ui.arr_selected = true; s.ui.arr_from = 2 * bar; s.ui.arr_to = 4 * bar; s.ui.arr_t0 = 0; s.ui.arr_t1 = 2; s.ui.arr_board = 3;
+         fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
+     }},
+    {"arrange16", [](Shell& shell, Snapshot& s) { // LAB: sixteen lanes over 32 bars, ARR over the brace
+         s.ui.page = PageId::Arrange; s.ui.track = 3; s.ui.arr_zoom = 5; s.ui.arr_lanes = 2; s.ui.arr_mode = 2;
+         const uint32_t bar = s.project.bar_ticks();
+         s.ui.arr_cursor = 8 * bar; s.ui.brace_from = 8 * bar; s.ui.brace_to = 16 * bar;
+         fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
+     }},
+    {"arrangeshift", [](Shell& shell, Snapshot& s) {
+         s.ui.page = PageId::Arrange; s.ui.track = 1; s.ui.arr_zoom = 2; s.ui.arr_lanes = 0; s.ui.shift = true; s.ui.arr_mode = 1;
+         fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
+     }},
+    {"mixerbuses", [](Shell&, Snapshot& s) { // LAB: TRACKS' fourth press: the buses as VU faders
+         s.ui.page = PageId::Mixer; s.ui.mixer_view = 2; s.ui.mixer_bus = 1; s.playing = true; s.now = 0;
+         s.bus_meters = {0.32f, 0.6f, 0.08f, 0.0f, 0.71f};
+         s.project.tracks[3].mix.out = 2;
      }},
     {"mixercompact", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.mixer_half = 2; }},
     {"history", [](Shell&, Snapshot& s) { // a moment after an undo: what a redo brings back above, the rest below

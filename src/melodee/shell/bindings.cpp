@@ -566,6 +566,7 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
     case PageId::Patterns: return pattern_shift_cards(project, ui, pattern);
     case PageId::Mixer: { // INDIGO X DENIM LAB: Shift + K1 the way out: a pad's on PADS, the track's on TRACKS
         const auto& tr = project.tracks[ui.track % track_count];
+        if (ui.mixer_view == 2) return {}; // BUSES
         if (ui.mixer_view == 0 && tr.engine == EngineKind::Sampler) {
             const auto& pd = tr.pads[tr.last_pad % sampler_pads];
             if (!pd.used()) return {};
@@ -943,7 +944,15 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
     case PageId::SettingsPage: case PageId::About: case PageId::MidiConfig: return {};
+    case PageId::Arrange: // INDIGO X DENIM LAB: K1 zoom, K2 lanes in view, K3 the selected track's pattern in bars
+        return {Binding {Kind::ArrZoom, 0, 0, int(sizeof(arrange_zooms) / sizeof(arrange_zooms[0])) - 1, ui.arr_zoom},
+                Binding {Kind::ArrLanes, 0, 0, 2, ui.arr_lanes % 3},
+                track.used() ? Binding {Kind::PatternBars, 0, 1, int(max_bars), int(pattern_bars(project, pattern))} : Binding {}};
     case PageId::Mixer: { // INDIGO X DENIM: the strip in hand. PADS: the pad's level, pan, tune; TRACKS: level, pan, send A
+        if (ui.mixer_view == 2) { // LAB: BUSES: K1 the bus's return (the main out: none)
+            if (ui.mixer_bus >= bus_count) return {};
+            return {Binding {Kind::BusReturn, int16_t(ui.mixer_bus), 0, 100, project.buses[ui.mixer_bus].level}, Binding {}, Binding {}};
+        }
         if (ui.mixer_view == 0 && track.engine == EngineKind::Sampler) {
             const auto& pd = track.pads[track.last_pad % sampler_pads];
             if (!pd.used()) return {};

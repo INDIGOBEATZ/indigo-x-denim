@@ -48,7 +48,7 @@ float meter_height(float db) {
 // The needle's ballistics, screen thread only: each strip's shown level (dB) rises at once and falls 26 dB a second;
 // its peak holds 0.9 s, then falls 14 dB a second. A pad's and a track's kept apart; a new track starts its pads afresh.
 struct Needle { float db = -120, peak = -120; uint32_t peak_at = 0; };
-std::array<Needle, sampler_pads + track_count> needles;
+std::array<Needle, sampler_pads + track_count + bus_count + 1> needles; // LAB: the buses' and the main out's after
 unsigned needles_track = ~0u;
 uint32_t needles_at = 0;
 
@@ -69,7 +69,67 @@ bool chain_fx(const Project& project, unsigned n) {
     return false;
 }
 
+// LAB: BUSES (TRACKS' fourth press): bus A-D and the main out as VU faders, as the tracks', each bus's return as
+// its cap; what goes in (tracks sending or routed to it) under it.
+void draw_buses(Paint& p, const Snapshot& s) {
+    const unsigned count = bus_count + 1, at = s.ui.mixer_bus % count;
+    auto c = colour::text;
+    Header h = header_of(s);
+    auto which = pill("BUSES", c);
+    which.spare = true;
+    h.left.push_back(which);
+    h.right.push_back(tag_of(s, s.ui.track));
+    SoftKeys keys {{"PADS", "TRACKS", "FX"}, 1, c};
+    keys.dots[1] = 4; keys.dot_at[1] = 3;
+    if (s.ui.shift) keys = SoftKeys {{"", "", "UNMUTE ALL"}, -1, c};
+    frame(p, s, keys, h);
+    static const juce::Colour bus_colours[] {juce::Colour(0xff4fc3f7), juce::Colour(0xffffb74d), juce::Colour(0xffba68c8), juce::Colour(0xff81c784)};
+    const bool live = s.now != 0;
+    if (live && s.now - needles_at > 500) for (auto& n : needles) n = Needle {};
+    const float x0 = zone::pad, gap = 6, w = (zone::width - 2 * zone::pad - gap * (count - 1)) / float(count);
+    const float top = zone::picture_y + 2, label_h = 15, fader_top = top + label_h + 4, fader_h = 92;
+    const float info_y = fader_top + fader_h + 4;
+    for (unsigned n = 0; n < count; ++n) {
+        bool main = n == bus_count, current = n == at;
+        juce::Colour col = main ? colour::text : bus_colours[n];
+        juce::String name = main ? juce::String("MAIN") : "BUS " + juce::String::charToString(juce::juce_wchar('A' + n));
+        float level = main ? 1.0f : s.project.buses[n].level / 100.0f;
+        auto& nd = needle(s, sampler_pads + track_count + n, s.bus_meters[n], live);
+        float x = x0 + n * (w + gap);
+        if (current) p.fill(x - 1, top - 1, w + 2, info_y + 26 - top, colour::raised, 4);
+        p.fill(x, top, w, label_h, current ? col : colour::surf, 3);
+        p.text(name, x, top, w, label_h, p.fit(name, caps_text(current ? colour::bg : colour::text), w - 2, type::floor), juce::Justification::centred);
+        float bw = w - 12, bx = x + 6;
+        p.fill(bx, fader_top, bw, fader_h, colour::quiet, 3);
+        for (int tick = 1; tick < 5; ++tick) p.fill(bx, fader_top + fader_h * (1 - tick / 5.0f), bw, 0.5f, colour::bg.withAlpha(0.6f));
+        float up = meter_height(nd.db) * fader_h;
+        if (up > 0.5f) {
+            juce::ColourGradient vu(col.darker(0.8f), bx, fader_top + fader_h, col.brighter(0.5f), bx, fader_top, false);
+            vu.addColour(0.55, col);
+            p.g.setGradientFill(vu);
+            p.g.fillRoundedRectangle(bx, fader_top + fader_h - up, bw, up, std::min(3.0f, up / 2));
+        }
+        float held = meter_height(nd.peak) * fader_h;
+        if (held > 1.5f && held > up + 1) p.fill(bx + 1, fader_top + fader_h - held, bw - 2, 1.5f, col.brighter(0.6f).withAlpha(0.9f), 0.75f);
+        if (!main) {
+            float cap = fader_top + fader_h * (1 - std::clamp(level, 0.0f, 1.0f));
+            p.fill(bx - 2, std::clamp(cap - 1.5f, fader_top, fader_top + fader_h - 3), bw + 4, 3, current ? colour::text : colour::sec, 1.5f);
+            unsigned in = 0;
+            for (const auto& t : s.project.tracks) in += t.used() && (t.mix.out == n + 1 || t.mix.sends[n] > 0);
+            p.text(juce::String(s.project.buses[n].level) + " %", x, info_y, w, 12, caps_text(current ? colour::text : colour::mid), juce::Justification::centred);
+            p.text(juce::String(in) + " IN", x, info_y + 13, w, 11, caps_text(in ? col : colour::dim), juce::Justification::centred);
+            if (chain_fx(s.project, bus_chain(n))) p.text("FX", x, fader_top + fader_h - 12, w, 11, caps_text(colour::bg), juce::Justification::centred);
+        } else {
+            float db = nd.db > -60 ? nd.db : -60;
+            p.text(nd.db > -60 ? juce::String(db, 1) : juce::String("-inf"), x, info_y, w, 12, caps_text(current ? colour::text : colour::mid), juce::Justification::centred);
+            p.text("DB", x, info_y + 13, w, 11, caps_text(colour::dim), juce::Justification::centred);
+        }
+    }
+    if (live) needles_at = s.now;
+}
+
 void draw(Paint& p, const Snapshot& s) {
+    if (s.ui.mixer_view == 2) { draw_buses(p, s); return; } // LAB
     const auto& track = s.track();
     auto c = colour_of(s);
     bool pads = pads_view(s);
@@ -186,6 +246,7 @@ void draw(Paint& p, const Snapshot& s) {
 
 // The strip in hand moves by `way` (the wheel, Minus / Plus); the eight in view follow it.
 void step(Context& c, int way) {
+    if (c.ui.mixer_view == 2) { c.ui.mixer_bus = uint8_t(std::clamp(int(c.ui.mixer_bus) + way, 0, int(bus_count))); return; } // LAB: BUSES
     auto& t = c.track();
     if (c.ui.mixer_view == 0 && t.engine == EngineKind::Sampler) {
         unsigned bank = t.bank % sampler_banks, in_bank = t.last_pad % 16;
@@ -209,6 +270,7 @@ void step(Context& c, int way) {
 
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& t = c.track();
+    if (c.ui.mixer_view == 2) { if (down && pad % 16 <= bus_count) c.ui.mixer_bus = uint8_t(pad % 16); return; } // LAB: BUSES: pads 1-5 pick
     if (c.ui.mixer_view == 0 && t.engine == EngineKind::Sampler) { // PADS: it plays, and is the strip in hand
         c.play_pad(pad, velocity, down);
         if (down) { t.last_pad = uint8_t(t.bank % sampler_banks * 16 + pad % 16); c.ui.mixer_half = uint8_t(pad % 16 / strips); }
@@ -220,6 +282,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
 }
 
 void push(Context& c) { // the strip in hand muted, or not
+    if (c.ui.mixer_view == 2) return; // LAB: BUSES
     auto& t = c.track();
     if (c.ui.mixer_view == 0 && t.engine == EngineKind::Sampler) {
         unsigned kit = t.last_pad % sampler_pads;
@@ -235,6 +298,7 @@ void soft(Context& c, int key) {
     if (ui.shift) { // UNMUTE ALL; LAB: PADS FLATTEN, EXPLODE; TRACKS SUB LENS, TUNER
         ui.shift_used = true;
         if (key == 2) unmute_all(c);
+        else if (ui.mixer_view == 2) return;
         else if (ui.mixer_view == 0) { if (key == 0) c.flatten_start(); else explode_pads(c); }
         else c.open(key == 0 ? PageId::SubLens : PageId::Tuner);
         return;
@@ -246,8 +310,13 @@ void soft(Context& c, int key) {
         return;
     }
     if (key == 1) { // TRACKS, again the other eight
-        if (ui.mixer_view == 1) ui.mixer_half = uint8_t((ui.mixer_half + 1) % 3); // LAB: 1-8, 9-16, all sixteen
+        if (ui.mixer_view == 1 && ui.mixer_half < 2) ui.mixer_half = uint8_t(ui.mixer_half + 1); // LAB: 1-8, 9-16, all sixteen,
+        else if (ui.mixer_view == 1) ui.mixer_view = 2;                                          // then the buses
         else { ui.mixer_view = 1; ui.mixer_half = uint8_t(ui.track % track_count / strips); }
+        return;
+    }
+    if (ui.mixer_view == 2) { // LAB: the bus's chain, or the master's
+        if (ui.mixer_bus < bus_count) { ui.sends_bus = ui.mixer_bus; c.open(PageId::Bus); } else c.open(PageId::Master);
         return;
     }
     // FX: the pad's own chain on PADS (the pad in hand), the track's on TRACKS

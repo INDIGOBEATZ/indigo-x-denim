@@ -29,6 +29,20 @@ struct PatternSketch {
     std::array<uint8_t, 64> keys {};
 };
 
+// INDIGO X DENIM LAB: ARRANGE's lanes as drawn: each note in view as a mark (pixels from the lane's left, its
+// pitch 0..255 within the track's range, velocity; ghost: a repeat past the pattern's own length), where the pattern
+// ends and where its playhead is (pixels, -1 out of view).
+struct ArrangeLane {
+    struct Mark { uint16_t x0 = 0, x1 = 0; uint8_t y = 0, velocity = 0; bool ghost = false; };
+    static constexpr unsigned most = 160;
+    std::array<Mark, most> marks {};
+    uint16_t count = 0;
+    int16_t end_x = -1, play_x = -1;
+    uint32_t length = 0;
+    bool used = false;
+};
+constexpr float arrange_lane_x = 46, arrange_lane_w = 320 - 46 - 4; // ARRANGE's lanes: their left and width (pixels)
+
 struct Snapshot {
     UiState ui;
     Project project;
@@ -57,6 +71,8 @@ struct Snapshot {
     // INDIGO X DENIM LAB: the tuner's pitch of the input (Hz, 0 none) and its level; Sub Lens's two tracks under 150 Hz,
     // oldest first, each point the window's slice of it.
     float tuner_hz = 0, tuner_level = 0;
+    std::array<ArrangeLane, track_count> arrange {};
+    std::array<float, bus_count + 1> bus_meters {}; // LAB: each bus's peak after its return, then the main out's // LAB: ARRANGE's lanes, filled on that page
     // INDIGO X DENIM LAB: Reference A/B: its song (name, how long, where it is), whether it is heard, its loudness.
     bool ref_loaded = false, ref_on = false;
     uint32_t ref_seconds = 0, ref_length = 0;

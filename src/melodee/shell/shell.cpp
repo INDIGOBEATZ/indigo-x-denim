@@ -27,6 +27,7 @@
 #include "melodee/shell/seq_layer.h"
 #include "melodee/shell/shift_pads.h"
 #include "melodee/shell/shortcuts.h"
+#include "melodee/shell/arrange_lanes.h"
 #include "surface/controls.h"
 #include <algorithm>
 #include <filesystem>
@@ -451,7 +452,7 @@ void Shell::wheel(int delta) {
     }
     if (seq_wheel(context_, delta)) return;     // Seq held: the tempo
     if (pad_bank_move(context_, delta)) return; // Pad Bank held: the wheel jumps banks
-    if (ui_.shift && ui_.last_pot >= 0 && ui_.page != PageId::Patterns && ui_.page != PageId::Roll && ui_.page != PageId::Song && ui_.page != PageId::Mixer) { // Patterns: locates by Q; Roll: note to note; LAB: Song's marquee, Mixer's reorder
+    if (ui_.shift && ui_.last_pot >= 0 && ui_.page != PageId::Patterns && ui_.page != PageId::Roll && ui_.page != PageId::Song && ui_.page != PageId::Mixer && ui_.page != PageId::Arrange) { // Patterns: locates by Q; Roll: note to note; LAB: Song's marquee, Mixer's reorder
         // Shift + wheel: fine edit of the last pot touched, one step a detent.
         ui_.shift_used = true;
         auto bindings = page_bindings(*project_, ui_, context_.pattern(), ui_.last_pot_shift);
@@ -640,6 +641,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
                 if (!sketch.keys[k]) sketch.keys[k] = e.key;
             }
         }
+    if (ui_.page == PageId::Arrange) fill_arrange_lanes(out, *patterns_, [&](unsigned t) { return host.position_of(t); }); // LAB
     out.song_playing = host.song_playing();
     out.song_bar = host.song_bar();
     {
@@ -654,6 +656,8 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
         }
     }
     for (unsigned t = 0; t < track_count; ++t) out.meters[t] = host.meter(t);
+    for (unsigned b = 0; b < bus_count; ++b) out.bus_meters[b] = host.bus_meter(b); // LAB
+    out.bus_meters[bus_count] = std::max(host.out_level(0), host.out_level(1));
     for (unsigned n = 0; n < sampler_pads; ++n) out.pad_meters[n] = host.pad_meter(ui_.track % track_count, n);
     { // INDIGO X DENIM LAB: the spectrum behind the EQ, the master's loudness
         static ui::Spectrum<Snapshot::spectrum_bands> track_spectrum, master_spectrum;

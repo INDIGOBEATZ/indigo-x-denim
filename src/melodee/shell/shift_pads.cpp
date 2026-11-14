@@ -65,8 +65,8 @@ void shift_pad(Context& c, unsigned pad) {
     case 8: // Fader: what the selected track's fader follows, PIN, on / off (parity phase 8; round 2 fader C)
         c.open(PageId::FaderPage);
         return;
-    case 11: // Song
-        c.open(PageId::Song);
+    case 11: // Song; LAB: again, ARRANGE (MPC 3's Arrange mode), and back
+        c.open(c.ui.page == PageId::Song ? PageId::Arrange : PageId::Song);
         return;
     case 15: // Project: SAVE, OPEN and NEW, the projects on the card behind OPEN
         c.ui.project_list = false; c.ui.sheet_open = false; c.ui.sheet_more = false; c.ui.move_open = false;

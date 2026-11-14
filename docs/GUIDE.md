@@ -1334,6 +1334,36 @@ note is saved as a WAV file in Samples/Autosampled/<name>/, together with an .sf
 that maps them across the keys. **B3** again stops early and keeps what was already sampled.
 
 
+### ARRANGE (as MPC 3.10's Arrange mode)
+
+Open it from Song with **Shift + B1**, or press **Shift + Pad 12** again while on Song (once more goes back
+to Song). Every track's pattern is a lane on one timeline, its notes drawn by pitch. A pattern shorter than the
+view repeats, faint. The loop brace is always shown in amber over the ruler, and each lane has its own playhead.
+
+- **Wheel**: the cursor. **Shift + wheel**: draw a selection from where the cursor was.
+- **Pads**: pick the track (its lane comes into view). In MRQ, hold a pad and tap another to span the lanes.
+- **B1**: the edit mode, **MRQ** (the marquee's lanes), **TRK** (the selected track) or **ARR** (every lane).
+  With no selection drawn, edits use the loop brace.
+- **B2 EDIT**: Copy, Cut, Paste (at the cursor), Paste insert, Duplicate, Delete time, Clear,
+  Loop to selection (snapped to whole bars), Select all, Deselect. Each edit is one undo.
+- **B3 GRID** or **Push**: the selected track's notes in Roll.
+- **Shift + B1 / B2 / B3**: Copy, Paste, Duplicate straight away. **Minus / Plus**: a bar back or on.
+- **K1** zoom (1-128 bars), **K2** lanes in view (4, 8, 16), **K3** the selected track's pattern length.
+
+Paste and Duplicate make a pattern longer when needed (up to 128 bars), so you can build a whole song as
+one long sequence, the MPC 3 way.
+
+### Mixer: BUSES
+
+On the mixer, press **TRACKS** repeatedly: 1-8, 9-16, all 16, then **BUSES**. Bus A-D and MAIN are VU
+faders that move as smoothly as the tracks'. **K1** sets the bus's volume (its return), the wheel or pads
+1-5 pick a strip. Under each bus you see its level and how many tracks go in (sends or routed). **B3 FX**
+opens the bus's effects (on MAIN: the master's).
+
+### Browser
+
+**PREVIEW** is now on from the start: each sample plays as the cursor lands on it.
+
 ### Buses: a track or a pad into a bus
 
 On the mixer (MUTE), hold **Shift** and turn **K1 (OUT)**:

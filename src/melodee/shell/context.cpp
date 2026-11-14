@@ -604,6 +604,8 @@ void Context::apply(const Binding& b, int value) {
         send({Type::Swing, 0, 0, 0, int16_t(value)});
         break;
     case Kind::SongZoom: ui.song_zoom = uint8_t(value); break;
+    case Kind::ArrZoom: ui.arr_zoom = uint8_t(value); arrange_show(ui.arr_cursor); break; // LAB: ARRANGE
+    case Kind::ArrLanes: ui.arr_lanes = uint8_t(value % 3); ui.arr_top = uint8_t(std::min<unsigned>(ui.arr_top, track_count - arrange_lane_counts[ui.arr_lanes])); break;
     case Kind::ViewZoom: // INDIGO X DENIM: Roll's or Steps' bars in view
         if (ui.page == PageId::Steps) ui.steps_zoom = uint8_t(value & 3);
         else { ui.roll_zoom = uint8_t(value & 3); roll_follow(pattern(), ui); }

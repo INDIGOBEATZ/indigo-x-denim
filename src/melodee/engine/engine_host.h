@@ -248,6 +248,7 @@ public:
     // side 0 left, 1 right, as peaks falling meter_fall_db a second, so the 5 ms light pass misses none.
     static constexpr float meter_fall_db = 30;
     float out_level(unsigned side) const { return out_levels[side & 1].load(std::memory_order_relaxed); }
+    float bus_meter(unsigned bus) const { return bus_meters[bus % bus_count].load(std::memory_order_relaxed); } // LAB: a bus's peak after its return
     float in_level(unsigned side) const { return in_levels[side & 1].load(std::memory_order_relaxed); }
     unsigned dropped() const { return lost.load(std::memory_order_relaxed); }
 
@@ -845,6 +846,7 @@ private:
     TapBoard tap_board;
     std::atomic<float> output_peak {0};
     std::array<std::atomic<float>, 2> out_levels {}, in_levels {};
+    std::array<std::atomic<float>, bus_count> bus_meters {}; // LAB
     std::atomic<unsigned> lost {0};
     std::atomic<bool> punch_on {false};
     std::atomic<unsigned> live_on {0};

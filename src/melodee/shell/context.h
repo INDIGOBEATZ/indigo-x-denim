@@ -332,6 +332,18 @@ public:
     void reference_toggle();
     void reference_match();
     unsigned reference_seen = 0;
+    // LAB: ARRANGE (shell/arrange_edit.cpp)
+    struct ArrangeBoard { uint32_t length = 0; std::vector<std::vector<Event>> tracks; std::vector<std::vector<MotionPoint>> motion; };
+    ArrangeBoard arrange_board;
+    bool arrange_range(uint32_t& from, uint32_t& to, unsigned& t0, unsigned& t1) const;
+    template <class Change> unsigned arrange_each(const char* what, unsigned t0, unsigned t1, Change&& change);
+    void arrange_copy(bool cut);
+    void arrange_paste(bool insert);
+    void arrange_duplicate();
+    void arrange_delete(bool keep_time);
+    void arrange_loop_to_selection();
+    void arrange_select_all();
+    void arrange_show(uint32_t tick);
     std::vector<Event> note_board;
     std::vector<Event> bar_board; // LAB: Steps' COPY BAR, its notes' ticks from the bar's start
     std::vector<MotionPoint> bar_motion; // LAB: Roll's copied notes, ticks from the first

@@ -33,6 +33,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Steps, Roll, Motion, Pa
                             Mixer,                             // INDIGO X DENIM: MUTE's mixer, PADS and TRACKS (pages/mixer_page.cpp)
                             Tuner, SubLens,                    // INDIGO X DENIM LAB (pages/lab_pages.cpp)
                             ChordBuilder, AutoSampler,         // INDIGO X DENIM LAB (pages/chord_page.cpp)
+                            Arrange,                           // INDIGO X DENIM LAB: MPC 3's Arrange mode (pages/arrange_page.cpp)
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has
@@ -223,9 +224,18 @@ struct UiState {
     uint8_t auto_low = 36, auto_high = 84, auto_step = 12, auto_hold = 20, auto_tail = 10, auto_velocity = 100, auto_row = 0;
     bool auto_running = false;
     uint8_t auto_at = 0, auto_count = 0;
+    // INDIGO X DENIM LAB, ARRANGE (MPC 3.10's Arrange mode): every track's pattern on one timeline. The cursor and
+    // the view's start (ticks), the zoom (index into arrange_zooms) and lanes in view (4, 8 or 16), the first lane
+    // shown; the edit mode (0 MRQ, 1 TRK, 2 ARR); the selection's ticks [arr_from, arr_to) and lanes arr_t0..arr_t1
+    // (MRQ), its anchor; the loop brace's ticks; the EDIT sheet open and its row; whether a selection is drawn.
+    uint32_t arr_cursor = 0, arr_view = 0, arr_from = 0, arr_to = 0, arr_anchor = 0, brace_from = 0, brace_to = 0;
+    uint8_t arr_zoom = 3, arr_lanes = 1, arr_top = 0, arr_mode = 0, arr_t0 = 0, arr_t1 = 0, arr_row = 0;
+    bool arr_sheet = false, arr_selected = false;
+    uint16_t arr_pads = 0; uint8_t arr_board = 0; // pads held; tracks on the clipboard
     uint8_t shortcut_cursor = 0; // INDIGO X DENIM LAB: Settings > SHORTCUTS: the pad in hand
     bool memo_on = false; uint32_t memo_at = 0; // INDIGO X DENIM LAB: a voice memo recording, since when (ms)
     bool steps_b1 = false, steps_b1_used = false, bar_copied = false; // INDIGO X DENIM LAB: STEPS (B1) held on Steps: pads 1-16 jump to that bar
+    uint8_t mixer_bus = 0; // INDIGO X DENIM LAB: the mixer's BUSES: the strip in hand, bus A-D or 4 the main out
     bool ref_pick = false; // INDIGO X DENIM LAB: Samples' Push picks Reference A/B's song
     bool song_wipe = false;
     uint8_t wipe_row = 0, wipe_range = 3, wipe_lanes = 0, wipe_what = 0;
@@ -259,7 +269,7 @@ struct UiState {
     uint16_t files_cursor = 0;  // Samples, the browser: the row under the cursor
     uint16_t files_count = 0;   // rows in the folder listed, copied in by the shell
     uint8_t files_drive = 0;    // B2: 0 the card, 1 the internal drive (Drive in sample_library.h)
-    bool preview = false;       // B3: each file plays as the cursor lands on it
+    bool preview = true;        // B3: each file plays as the cursor lands on it (LAB: on from the start)
     uint8_t trim_zoom = 0;      // Trim: 0 whole sample .. 4 sixteen times closer
     uint8_t pad_layer = 0;      // Layers (roadmap P3): the layer in hand, 0-3
     uint16_t zone = 0;          // Stage's ZONES (round 3 "instrument C"): the instrument's zone in hand; the key played picks it

@@ -22,7 +22,7 @@ bool run_shortcut(Context& c, unsigned pad) {
     case 2: c.open(PageId::Master); break;
     case 3: c.open(PageId::Tuner); break;
     case 4: c.open(PageId::SubLens); break;
-    case 5: c.open(PageId::Song); c.ui.song_all = true; break;
+    case 5: c.open(PageId::Arrange); break;
     case 6: c.reference_toggle(); break;
     case 7: c.reference_pick(); break;
     case 8:

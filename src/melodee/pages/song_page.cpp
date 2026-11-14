@@ -93,7 +93,7 @@ SoftKeys keys_of(const Snapshot& s, const Clip* clip, juce::Colour c) {
         if (s.ui.shift) return {{modes[s.ui.song_marq % 4], "PASTE", "DESELECT"}, -1, c};
         return {{"COPY", "DELETE", "LOOP"}, -1, c};
     }
-    if (s.ui.shift) return {{s.ui.song_all ? "6 TRACKS" : "ALL TRACKS", clip ? "MOTION" : "", clip ? "OWN PATTERN" : ""}, -1, c};
+    if (s.ui.shift) return {{"ARRANGE", clip ? "MOTION" : "", clip ? "OWN PATTERN" : ""}, -1, c}; // LAB: MPC 3's Arrange mode
     if (clip) return {{"EXPORT", clip->muted ? "UNMUTE" : "MUTE", "DUPLICATE"}, -1, c};
     return {{"EXPORT", "", s.project.tracks[s.ui.track].used() ? "PLACE" : ""}, -1, c};
 }
@@ -543,7 +543,7 @@ void soft(Context& c, int key) {
     }
     int index = clip_index(c);
     if (c.ui.shift) {
-        if (key == 0) { c.ui.shift_used = true; c.ui.song_all = !c.ui.song_all; return; } // LAB: all sixteen lanes
+        if (key == 0) { c.ui.shift_used = true; c.open(PageId::Arrange); return; } // LAB: ARRANGE (MPC 3's Arrange mode)
         if (index < 0) return;
         if (key == 1) open_clip(c, index, true);
         if (key == 2) own_pattern(c, index);

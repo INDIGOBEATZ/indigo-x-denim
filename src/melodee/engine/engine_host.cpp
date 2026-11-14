@@ -2606,7 +2606,14 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     for (unsigned b = 0; b < bus_count; ++b) {
         auto& back = returns_now[b];
         back.aim(returns[b], frames, snap_mix);
-        for (unsigned f = 0; f < frames; ++f) { float g = back.at(f); master_l[f] += bus_l[b][f] * g; master_r[f] += bus_r[b][f] * g; }
+        float loud = 0; // LAB: the bus's meter, after its return
+        for (unsigned f = 0; f < frames; ++f) {
+            float g = back.at(f), l = bus_l[b][f] * g, r = bus_r[b][f] * g;
+            master_l[f] += l; master_r[f] += r;
+            loud = std::max(loud, std::max(std::fabs(l), std::fabs(r)));
+        }
+        float was = bus_meters[b].load(std::memory_order_relaxed) * dsp::fall_per_block(0.97f, frames);
+        bus_meters[b].store(std::max(loud, was < 1e-5f ? 0.0f : was), std::memory_order_relaxed);
     }
     // Knob FX into the master. After its targets let go it rings on until its tail has been quiet a while, or at
     // most knob_ring_seconds (then cleared), and rests: nothing it held comes back when it is next fed.

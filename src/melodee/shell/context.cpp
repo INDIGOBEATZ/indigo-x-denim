@@ -227,6 +227,7 @@ void Context::open(PageId page) {
     ui.fx_loop = -1; // FX Select on a loop track is set by its caller after this
     ui.picker_open = false;
     ui.song_export = false;
+    ui.song_wipe = false; // LAB
     if (ui.page == PageId::Sounds && page != PageId::Sounds) audition(-1);
     if (page != ui.page) {
         push_back_stack(ui, page);

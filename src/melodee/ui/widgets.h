@@ -57,7 +57,7 @@ struct MenuRow {
 };
 struct MenuSheet {
     juce::String title, detail;
-    std::array<MenuRow, 10> rows {}; // INDIGO X DENIM: ten, for Roll's SELECTION sheet
+    std::array<MenuRow, 12> rows {}; // INDIGO X DENIM: twelve, for Roll's SELECTION sheet (LAB: Copy notes)
     unsigned count = 0, current = 0;
     juce::Colour accent = colour::text;
     juce::Colour detail_colour = colour::mid;

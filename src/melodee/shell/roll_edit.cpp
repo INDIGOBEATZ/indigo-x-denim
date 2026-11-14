@@ -165,6 +165,35 @@ void roll_picks_delete(Context& c) {
     c.notice("Deleted " + std::to_string(n) + (n == 1 ? " note" : " notes"));
 }
 
+// INDIGO X DENIM LAB: the picked notes kept, their ticks from the first, to paste on any track (a kit's pads by
+// their place, an instrument's by pitch).
+void roll_copy(Context& c) {
+    const auto& p = c.pattern();
+    c.note_board.clear();
+    uint32_t first = UINT32_MAX;
+    for (unsigned k = 0; k < c.ui.roll_sel_count; ++k)
+        for (const auto& e : p.events)
+            if (e.tick == c.ui.roll_sel[k].tick && e.key == c.ui.roll_sel[k].key) { c.note_board.push_back(e); first = std::min(first, e.tick); break; }
+    for (auto& e : c.note_board) e.tick -= first;
+    c.ui.note_board_count = uint8_t(std::min<size_t>(c.note_board.size(), 255));
+    c.notice(std::to_string(c.note_board.size()) + (c.note_board.size() == 1 ? " note copied" : " notes copied"));
+}
+
+// INDIGO X DENIM LAB: the kept notes into this track's pattern from the cursor's step (one undo); past its end they
+// wrap round.
+void roll_paste(Context& c) {
+    if (c.note_board.empty()) { c.notice("Nothing copied"); return; }
+    const unsigned tr = c.ui.track, pa = c.track().pattern;
+    unsigned placed = 0;
+    c.edit_pattern(tr, pa, "Paste notes", [&] {
+        auto& p = c.pattern();
+        const uint32_t at = roll_cursor(p, c.ui) * p.q(), length = std::max<uint32_t>(p.length, 1);
+        for (auto e : c.note_board) { e.tick = (e.tick + at) % length; if (p.add(e)) ++placed; }
+        c.sync_pattern(tr, pa);
+    });
+    c.notice(std::to_string(placed) + (placed == 1 ? " note pasted" : " notes pasted"));
+}
+
 void roll_picks_clear(Context& c) { c.ui.roll_sel_count = 0; c.notice("Selection empty"); }
 
 } // namespace melodee

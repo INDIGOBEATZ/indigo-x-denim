@@ -188,6 +188,7 @@ struct UiState {
     static constexpr unsigned roll_picks = 64;
     std::array<RollPick, roll_picks> roll_sel {};
     uint8_t roll_sel_count = 0;
+    uint8_t note_board_count = 0; // LAB: notes copied in Roll, to paste on any track
     bool roll_sheet_sel = false;
     bool map_open = false;    // the page map over Edit
     uint8_t map_cursor = 0;
@@ -208,6 +209,11 @@ struct UiState {
     bool process_open = false; uint8_t process_row = 0; // INDIGO X DENIM LAB: Trim's PROCESS sheet
     bool key_synced = false; // INDIGO X DENIM LAB: TUNE's KEY SYNC last set on (shown on its card)
     uint32_t history_at = 0; // INDIGO X DENIM LAB: an undo or redo just now: its history shows a moment
+    // INDIGO X DENIM LAB: Song's ERASE wizard (Erase on empty time or with the marquee up): its row, which bars
+    // (0 marquee, 1 loop, 2 cursor to the end, 3 whole song), which lanes (0 this track, 1 the marquee's, 2 all) and
+    // what (0 clips, 1 muted clips, 2 markers, 3 everything).
+    bool song_wipe = false;
+    uint8_t wipe_row = 0, wipe_range = 3, wipe_lanes = 0, wipe_what = 0;
     uint8_t song_marq = 0, marq_t0 = 0, marq_t1 = 0;
     uint16_t marq_from = 0, marq_to = 0, marq_anchor = 0;
     uint8_t song_pattern = 0;   // what Push places on empty time

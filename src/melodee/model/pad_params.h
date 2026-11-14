@@ -17,6 +17,7 @@ enum class PadParam : uint8_t {
     VelocitySense, Offset,
     FilterAttack, FilterDecay, FilterSustain, FilterRelease, FilterAmount, // the pad filter's envelope
     FilterCutoff, FilterResonance,                                         // and the filter
+    Mute,                                                                  // INDIGO X DENIM LAB: a recorded pad mute (1) or unmute (0)
     Count
 };
 constexpr unsigned pad_param_count = unsigned(PadParam::Count);
@@ -38,6 +39,7 @@ inline PadParamRange pad_param_range(PadParam p) {
     case PadParam::Pitch: return {-24, 24};
     case PadParam::Fine: return {-50, 50};
     case PadParam::Pan: return {-50, 50};
+    case PadParam::Mute: return {0, 1};
     default: return {0, 100};
     }
 }

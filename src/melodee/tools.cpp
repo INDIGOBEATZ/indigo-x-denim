@@ -2037,6 +2037,21 @@ const Preview previews[] {
          preview_as(shell, s, "song", 1, 0);
          s.ui.song_all = true; s.ui.song_marq = 1; s.ui.marq_from = 24; s.ui.marq_to = 28; s.ui.marq_t0 = 0; s.ui.marq_t1 = 2;
      }},
+    {"songerase", [](Shell& shell, Snapshot& s) { // LAB: Erase with the marquee up: the ERASE wizard
+         preview_as(shell, s, "song", 1, 0);
+         s.ui.song_all = true; s.ui.song_marq = 1; s.ui.marq_from = 24; s.ui.marq_to = 28; s.ui.marq_t0 = 0; s.ui.marq_t1 = 2;
+         s.ui.song_wipe = true; s.ui.wipe_range = 0; s.ui.wipe_lanes = 1; s.ui.wipe_what = 3; s.ui.wipe_row = 3;
+     }},
+    {"rollcopy", [](Shell& shell, Snapshot& s) { // LAB: SELECTION's Copy notes
+         roll_bass(shell, s, 24, 57);
+         s.ui.roll_sel_count = 3; s.ui.roll_sel[0] = {24 * sixteenth_ticks, 57}; s.ui.roll_sel[1] = {25 * sixteenth_ticks, 69};
+         s.ui.roll_sel[2] = {28 * sixteenth_ticks, 62};
+         s.ui.sheet_open = true; s.ui.roll_sheet_sel = true; s.ui.sheet_more = true; s.ui.sheet_row = 8;
+     }},
+    {"rollpaste", [](Shell& shell, Snapshot& s) { // LAB: VIEW's Paste notes, three copied
+         roll_bass(shell, s, 24, 57);
+         s.ui.note_board_count = 3; s.ui.sheet_open = true; s.ui.roll_sheet_view = true; s.ui.sheet_more = true; s.ui.sheet_row = 5;
+     }},
     {"mixerlab", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.shift = true; s.ui.shift_used = true; }},
     {"playtail", [](Shell&, Snapshot& s) { // PLAY with Shift: Sample Tail on K1
          s.ui.page = PageId::PlayPage; s.ui.track = 3; s.sample = break_sample(); s.playing = true; s.ui.shift = true;

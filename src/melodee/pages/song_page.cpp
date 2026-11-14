@@ -98,6 +98,97 @@ SoftKeys keys_of(const Snapshot& s, const Clip* clip, juce::Colour c) {
     return {{"EXPORT", "", s.project.tracks[s.ui.track].used() ? "PLACE" : ""}, -1, c};
 }
 
+// INDIGO X DENIM LAB: the ERASE wizard's bars, lanes and words.
+struct Wipe { unsigned from, to, t0, t1; };
+Wipe wipe_of(const UiState& ui, const Song& song) {
+    Wipe w {0, song_bars, ui.track, ui.track};
+    switch (ui.wipe_range % 4) {
+    case 0: if (ui.song_marq) { w.from = ui.marq_from; w.to = ui.marq_to; } break;
+    case 1: if (song.looping()) { w.from = song.loop_start; w.to = song.loop_end; } break;
+    case 2: w.from = ui.song_cursor; break;
+    default: break;
+    }
+    if (ui.wipe_lanes % 3 == 2) { w.t0 = 0; w.t1 = track_count - 1; }
+    else if (ui.wipe_lanes % 3 == 1 && ui.song_marq) {
+        w.t0 = ui.song_marq == 3 ? 0 : ui.song_marq == 2 ? ui.track : std::min(ui.marq_t0, ui.marq_t1);
+        w.t1 = ui.song_marq == 3 ? track_count - 1 : ui.song_marq == 2 ? ui.track : std::max(ui.marq_t0, ui.marq_t1);
+    }
+    return w;
+}
+const char* const wipe_ranges[] {"Marquee", "Loop", "Cursor to end", "Whole song"};
+const char* const wipe_lanes_words[] {"This track", "Marquee lanes", "All tracks"};
+const char* const wipe_whats[] {"Clips", "Muted clips", "Markers", "Everything"};
+
+void draw_wipe(Paint& p, const Snapshot& s, const Header& h) {
+    const auto& song = s.project.song;
+    const auto& ui = s.ui;
+    SoftKeys keys {{"CANCEL", "", "ERASE"}, -1, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
+    frame(p, s, keys, h);
+    Wipe w = wipe_of(ui, song);
+    unsigned clips = 0, markers = 0;
+    unsigned what = ui.wipe_what % 4;
+    for (unsigned n = 0; n < song.count; ++n) {
+        const auto& cl = song.clips[n];
+        if (cl.track < w.t0 || cl.track > w.t1 || cl.end() <= w.from || cl.bar >= w.to) continue;
+        if (what == 0 || what == 3 || (what == 1 && cl.muted)) ++clips;
+    }
+    if (what >= 2) for (unsigned m = 0; m < song.marker_count; ++m) markers += song.markers[m].bar >= w.from && song.markers[m].bar < w.to;
+    MenuSheet m;
+    m.title = "ERASE";
+    m.detail = "BARS " + juce::String(w.from + 1) + dash() + juce::String(std::min<unsigned>(w.to, std::max(song.length(), w.from + 1)));
+    m.accent = colour::rec;
+    bool marq = ui.song_marq != 0;
+    m.rows[0] = {"Bars", wipe_ranges[ui.wipe_range % 4], false, false, !marq && ui.wipe_range % 4 == 0};
+    m.rows[1] = {"Lanes", w.t0 == w.t1 ? juce::String("Track ") + juce::String(w.t0 + 1) : juce::String(w.t0 + 1) + dash() + juce::String(w.t1 + 1), false, false, false};
+    m.rows[2] = {"What", wipe_whats[what], false, false, false};
+    juce::String count = juce::String(clips) + (clips == 1 ? " clip" : " clips");
+    if (what >= 2) count = (what == 3 ? count + ", " : juce::String()) + juce::String(markers) + (markers == 1 ? " marker" : " markers");
+    m.rows[3] = {"Erase", count, false, true, clips + markers == 0};
+    m.count = 4; m.current = ui.wipe_row % 4;
+    menu_sheet(p, m);
+}
+
+void wipe_wheel(Context& c, int delta) { c.ui.wipe_row = uint8_t(std::clamp<int>(c.ui.wipe_row + delta, 0, 3)); }
+
+void wipe_now(Context& c) {
+    auto& song = c.project.song;
+    Wipe w = wipe_of(c.ui, song);
+    unsigned what = c.ui.wipe_what % 4, gone = 0;
+    Edit edit = c.begin_edit("Erase song", c.ui.track, -1, true); // one undo
+    if (what == 0 || what == 3) {
+        unsigned before = song.count;
+        for (unsigned t = w.t0; t <= w.t1; ++t) song.cut(t, w.from, w.to);
+        gone += before > song.count ? before - song.count : 0;
+    } else if (what == 1) {
+        for (unsigned n = 0; n < song.count;) {
+            const auto& cl = song.clips[n];
+            if (cl.muted && cl.track >= w.t0 && cl.track <= w.t1 && cl.end() > w.from && cl.bar < w.to) { song.erase(n); ++gone; }
+            else ++n;
+        }
+    }
+    if (what >= 2) {
+        unsigned kept = 0;
+        for (unsigned m = 0; m < song.marker_count; ++m)
+            if (song.markers[m].bar >= w.from && song.markers[m].bar < w.to) ++gone;
+            else song.markers[kept++] = song.markers[m];
+        song.marker_count = uint8_t(kept);
+    }
+    c.sync_song();
+    c.commit_edit(std::move(edit));
+    c.ui.song_wipe = false;
+    c.notice("Erased bars " + std::to_string(w.from + 1) + "-" + std::to_string(std::min<unsigned>(w.to, std::max(song.length(), w.from + 1))));
+}
+
+void wipe_push(Context& c) {
+    auto& ui = c.ui;
+    switch (ui.wipe_row % 4) {
+    case 0: ui.wipe_range = uint8_t((ui.wipe_range + 1) % 4); if (ui.wipe_range == 0 && !ui.song_marq) ui.wipe_range = 1; break;
+    case 1: ui.wipe_lanes = uint8_t((ui.wipe_lanes + 1) % 3); if (ui.wipe_lanes == 1 && !ui.song_marq) ui.wipe_lanes = 2; break;
+    case 2: ui.wipe_what = uint8_t((ui.wipe_what + 1) % 4); break;
+    default: wipe_now(c); break;
+    }
+}
+
 void draw(Paint& p, const Snapshot& s) {
     const auto& song = s.project.song;
     auto c = colour_of(s);
@@ -115,6 +206,7 @@ void draw(Paint& p, const Snapshot& s) {
         h.left.push_back(pill(juce::String(modes[s.ui.song_marq % 4]) + " " + juce::String(s.ui.marq_from + 1) + dash() + juce::String(s.ui.marq_to), colour::text));
     }
 
+    if (s.ui.song_wipe) { draw_wipe(p, s, h); return; } // LAB
     if (s.ui.song_export) {
         // Export (B1), as on the MPC: B2 an audio mixdown, B3 a new pattern; a tile under each says what it makes.
         // Roadmap P4: the wheel picks what B2 makes: the mixdown as float, 24 or 16 bits, the stems, or a MIDI file.
@@ -340,6 +432,7 @@ void pad(Context& c, unsigned pad, uint8_t, bool down) {
 }
 
 void wheel(Context& c, int delta) {
+    if (c.ui.song_wipe) { wipe_wheel(c, delta); return; } // LAB
     if (c.ui.song_export) { c.ui.export_kind = uint8_t(std::clamp(int(c.ui.export_kind) + delta, 0, 4)); return; } // what B2 makes (roadmap P4)
     auto& ui = c.ui;
     if (ui.shift) { // LAB: Shift + wheel draws the marquee from where the cursor was (as MPC 3.10's Shift + drag)
@@ -418,6 +511,7 @@ void marquee_loop(Context& c) { // whole bars, as MPC 3.10's Loop to Marquee Sel
 }
 
 void push(Context& c) {
+    if (c.ui.song_wipe) { wipe_push(c); return; } // LAB
     if (c.ui.song_export) return;
     int index = clip_index(c);
     if (index >= 0) open_clip(c, index, false);
@@ -425,6 +519,7 @@ void push(Context& c) {
 }
 
 void soft(Context& c, int key) {
+    if (c.ui.song_wipe) { if (key == 0) c.ui.song_wipe = false; if (key == 2) wipe_now(c); return; } // LAB: CANCEL, ERASE
     if (c.ui.song_export) { c.song_export_soft(key); return; } // B1 Cancel, B2 Audio mixdown, B3 New pattern
     if (c.ui.song_marq) { // LAB: COPY, DELETE, LOOP; Shift: MODE, PASTE, DESELECT
         if (c.ui.shift) {
@@ -496,7 +591,14 @@ void song_chop(Context& c) {
 
 void song_erase(Context& c) {
     int index = clip_index(c);
-    if (index < 0) return;
+    // LAB: on empty time, with the marquee up, or open already (then it closes): the ERASE wizard.
+    if (c.ui.song_wipe) { c.ui.song_wipe = false; return; }
+    if (index < 0 || c.ui.song_marq) {
+        c.ui.song_wipe = true; c.ui.wipe_row = 0;
+        c.ui.wipe_range = c.ui.song_marq ? 0 : c.project.song.looping() ? 1 : 3;
+        c.ui.wipe_lanes = c.ui.song_marq ? 1 : 0;
+        return;
+    }
     c.project.song.erase(unsigned(index));
     c.sync_song();
 }

@@ -1270,6 +1270,27 @@ LAB adds features inspired by Jsen Surreal's SXL build for the MPC Sample
   picked, TRK the selected lane, ARR every lane), **B2** **PASTE** at the
   cursor on the selected lane, **B3** **DESELECT**.
 
+### Erase wizard (Song)
+
+Press **ERASE** on empty time, or with the marquee up, to open **ERASE**.
+Turn the encoder to pick a row and push it to change it:
+
+- **Bars**: Marquee, Loop, Cursor to end or Whole song.
+- **Lanes**: this track, the marquee's lanes or all tracks.
+- **What**: Clips, Muted clips, Markers or Everything.
+- **Erase** (or **B3**) erases it, as one undo. **B1** or **ERASE** again cancels.
+
+### Copy notes across tracks (Roll)
+
+In Roll's **SELECTION** sheet (Shift + Push), **Copy notes** keeps the
+picked notes. Go to any track, put the cursor where they should start and
+choose **Paste notes** in **VIEW**. Notes past the pattern's end wrap round.
+
+### Recording pad mutes
+
+In mute mode, pad mutes while recording are written into the pattern as
+Motion (the **MUTE** lane), and play back as they were recorded.
+
 ## Projects and files
 
 ### The Project page

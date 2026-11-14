@@ -48,8 +48,8 @@ using namespace ui;
 constexpr float gutter = 23, ruler = 13, row_h = 10.5f, column_1x = 18.5f;
 constexpr unsigned rows = roll_rows, columns_1x = roll_columns, columns_most = roll_columns * 8;
 enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowQuantize, RowLegato, RowDuplicate, RowDelete, sheet_rows };
-enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, ViewSelectAll, view_rows };
-enum SelRow : uint8_t { SelEarlier, SelLater, SelUp, SelDown, SelOctaveUp, SelOctaveDown, SelDuplicate, SelQuantize, SelDelete, SelClear, sel_rows };
+enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, ViewSelectAll, ViewPaste, view_rows }; // LAB: Paste notes
+enum SelRow : uint8_t { SelEarlier, SelLater, SelUp, SelDown, SelOctaveUp, SelOctaveDown, SelDuplicate, SelQuantize, SelCopy, SelDelete, SelClear, sel_rows }; // LAB: Copy notes
 
 bool black(int key) { return (0x54A >> (key % 12)) & 1; } // C#, D#, F#, G#, A#
 
@@ -231,6 +231,7 @@ void draw(Paint& p, const Snapshot& s) {
         m.rows[ViewQuantize] = {"Quantize all", "", false, false, empty};
         m.rows[ViewLegato] = {"Legato all", "", false, false, empty};
         m.rows[ViewSelectAll] = {"Select all", "", false, false, empty};
+        m.rows[ViewPaste] = {"Paste notes", ui.note_board_count ? juce::String(int(ui.note_board_count)) + " notes" : juce::String(), false, false, !ui.note_board_count}; // LAB
         m.count = view_rows; m.current = ui.sheet_row % view_rows;
         menu_sheet(p, m);
     } else if (sel_sheet) {
@@ -245,6 +246,7 @@ void draw(Paint& p, const Snapshot& s) {
         m.rows[SelOctaveDown] = {"An octave down", "", false, false, false};
         m.rows[SelDuplicate] = {"Duplicate after", "", false, false, false};
         m.rows[SelQuantize] = {"Quantize", "", false, false, false};
+        m.rows[SelCopy] = {"Copy notes", "", false, false, false}; // LAB: to paste on any track
         m.rows[SelDelete] = {"Delete notes", "", false, true, false};
         m.rows[SelClear] = {"Clear selection", "", false, false, false};
         m.count = sel_rows; m.current = ui.sheet_row % sel_rows;
@@ -298,6 +300,7 @@ void do_view_row(Context& c) {
     case ViewQuantize: c.ui.sheet_open = false; roll_quantize_every(c); break;
     case ViewLegato: c.ui.sheet_open = false; roll_legato_every(c); break;
     case ViewSelectAll: c.ui.sheet_open = false; roll_pick_every(c); break;
+    case ViewPaste: c.ui.sheet_open = false; roll_paste(c); break; // LAB
     default: break;
     }
 }
@@ -313,6 +316,7 @@ void do_sel_row(Context& c) {
     case SelOctaveDown: roll_picks_move(c, 0, -12); break;
     case SelDuplicate: roll_picks_duplicate(c); break;
     case SelQuantize: roll_picks_quantize(c); break;
+    case SelCopy: c.ui.sheet_open = false; roll_copy(c); break; // LAB
     case SelDelete: c.ui.sheet_open = false; roll_picks_delete(c); break;
     case SelClear: c.ui.sheet_open = false; roll_picks_clear(c); break;
     default: break;

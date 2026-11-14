@@ -55,7 +55,7 @@ const ParamInfo pad_infos[pad_param_count] {
     {"PAN", -50, 50, 0, Format::Number}, {"ATTACK", 0, 100, 0}, {"DECAY", 0, 100, 100}, {"SUSTAIN", 0, 100, 100},
     {"RELEASE", 0, 100, 20}, {"VEL SENS", 0, 100, 100}, {"OFFSET", 0, 100, 0}, {"F ATTACK", 0, 100, 0},
     {"F DECAY", 0, 100, 50}, {"F SUSTAIN", 0, 100, 0}, {"F RELEASE", 0, 100, 20}, {"F DEPTH", 0, 100, 0},
-    {"CUTOFF", 0, 100, 100}, {"RESO", 0, 100, 0},
+    {"CUTOFF", 0, 100, 100}, {"RESO", 0, 100, 0}, {"MUTE", 0, 1, 0, Format::Number}, // LAB: recorded pad mutes
 };
 Binding::Kind pad_kind(PadParam p) {
     using K = Binding::Kind;
@@ -247,7 +247,7 @@ int binding_lane(const Track& track, const Binding& b) {
     if (b.kind == Kind::PitchBend) return motion_lane(motion_bend);
     if (track.engine != EngineKind::Sampler) return -1;
     for (unsigned p = 0; p < pad_param_count; ++p) // a kit pad's own value: its lane on the last pad hit
-        if (pad_kind(PadParam(p)) == b.kind) return motion_lane(motion_pad_param(PadParam(p)), track.last_pad % sampler_pads);
+        if (b.kind != Kind::None && pad_kind(PadParam(p)) == b.kind) return motion_lane(motion_pad_param(PadParam(p)), track.last_pad % sampler_pads);
     return -1;
 }
 

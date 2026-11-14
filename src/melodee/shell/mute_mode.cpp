@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/mute_mode.h"
+#include "melodee/model/pad_params.h"
+#include "melodee/shell/bindings.h"
 #include "melodee/shell/looper_jobs.h"
 #include "melodee/shell/context.h"
 
@@ -41,6 +43,8 @@ void set_pad_mute(Context& c, unsigned t, unsigned kit, bool on) {
     if (track.pad_muted(kit) == on) return;
     track.set_pad_muted(kit, on);
     c.send({Command::Type::PadMute, uint8_t(t), 0, uint16_t(kit), int16_t(on)});
+    // INDIGO X DENIM LAB: in a take, the mute is recorded too (a point on the pad's Mute lane), and plays back so
+    if (t == c.ui.track % track_count) c.record_motion(motion_lane(motion_pad_param(PadParam::Mute), kit), on ? 1 : 0);
 }
 
 void mute_pad(Context& c, unsigned pad, bool kit_pads) {

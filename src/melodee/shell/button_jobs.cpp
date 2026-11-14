@@ -19,7 +19,7 @@ bool button_has_job(const Project& project, const UiState& ui, SurfaceButton but
     bool kit = track.engine == EngineKind::Sampler;
     if (ui.page == PageId::Song && !ui.song_export && (button == B::Chop || button == B::Erase || button == B::NoteRepeat)) { // the clip under the cursor
         int at = project.song.clip_at(ui.track % track_count, ui.song_cursor);
-        if (at < 0) return button == B::Erase && ui.copying != UiState::Copying::Off;
+        if (at < 0) return button == B::Erase; // LAB: on empty time it opens the ERASE wizard (or leaves copying)
         const auto& clip = project.song.clips[size_t(at)];
         if (button == B::Chop) return ui.song_cursor > clip.bar;
         if (button == B::NoteRepeat) return project.song.next_marker(clip.bar) > clip.end();

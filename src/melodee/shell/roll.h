@@ -102,6 +102,8 @@ void roll_picks_move(Context& c, int steps, int keys);
 void roll_picks_duplicate(Context& c);
 void roll_picks_quantize(Context& c);
 void roll_picks_delete(Context& c);
+void roll_copy(Context& c);  // LAB: the picked notes kept
+void roll_paste(Context& c); // LAB: kept notes at the cursor, any track
 void roll_picks_clear(Context& c);
 
 } // namespace melodee

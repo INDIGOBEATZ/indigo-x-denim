@@ -63,19 +63,26 @@ public:
     // own values back (the pattern's start, Stop). What the pad plays hears it.
     void move_pad(unsigned pad, PadParam which, int value) {
         if (pad >= sampler_pads) return;
+        if (which == PadParam::Mute) { motion_mute(pad, true, value > 0); return; } // LAB: a recorded mute plays over the kit's
         set_pad_param(pads[pad], which, value);
         moved = true;
         mark(pad);
     }
-    void restore_pads() { if (moved) { pads = base; moved = false; retune_all = true; } }
+    void restore_pads() {
+        if (moved) { pads = base; moved = false; retune_all = true; }
+        for (unsigned pad = 0; pad < sampler_pads; ++pad) if ((over_on[pad / 64] >> (pad % 64)) & 1) motion_mute(pad, false, false); // LAB
+    }
     // One of a pad's own values back to the kit's (a Motion lock ending, roadmap P1).
     void restore_pad(unsigned pad, PadParam which) {
+        if (which == PadParam::Mute) { if (pad < sampler_pads) motion_mute(pad, false, false); return; } // LAB
         if (pad < sampler_pads) { set_pad_param(pads[pad], which, pad_param_value(base[pad], which)); mark(pad); }
     }
     // Mute: a muted pad does not start and what it plays fades out now.
     void set_pad_mute(unsigned pad, bool on);
     void set_pad_mutes(const std::array<uint64_t, (sampler_pads + 63) / 64>& bits);
     bool pad_muted(unsigned pad) const { return pad < sampler_pads && ((muted[pad / 64] >> (pad % 64)) & 1); }
+    // INDIGO X DENIM LAB: a recorded mute over the kit's own (`on`: it holds, `value` muted or not; off: the kit's again).
+    void motion_mute(unsigned pad, bool on, bool value);
     // A region of a sample on no pad, for Chop's audition (plays one shot).
     void audition(uint16_t sample, uint32_t start, uint32_t end, int velocity, uint8_t level = 100, uint16_t own_tempo = 0); // level: 100 unity; LAB: own_tempo (tenths of a BPM): warped to the project's
     // A sample is about to change: whatever plays it stops now.
@@ -274,6 +281,7 @@ private:
     uint64_t played_frames = 0;
     bool moved = false;
     std::array<uint64_t, (sampler_pads + 63) / 64> muted {};
+    std::array<uint64_t, (sampler_pads + 63) / 64> base_muted {}, over_on {}, over_value {}; // LAB: the kit's mutes, and Motion's over them
     std::array<Voice, max_voices + spare_voices> voices {};
     std::array<float, sampler_pads + 1> peaks {}; // INDIGO X DENIM: take_pad_peak()
     std::array<int, sampler::Count> p {};

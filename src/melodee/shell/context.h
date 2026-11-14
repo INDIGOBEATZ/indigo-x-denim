@@ -305,6 +305,7 @@ public:
     void find_samples();              // INDIGO X DENIM: the missing ones looked for afresh (Shift + OPEN on Project)
     std::string save_folder() const;  // INDIGO X DENIM: where a new project goes
     // INDIGO X DENIM LAB: Song's marquee copy: the clips, their bars from the copy's start and lanes from its first lane.
+    std::vector<Event> note_board; // LAB: Roll's copied notes, ticks from the first
     std::vector<Clip> song_board;
     uint16_t song_board_bars = 0;
     void save_project_to(const std::string& path);

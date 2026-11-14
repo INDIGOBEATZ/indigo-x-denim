@@ -497,8 +497,22 @@ void SamplerEngine::play_pad(unsigned pad, int velocity, int semitones, int cuto
 void SamplerEngine::set_pad_mute(unsigned pad, bool on) {
     if (pad >= sampler_pads) return;
     uint64_t bit = uint64_t(1) << (pad % 64);
+    base_muted[pad / 64] = on ? base_muted[pad / 64] | bit : base_muted[pad / 64] & ~bit; // LAB: the kit's own
+    if (over_on[pad / 64] & bit) return; // a recorded mute holds meanwhile
     muted[pad / 64] = on ? muted[pad / 64] | bit : muted[pad / 64] & ~bit;
     if (on) for (auto& v : voices) if (v.pad == int(pad)) v.choked = true; // fades out over a few milliseconds
+}
+
+// INDIGO X DENIM LAB: Motion's pad mute, over the kit's while it holds.
+void SamplerEngine::motion_mute(unsigned pad, bool on, bool value) {
+    if (pad >= sampler_pads) return;
+    uint64_t bit = uint64_t(1) << (pad % 64);
+    over_on[pad / 64] = on ? over_on[pad / 64] | bit : over_on[pad / 64] & ~bit;
+    over_value[pad / 64] = value ? over_value[pad / 64] | bit : over_value[pad / 64] & ~bit;
+    bool now = on ? value : (base_muted[pad / 64] & bit) != 0;
+    bool was = (muted[pad / 64] & bit) != 0;
+    muted[pad / 64] = now ? muted[pad / 64] | bit : muted[pad / 64] & ~bit;
+    if (now && !was) for (auto& v : voices) if (v.pad == int(pad)) v.choked = true;
 }
 
 void SamplerEngine::set_pad_mutes(const std::array<uint64_t, (sampler_pads + 63) / 64>& bits) {

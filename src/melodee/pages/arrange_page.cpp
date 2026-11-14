@@ -101,9 +101,11 @@ void draw(Paint& p, const Snapshot& s) {
             juce::String n = juce::String(tr.name).toUpperCase();
             name += " " + n;
         }
-        while (name.length() > 2 && p.width(name, label) > lx - 10) name = name.dropLastCharacters(1);
-        if (inner >= 11) p.text(name, 7, y, lx - 9, std::min(inner, 14.0f), label);
-        if (tr.mix.mute && inner >= 11) p.text("M", lx - 12, y + inner - 12, 10, 12, plain(colour::rec, type::small, Weight::Bold));
+        const float name_w = lx - 10 - (tr.mix.mute ? 10 : 0); // the M takes its corner
+        while (name.length() > 2 && p.width(name, label) > name_w) name = name.dropLastCharacters(1);
+        if (inner >= 11) p.text(name, 7, y, name_w, std::min(inner, 14.0f), label);
+        if (tr.mix.mute && inner >= 11) p.text("M", lx - 11, y, 10, std::min(inner, 14.0f), plain(colour::rec, type::small, Weight::Bold));
+        else if (tr.mix.mute) p.fill(lx - 6, y + 1, 3, inner - 2, colour::rec, 1); // too small for the letter
         if (!lane.used) continue;
         p.g.saveState();
         p.g.reduceClipRegion(juce::Rectangle<int>(int(lx), int(y), int(lw), int(inner)));

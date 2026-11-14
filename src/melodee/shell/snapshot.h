@@ -34,7 +34,7 @@ struct PatternSketch {
 // ends and where its playhead is (pixels, -1 out of view).
 struct ArrangeLane {
     struct Mark { uint16_t x0 = 0, x1 = 0; uint8_t y = 0, velocity = 0; bool ghost = false; };
-    static constexpr unsigned most = 160;
+    static constexpr unsigned most = 640; // zoomed out, marks on the same pixel and pitch band are drawn once
     std::array<Mark, most> marks {};
     uint16_t count = 0;
     int16_t end_x = -1, play_x = -1;

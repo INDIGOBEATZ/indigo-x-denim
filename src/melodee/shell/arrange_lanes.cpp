@@ -4,6 +4,7 @@
 #include "melodee/shell/arrange_lanes.h"
 #include "melodee/shell/bindings.h"
 #include <algorithm>
+#include <array>
 
 namespace melodee {
 
@@ -28,6 +29,8 @@ void fill_arrange_lanes(Snapshot& out, const PatternBank& patterns, const std::f
             for (uint32_t base = from / length * length; base < to; base += length)
                 if (base + at >= from && base + at < to) { lane.play_x = int16_t((base + at - from) * px); break; }
         }
+        // One mark a pixel column and pitch band: zoomed far out, a pattern's repeats stay drawn all the way.
+        std::array<uint8_t, 280> taken {};
         int lo = 127, hi = 0;
         for (const auto& e : p.events) if (e.tick < length) { lo = std::min<int>(lo, e.key); hi = std::max<int>(hi, e.key); }
         if (lo > hi) continue;
@@ -36,9 +39,12 @@ void fill_arrange_lanes(Snapshot& out, const PatternBank& patterns, const std::f
                 if (e.tick >= length || lane.count >= ArrangeLane::most) break;
                 uint32_t a = base + e.tick, b = a + std::max<uint32_t>(e.length, 1);
                 if (b <= from || a >= to) continue;
+                uint16_t x0 = uint16_t((std::max(a, from) - from) * px), x1 = uint16_t((std::min(b, to) - from) * px);
+                uint8_t y = uint8_t(hi == lo ? 128 : (e.key - lo) * 255 / (hi - lo));
+                uint8_t band = uint8_t(1u << (y >> 5));
+                if (x1 <= x0 + 1 && x0 < taken.size()) { if (taken[x0] & band) continue; taken[x0] |= band; }
                 auto& m = lane.marks[lane.count++];
-                m.x0 = uint16_t((std::max(a, from) - from) * px); m.x1 = uint16_t((std::min(b, to) - from) * px);
-                m.y = uint8_t(hi == lo ? 128 : (e.key - lo) * 255 / (hi - lo));
+                m.x0 = x0; m.x1 = x1; m.y = y;
                 m.velocity = e.velocity; m.ghost = base > 0;
             }
     }

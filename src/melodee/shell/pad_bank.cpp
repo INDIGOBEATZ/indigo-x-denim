@@ -75,6 +75,11 @@ bool track_pad(Context& c, unsigned pad) {
 }
 
 bool track_soft(Context& c, int key) {
+    if (c.ui.copying == UiState::Copying::Pads) { // LAB: copying a pad: B2 SWAP (the two pads trade places), B1 off
+        if (key == 1) { c.ui.moving = !c.ui.moving; c.notice(c.ui.moving ? "Swap: pick the other pad" : "Copy: pick where"); return true; }
+        if (key == 0) { c.ui.stop_copying(); c.notice("Copy off"); return true; }
+        return false;
+    }
     bool moving = c.ui.moving;
     auto did = track_key(c.ui, key);
     if (did == TrackKey::Ended) c.notice(moving ? "Move off" : "Copy off");

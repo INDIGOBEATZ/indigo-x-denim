@@ -118,6 +118,13 @@ FaderJob fader_job(const Project& project, const UiState& ui) {
     case PageId::Sends: page({Kind::Send, int(ui.sends_bus % bus_count), 0, 100, track.mix.sends[ui.sends_bus % bus_count]}); return job;
     case PageId::Compressor: page({Kind::CompAmount, 0, 0, 100, project.compressor.amount}); return job;
     case PageId::FlexBeat: page({Kind::FlexMix, 0, 0, 100, project.flex.mix}); return job;
+    case PageId::Samples: // LAB: the FADER scrolls the list (as SampQOL's)
+        if (ui.files_count > 1) { page({Kind::FilesScroll, 0, 0, 127, int(ui.files_cursor * 127 / std::max(1, ui.files_count - 1))}); return job; }
+        break;
+    case PageId::Arrange: page({Kind::ArrLanes, 0, 1, 16, std::clamp<int>(ui.arr_lanes, 1, 16)}); return job; // LAB: rows, 1..16
+    case PageId::Roll: // LAB: a kit's pads as rows: the FADER zooms 1..16 of them, as SampQOL's Pad View
+        if (track.engine == EngineKind::Sampler) { page({Kind::RollRows, 0, 1, 16, int(ui.roll_rows_shown())}); return job; }
+        break;
     case PageId::KnobFx: // Knob FX C: A to B (no effect loaded: the track's target)
         if (project.knob_fx.kind) { page({Kind::KnobParam, int(knob_morph), 0, 127, project.knob_fx.morph}); return job; }
         break;

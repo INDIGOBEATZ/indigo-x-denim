@@ -440,6 +440,8 @@ int preset_position(const Track& track, const UiState& ui, unsigned& listed) {
 }
 } // namespace
 
+bool knob_bar_up(const Project& project, const UiState& ui) { return knob_owns(project, ui); } // LAB
+
 unsigned new_engines(std::array<EngineKind, size_t(EngineKind::Count)>& out) {
     std::array<EngineKind, size_t(EngineKind::Count)> all {};
     unsigned count = available_engines(all), n = 0;
@@ -946,7 +948,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     case PageId::SettingsPage: case PageId::About: case PageId::MidiConfig: return {};
     case PageId::Arrange: // INDIGO X DENIM LAB: K1 zoom, K2 lanes in view, K3 the selected track's pattern in bars
         return {Binding {Kind::ArrZoom, 0, 0, int(sizeof(arrange_zooms) / sizeof(arrange_zooms[0])) - 1, ui.arr_zoom},
-                Binding {Kind::ArrLanes, 0, 0, 2, ui.arr_lanes % 3},
+                Binding {Kind::ArrLanes, 0, 1, 16, std::clamp<int>(ui.arr_lanes, 1, 16)},
                 track.used() ? Binding {Kind::PatternBars, 0, 1, int(max_bars), int(pattern_bars(project, pattern))} : Binding {}};
     case PageId::Mixer: { // INDIGO X DENIM: the strip in hand. PADS: the pad's level, pan, tune; TRACKS: level, pan, send A
         if (ui.mixer_view == 2) { // LAB: BUSES: K1 the bus's return (the main out: none)

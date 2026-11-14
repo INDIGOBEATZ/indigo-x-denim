@@ -607,7 +607,21 @@ void Context::apply(const Binding& b, int value) {
         break;
     case Kind::SongZoom: ui.song_zoom = uint8_t(value); break;
     case Kind::ArrZoom: ui.arr_zoom = uint8_t(value); arrange_show(ui.arr_cursor); break; // LAB: ARRANGE
-    case Kind::ArrLanes: ui.arr_lanes = uint8_t(value % 3); ui.arr_top = uint8_t(std::min<unsigned>(ui.arr_top, track_count - arrange_lane_counts[ui.arr_lanes])); break;
+    case Kind::ArrLanes: { // LAB: lanes in view, 1..16; the selected track's stays in view
+        ui.arr_lanes = uint8_t(std::clamp(value, 1, 16));
+        unsigned t = ui.track % track_count, shown = ui.arr_lanes;
+        if (t < ui.arr_top) ui.arr_top = uint8_t(t);
+        if (t >= ui.arr_top + shown) ui.arr_top = uint8_t(t - shown + 1);
+        ui.arr_top = uint8_t(std::min<unsigned>(ui.arr_top, track_count - shown));
+        break;
+    }
+    case Kind::FilesScroll: { // LAB: the browser's FADER
+        if (ui.files_count < 2) break;
+        uint16_t at = uint16_t(std::clamp(value, 0, 127) * (ui.files_count - 1) / 127);
+        if (at != ui.files_cursor) { ui.files_cursor = at; preview_cursor(); }
+        break;
+    }
+    case Kind::RollRows: ui.roll_rows = uint8_t(std::clamp(value, 1, 16)); roll_follow(pattern(), ui); break; // LAB
     case Kind::ViewZoom: // INDIGO X DENIM: Roll's or Steps' bars in view
         if (ui.page == PageId::Steps) ui.steps_zoom = uint8_t(value & 3);
         else { ui.roll_zoom = uint8_t(value & 3); roll_follow(pattern(), ui); }
@@ -1373,6 +1387,42 @@ void Context::copy_pad(unsigned from, unsigned to) {
     restore_pad(ui.track, to, edit.pad_after);
     notice(edit.what);
     edits.push(std::move(edit));
+}
+
+void Context::copy_pad_between(unsigned from_track, unsigned from, unsigned to_track, unsigned to, bool swap) {
+    from_track %= track_count; to_track %= track_count; from %= sampler_pads; to %= sampler_pads;
+    if (from_track == to_track && from == to) return;
+    auto& a = project.tracks[from_track];
+    auto& b = project.tracks[to_track];
+    if (a.engine != EngineKind::Sampler || b.engine != EngineKind::Sampler) { notice("Copy: kits only"); return; }
+    char la[4], lb[4]; pad_label(from, la); pad_label(to, lb);
+    std::string what = std::string(swap ? "Swap " : "Copy ") + (from_track != to_track ? "T" + std::to_string(from_track + 1) + " " : "") + la
+                     + (swap ? " with " : " to ") + (from_track != to_track ? "T" + std::to_string(to_track + 1) + " " : "") + lb;
+    PadState from_state = pad_state(a, from), to_state = pad_state(b, to);
+    if (from_track == to_track) { // one undo for both pads
+        Edit edit;
+        edit.what = what; edit.track = uint8_t(to_track);
+        edit.pads_before.push_back({uint8_t(to), to_state});
+        edit.pads_after.push_back({uint8_t(to), from_state});
+        if (swap) { edit.pads_before.push_back({uint8_t(from), from_state}); edit.pads_after.push_back({uint8_t(from), to_state}); }
+        for (const auto& [pad, state] : edit.pads_after) restore_pad(to_track, pad, state);
+        edits.push(std::move(edit));
+    } else { // a pad on each track: an undo each (the target's first undone)
+        if (swap) {
+            Edit back;
+            back.what = what; back.track = uint8_t(from_track); back.pad = int16_t(from);
+            back.pad_before = from_state; back.pad_after = to_state;
+            restore_pad(from_track, from, to_state);
+            edits.push(std::move(back));
+        }
+        Edit edit;
+        edit.what = what; edit.track = uint8_t(to_track); edit.pad = int16_t(to);
+        edit.pad_before = to_state; edit.pad_after = from_state;
+        restore_pad(to_track, to, from_state);
+        edits.push(std::move(edit));
+    }
+    dirty = true;
+    notice(what);
 }
 
 Edit Context::begin_edit(const char* what, unsigned t, int p, bool song) {

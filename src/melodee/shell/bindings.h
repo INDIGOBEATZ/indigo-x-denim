@@ -105,7 +105,9 @@ struct Binding {
         SongTempo, SongTempoShape,
         PitchBend, // a PLUGIN track's pitch bend (the fader's Pitch Bend), -64..63 around the centre
         ViewZoom,  // INDIGO X DENIM: Roll's or Steps' zoom (Shift + K3), 0..3: 1, 2, 4 or 8 bars in view
-        ArrZoom, ArrLanes, // INDIGO X DENIM LAB, ARRANGE's K1 / K2: bars in view (arrange_zooms), lanes in view (4, 8, 16)
+        ArrZoom, ArrLanes, // INDIGO X DENIM LAB, ARRANGE's K1 / K2 (and the FADER): bars in view (arrange_zooms), lanes in view (1..16)
+        RollRows,          // INDIGO X DENIM LAB: Roll's rows in view (1..16), the FADER's there
+        FilesScroll,       // INDIGO X DENIM LAB: the browser's FADER: where in the list (0..127 over its rows)
         TrackOut, PadOut // INDIGO X DENIM LAB, the mixer's Shift + K1: where the track (TRACKS) or the pad (PADS) goes, 0 master or its track, 1-4 bus A-D
     };
     Kind kind = Kind::None;
@@ -179,6 +181,7 @@ constexpr int warp_card_seq = 152;
 inline int warp_card(uint8_t warp) { return warp == warp_seq ? warp_card_seq : warp >= warp_min ? int(warp) - (warp_min - 1) : 0; }
 inline uint8_t warp_of_card(int value) { return value >= warp_card_seq ? warp_seq : value <= 0 ? warp_off : uint8_t(value + warp_min - 1); }
 // Song's zoom steps, in bars across the view.
+bool knob_bar_up(const Project& project, const UiState& ui); // LAB: Knob FX's effect on K1-K3 (its bar showing)
 constexpr unsigned arrange_zooms[] {1, 2, 4, 8, 16, 32, 64, 128}; // INDIGO X DENIM LAB: ARRANGE's bars in view
 constexpr unsigned arrange_lane_counts[] {4, 8, 16};
 constexpr unsigned song_zooms[] {4, 8, 16, 32, 64, 128, 256}; // LAB: 128 and 256, the helicopter view of a long song

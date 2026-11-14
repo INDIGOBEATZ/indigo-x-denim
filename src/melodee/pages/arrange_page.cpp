@@ -11,7 +11,7 @@
 // - B2 EDIT: Copy, Cut, Paste, Paste insert, Duplicate, Delete, Clear, Loop to selection, Select all, Deselect.
 // - B3 GRID (or Push): the selected track's notes in Roll at the cursor (MPC's track editor).
 // - Shift + B1 / B2 / B3: COPY, PASTE, DUPLICATE straight away. Minus / Plus: a bar back or on.
-// - K1 zoom (1 to 128 bars), K2 lanes in view (4, 8, 16), K3 the selected track's pattern length in bars.
+// - K1 zoom (1 to 128 bars), K2 or the FADER lanes in view (1 to 16), K3 the selected track's pattern length in bars.
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/context.h"
@@ -29,7 +29,7 @@ constexpr unsigned zoom_count = sizeof(arrange_zooms) / sizeof(arrange_zooms[0])
 enum Row : uint8_t { RowCopy, RowCut, RowPaste, RowInsert, RowDuplicate, RowDelete, RowClear, RowLoop, RowAll, RowDeselect, rows };
 
 uint32_t span_of(const UiState& ui, const Project& project) { return arrange_zooms[ui.arr_zoom % zoom_count] * project.bar_ticks(); }
-unsigned lanes_of(const UiState& ui) { return arrange_lane_counts[ui.arr_lanes % 3]; }
+unsigned lanes_of(const UiState& ui) { return std::clamp<unsigned>(ui.arr_lanes, 1, 16); } // LAB: 1..16 (K2, the FADER)
 // What one detent moves: a sixteenth of the view, in whole sixteenths, up to bars when zoomed far out.
 uint32_t snap_of(const UiState& ui, const Project& project) {
     uint32_t span = span_of(ui, project), bar = project.bar_ticks();

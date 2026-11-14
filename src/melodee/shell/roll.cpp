@@ -52,7 +52,7 @@ void roll_follow(const Pattern& pattern, UiState& ui) {
     if (cursor > first + columns - 1 - margin) first = cursor - columns + 1 + margin;
     int last = std::max(0, int(pattern.steps()) - columns);
     ui.roll_view = int16_t(std::clamp(first, 0, last));
-    int top = ui.roll_top, key = ui.roll_key, rows = int(roll_rows);
+    int top = ui.roll_top, key = ui.roll_key, rows = int(ui.roll_rows_shown()); // LAB: the rows in view
     if (key > top - 1) top = key + 1;              // a row above the cursor's key
     if (key < top - (rows - 2)) top = key + rows - 2; // and one below
     ui.roll_top = uint8_t(std::clamp(top, rows - 1, std::max(127, key + 1))); // a kit's keys run past 127
@@ -65,7 +65,7 @@ void roll_select(const Pattern& pattern, UiState& ui) {
 }
 
 void roll_open(const Pattern& pattern, UiState& ui) {
-    int top = ui.roll_top, low = top - int(roll_rows) + 1, best = -1;
+    int top = ui.roll_top, low = top - int(ui.roll_rows_shown()) + 1, best = -1;
     int64_t at = int64_t(roll_cursor(pattern, ui)) * pattern.q(), distance = INT64_MAX;
     for (const auto& e : pattern.events) {
         if (e.tick >= pattern.length) break;

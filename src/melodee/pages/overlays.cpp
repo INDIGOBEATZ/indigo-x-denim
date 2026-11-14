@@ -185,7 +185,9 @@ void draw_notice(Paint& p, const Snapshot& s) {
     }
     if (s.ui.copying == UiState::Copying::Pads) {
         char label[4]; pad_label(unsigned(std::max<int>(s.ui.copy_from, 0)), label);
-        text = s.ui.copy_from < 0 ? juce::String("Copy: pick a pad") : "Copy " + juce::String(label) + ": pick where";
+        juce::String from = (s.ui.copy_track != s.ui.track ? "T" + juce::String(s.ui.copy_track + 1) + " " : juce::String()) + juce::String(label);
+        text = s.ui.copy_from < 0 ? juce::String("Copy: pick a pad")
+             : s.ui.moving ? "Swap " + from + ": pick the other" : "Copy " + from + ": where (B2 swap)"; // LAB
     } else if (s.ui.copying == UiState::Copying::Patterns) {
         text = s.ui.copy_from < 0 ? juce::String("Copy: pick a pattern") : "Copy P" + juce::String(s.ui.copy_from + 1) + ": pick where";
     } else if (s.ui.copying == UiState::Copying::Tracks) {

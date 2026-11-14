@@ -2607,10 +2607,13 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         auto& back = returns_now[b];
         back.aim(returns[b], frames, snap_mix);
         float loud = 0; // LAB: the bus's meter, after its return
+        // LAB: a submix of its own on USB-C (channels 15-18 for bus A-D) when Settings asks, in place of tracks 13-16.
+        float* usb = stems && usb_mode.load(std::memory_order_relaxed) == 1 ? stems + size_t(track_count - bus_count + b) * block : nullptr;
         for (unsigned f = 0; f < frames; ++f) {
             float g = back.at(f), l = bus_l[b][f] * g, r = bus_r[b][f] * g;
             master_l[f] += l; master_r[f] += r;
             loud = std::max(loud, std::max(std::fabs(l), std::fabs(r)));
+            if (usb) usb[f] = (l + r) * 0.5f;
         }
         float was = bus_meters[b].load(std::memory_order_relaxed) * dsp::fall_per_block(0.97f, frames);
         bus_meters[b].store(std::max(loud, was < 1e-5f ? 0.0f : was), std::memory_order_relaxed);

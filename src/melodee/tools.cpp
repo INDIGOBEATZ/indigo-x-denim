@@ -2064,26 +2064,26 @@ const Preview previews[] {
          for (unsigned k = 0; k < 7; ++k) { fx.slots[k] = EffectSlot {}; fx.slots[k].kind = uint8_t(kinds[k]); }
      }},
     {"arrange", [](Shell& shell, Snapshot& s) { // LAB: ARRANGE: eight lanes over 8 bars, a marquee over three, the loop brace
-         s.ui.page = PageId::Arrange; s.ui.track = 1; s.playing = true; s.ui.arr_zoom = 3; s.ui.arr_lanes = 1;
+         s.ui.page = PageId::Arrange; s.ui.track = 1; s.playing = true; s.ui.arr_zoom = 3; s.ui.arr_lanes = 8;
          const uint32_t bar = s.project.bar_ticks();
          s.ui.arr_cursor = 2 * bar; s.ui.arr_selected = true; s.ui.arr_from = 2 * bar; s.ui.arr_to = 4 * bar; s.ui.arr_t0 = 0; s.ui.arr_t1 = 2;
          s.ui.brace_from = 0; s.ui.brace_to = 4 * bar;
          fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
      }},
     {"arrangeedit", [](Shell& shell, Snapshot& s) { // LAB: its EDIT sheet
-         s.ui.page = PageId::Arrange; s.ui.track = 1; s.ui.arr_zoom = 3; s.ui.arr_lanes = 1; s.ui.arr_sheet = true; s.ui.arr_row = 4;
+         s.ui.page = PageId::Arrange; s.ui.track = 1; s.ui.arr_zoom = 3; s.ui.arr_lanes = 8; s.ui.arr_sheet = true; s.ui.arr_row = 4;
          const uint32_t bar = s.project.bar_ticks();
          s.ui.arr_selected = true; s.ui.arr_from = 2 * bar; s.ui.arr_to = 4 * bar; s.ui.arr_t0 = 0; s.ui.arr_t1 = 2; s.ui.arr_board = 3;
          fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
      }},
     {"arrange16", [](Shell& shell, Snapshot& s) { // LAB: sixteen lanes over 32 bars, ARR over the brace
-         s.ui.page = PageId::Arrange; s.ui.track = 3; s.ui.arr_zoom = 5; s.ui.arr_lanes = 2; s.ui.arr_mode = 2;
+         s.ui.page = PageId::Arrange; s.ui.track = 3; s.ui.arr_zoom = 5; s.ui.arr_lanes = 16; s.ui.arr_mode = 2;
          const uint32_t bar = s.project.bar_ticks();
          s.ui.arr_cursor = 8 * bar; s.ui.brace_from = 8 * bar; s.ui.brace_to = 16 * bar;
          fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
      }},
     {"arrangeshift", [](Shell& shell, Snapshot& s) {
-         s.ui.page = PageId::Arrange; s.ui.track = 1; s.ui.arr_zoom = 2; s.ui.arr_lanes = 0; s.ui.shift = true; s.ui.arr_mode = 1;
+         s.ui.page = PageId::Arrange; s.ui.track = 1; s.ui.arr_zoom = 2; s.ui.arr_lanes = 4; s.ui.shift = true; s.ui.arr_mode = 1;
          fill_arrange_lanes(s, shell.patterns(), [&](unsigned t) { return s.positions[t]; });
      }},
     {"mixerbuses", [](Shell&, Snapshot& s) { // LAB: TRACKS' fourth press: the buses as VU faders
@@ -2113,6 +2113,26 @@ const Preview previews[] {
          s.ui.page = PageId::Chop; s.ui.track = 3; s.sample = break_sample(); s.ui.chop_sample = 4;
          s.ui.slices = chop(ChopMode::Regions, 12, 0, 0, s.sample.frames, s.sample.hits, s.sample.hit_count, 920);
          s.ui.chop_mode = ChopMode::Regions; s.ui.chop_bank_sheet = true; s.ui.chop_bank = 1;
+     }},
+    {"knobfxbypass", [](Shell&, Snapshot& s) { // LAB: Knob FX's bar on another page: B3 its bypass, lit while bypassed
+         s.ui.page = PageId::Stage; s.ui.track = 0; s.playing = true;
+         auto& k = s.project.knob_fx;
+         load_knob(k, 16); k.on = true; k.set_track(0, true); k.bypass = true;
+     }},
+    {"rollkit16", [](Shell& shell, Snapshot& s) { // LAB: the FADER at 16 rows on a kit's Roll
+         step_edit_kit(shell, s);
+         s.ui.page = PageId::Roll; s.ui.roll_rows = 16; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 15);
+     }},
+    {"rollkit4", [](Shell& shell, Snapshot& s) { // LAB: and at 4
+         step_edit_kit(shell, s);
+         s.ui.page = PageId::Roll; s.ui.roll_rows = 4; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 3);
+     }},
+    {"padswap", [](Shell&, Snapshot& s) { // LAB: copying a pad picked on track 2, B2 SWAP on, on track 4
+         s.ui.page = PageId::Pads; s.ui.track = 3; s.sample = break_sample(); s.ui.copying = UiState::Copying::Pads; s.ui.copy_from = 2;
+         s.ui.copy_track = 1; s.ui.moving = true;
+     }},
+    {"settingsaudiousb", [](Shell&, Snapshot& s) { // LAB: AUDIO > USB outputs (the seventh row)
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::UsbOuts; s.ui.settings.usb_outs = 1;
      }},
     {"settingsknobslab", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::ChopNotes; }},
     {"tuner", [](Shell&, Snapshot& s) { s.ui.page = PageId::Tuner; s.tuner_hz = 443.1f; s.tuner_level = 0.2f; }},

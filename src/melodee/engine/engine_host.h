@@ -847,6 +847,10 @@ private:
     std::atomic<float> output_peak {0};
     std::array<std::atomic<float>, 2> out_levels {}, in_levels {};
     std::array<std::atomic<float>, bus_count> bus_meters {}; // LAB
+public:
+    // INDIGO X DENIM LAB, any thread: USB-C channels 3-18: 0 the sixteen tracks, 1 tracks 1-12 then bus A-D on 15-18.
+    std::atomic<uint8_t> usb_mode {0};
+private:
     std::atomic<unsigned> lost {0};
     std::atomic<bool> punch_on {false};
     std::atomic<unsigned> live_on {0};

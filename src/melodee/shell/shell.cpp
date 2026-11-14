@@ -371,7 +371,12 @@ void Shell::press(Button b, bool pressed) {
     // Note Repeat on: B1-B3 are its rate (Shift: triplets), except on Arp and Chord.
     case Button::TopLeft: if (!track_soft(context_, 0) && !repeat_soft(context_, 0)) page.soft(context_, 0); break;
     case Button::TopMiddle: if (!track_soft(context_, 1) && !repeat_soft(context_, 1)) page.soft(context_, 1); break;
-    case Button::TopRight: if (!track_soft(context_, 2) && !repeat_soft(context_, 2)) page.soft(context_, 2); break;
+    case Button::TopRight:
+        if (track_soft(context_, 2) || repeat_soft(context_, 2)) break;
+        // LAB: while Knob FX's bar shows (its effect on K1-K3, on another page), B3 is its bypass (Settings > KNOBS)
+        if (ui.settings.knob_fx_b3 && !ui.shift && ui.page != PageId::KnobFx && knob_bar_up(*project_, ui) && ui.ask == UiState::Ask::None) { context_.knob_fx_bypass(); break; }
+        page.soft(context_, 2);
+        break;
     case Button::WheelPush:
         if (ui.shift && ui.page == PageId::Song) song_marker(context_);
         else if (ui.shift && ui.page == PageId::Mixer) { ui.shift_used = true; mixer_solo(context_); } // INDIGO X DENIM: solo the strip
@@ -527,12 +532,13 @@ void Shell::hit(unsigned pad, uint8_t velocity, bool down) {
         return;
     case PadContext::PadCopy:
         if (ui_.copy_from < 0) { // first the pad to copy
-            if (context_.track().pads[kit].used()) { ui_.copy_from = int8_t(kit); context_.track().last_pad = uint8_t(kit); }
+            if (context_.track().pads[kit].used()) { ui_.copy_from = int8_t(kit); ui_.copy_track = uint8_t(ui_.track); context_.track().last_pad = uint8_t(kit); }
             else context_.notice(pad_text("Empty", kit));
             return;
         }
-        if (unsigned(ui_.copy_from) == kit) return; // then where it goes
-        context_.copy_pad(unsigned(ui_.copy_from), kit);
+        if (unsigned(ui_.copy_from) == kit && ui_.copy_track == ui_.track) return; // then where it goes
+        // LAB: onto this track or (Pad Bank + pad picked another kit meanwhile) another; B2 SWAP trades the two.
+        context_.copy_pad_between(ui_.copy_track, unsigned(ui_.copy_from), ui_.track, kit, ui_.moving);
         context_.track().last_pad = uint8_t(kit);
         ui_.stop_copying();
         return;
@@ -657,6 +663,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
     }
     for (unsigned t = 0; t < track_count; ++t) out.meters[t] = host.meter(t);
     for (unsigned b = 0; b < bus_count; ++b) out.bus_meters[b] = host.bus_meter(b); // LAB
+    host.usb_mode.store(ui_.settings.usb_outs, std::memory_order_relaxed); // LAB: Settings > AUDIO > USB outputs
     out.bus_meters[bus_count] = std::max(host.out_level(0), host.out_level(1));
     for (unsigned n = 0; n < sampler_pads; ++n) out.pad_meters[n] = host.pad_meter(ui_.track % track_count, n);
     { // INDIGO X DENIM LAB: the spectrum behind the EQ, the master's loudness

@@ -179,6 +179,8 @@ struct UiState {
     // starting there on that key is in focus. roll_view: the first step in view; roll_top: the top row's key;
     // roll_new: the length a pad's new note gets, in ticks (0: one step of Q).
     uint8_t roll_key = 62, roll_top = 65;
+    uint8_t roll_rows = 12; // INDIGO X DENIM LAB: rows in view, 1..16 (the FADER zooms them, as SampQOL's Pad View)
+    unsigned roll_rows_shown() const { return roll_rows < 1 ? 1u : roll_rows > 16 ? 16u : roll_rows; }
     int16_t roll_view = 0;
     uint16_t roll_new = 0;
     // INDIGO X DENIM: Push with no note in focus opens Roll's VIEW sheet (Follow playhead, Scale lanes, Quantize all,
@@ -229,7 +231,7 @@ struct UiState {
     // shown; the edit mode (0 MRQ, 1 TRK, 2 ARR); the selection's ticks [arr_from, arr_to) and lanes arr_t0..arr_t1
     // (MRQ), its anchor; the loop brace's ticks; the EDIT sheet open and its row; whether a selection is drawn.
     uint32_t arr_cursor = 0, arr_view = 0, arr_from = 0, arr_to = 0, arr_anchor = 0, brace_from = 0, brace_to = 0;
-    uint8_t arr_zoom = 3, arr_lanes = 1, arr_top = 0, arr_mode = 0, arr_t0 = 0, arr_t1 = 0, arr_row = 0;
+    uint8_t arr_zoom = 3, arr_lanes = 8, arr_top = 0, arr_mode = 0, arr_t0 = 0, arr_t1 = 0, arr_row = 0;
     bool arr_sheet = false, arr_selected = false;
     uint16_t arr_pads = 0; uint8_t arr_board = 0; // pads held; tracks on the clipboard
     uint8_t shortcut_cursor = 0; // INDIGO X DENIM LAB: Settings > SHORTCUTS: the pad in hand

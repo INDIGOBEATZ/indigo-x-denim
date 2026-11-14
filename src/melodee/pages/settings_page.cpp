@@ -46,9 +46,9 @@ constexpr int8_t none = -1;
 const std::array<Door, 8> doors {{
     {Icon::Pads, "PADS", {Settings::PadResponse, Settings::PadPressure, Settings::PadLights, Settings::DoubleSeq, Settings::CaptureBars,
                           Settings::CaptureQuantize, Settings::SeqFirst, none}}, // LAB: SEQ opens STEPS or ROLL
-    {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, Settings::ShiftMapDelay, Settings::ChopNotes, Settings::PreviewTempo, none, none}},
+    {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, Settings::ShiftMapDelay, Settings::ChopNotes, Settings::PreviewTempo, Settings::KnobFxB3, none}},
     {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::StartFolder, Settings::ProjectFolder, none, none}}, // INDIGO X DENIM: Font, Sample and Project folder
-    {Icon::Speaker, "AUDIO", {Settings::SampleRate, Settings::AudioBuffer, Settings::LevelLeds, Settings::PreviewLevel, Settings::SystemBar, Settings::FlattenTail, none, none}}, // INDIGO X DENIM: Level LEDs; LAB: preview volume, CPU / RAM bar
+    {Icon::Speaker, "AUDIO", {Settings::SampleRate, Settings::AudioBuffer, Settings::LevelLeds, Settings::PreviewLevel, Settings::SystemBar, Settings::FlattenTail, Settings::UsbOuts, none}}, // INDIGO X DENIM: Level LEDs; LAB: preview volume, CPU / RAM bar
     {Icon::Mic, "SAMPLING", {Settings::RecallGrabRow, Settings::RecallGap, Settings::RecallTrimEnd, Settings::TakeAutoEnd, Settings::AutoEndAfter,
                              Settings::SilenceBelow, none, none}},
     {Icon::Din, "MIDI", {none, none, none, none, none, none, none, none}},  // MIDI Config's own page
@@ -146,7 +146,7 @@ void rows_draw(Paint& p, const Snapshot& s) {
     }
     if (s.ui.settings_door % doors.size() != audio_door) return;
     // AUDIO (roadmap P2): what the blocks take of their time, beside the dropouts (a check while there are none).
-    float y = zone::picture_y + 1 + door_rows(d) * (list_row_h + list_row_gap) + 6, cy = y + list_row_h / 2, right = x + w - 9;
+    float y = zone::picture_y + 1 + std::min(door_rows(d), 6u) * (list_row_h + list_row_gap) + 6, cy = y + list_row_h / 2, right = x + w - 9;
     float load = s.machine.render_load;
     icon(p, Icon::Chip, x + 10, cy - 7, 14, colour::sec, 1.4f);
     p.text("DSP", x + 30, y, 40, list_row_h, caps_text(colour::mid));

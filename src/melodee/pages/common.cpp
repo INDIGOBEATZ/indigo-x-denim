@@ -275,7 +275,9 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::Swing: c.label = "SWING"; c.value = juce::String(b.value); c.unit = "%"; break;
     case Kind::ViewZoom: c.label = "ZOOM"; c.value = juce::String(1 << (b.value & 3)); c.unit = b.value ? "bars" : "bar"; break; // INDIGO X DENIM
     case Kind::ArrZoom: c.label = "ZOOM"; c.value = juce::String(arrange_zooms[b.value]); c.unit = b.value == 0 ? "bar" : "bars"; break; // LAB
-    case Kind::ArrLanes: c.label = "LANES"; c.value = juce::String(arrange_lane_counts[b.value % 3]); break;
+    case Kind::ArrLanes: c.label = "LANES"; c.value = juce::String(b.value); break;
+    case Kind::RollRows: c.label = "ROWS"; c.value = juce::String(b.value); break;
+    case Kind::FilesScroll: c.label = "LIST"; c.value = juce::String(b.value * 100 / 127); c.unit = "%"; break;
     case Kind::SongZoom: c.label = "ZOOM"; c.value = juce::String(song_zooms[b.value]); c.unit = "bars"; break;
     case Kind::SongPattern: c.label = "PATTERN"; c.value = "P" + juce::String(b.value + 1); break;
     case Kind::SongLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "bar" : "bars"; break;
@@ -715,9 +717,16 @@ FaderShown fader_shown(const Snapshot& s) {
 }
 
 void frame(ui::Paint& p, const Snapshot& s, const ui::SoftKeys& keys, const ui::Header& header) {
-    ui::soft_keys(p, keys);
     auto cards = cards_of(s);
     bool knob_fx = std::any_of(cards.begin(), cards.end(), [](const ui::KnobCard& c) { return c.knob_fx; });
+    if (knob_fx && s.ui.page != PageId::KnobFx && s.ui.settings.knob_fx_b3 && !s.ui.shift) { // LAB: B3 the Knob FX bypass while its bar shows
+        auto shown = keys;
+        shown.labels[2] = "BYPASS";
+        shown.glyphs[2] = ui::Icon::None; shown.after[2] = ui::Icon::None; shown.icons[2] = ui::KeyIcon::None; shown.dots[2] = 0;
+        if (shown.active == 2) shown.active = -1;
+        shown.toggles = uint8_t(shown.toggles | 4); shown.lit = uint8_t((shown.lit & ~4) | (s.project.knob_fx.bypass ? 4 : 0));
+        ui::soft_keys(p, shown);
+    } else ui::soft_keys(p, keys);
     if (knob_fx && s.ui.page != PageId::KnobFx) { // the pots are Knob FX's: the header names its effect first
         auto shown = header;
         auto name = juce::String(knob_fx_entry(s.project.knob_fx.choice).name).toUpperCase();

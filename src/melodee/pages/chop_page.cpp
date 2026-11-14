@@ -197,6 +197,7 @@ void wheel(Context& c, int delta) {
 }
 
 void place(Context& c) { // LAB: TO PADS on the bank chosen
+    if (!c.chop_room(c.ui.chop_bank)) { c.notice("No free pads from there on"); return; }
     c.ui.chop_bank_sheet = false;
     c.chop_to_pads(c.ui.chop_bank);
     c.open(PageId::Pads);

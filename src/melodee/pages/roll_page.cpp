@@ -45,8 +45,8 @@
 namespace melodee {
 namespace {
 using namespace ui;
-constexpr float gutter = 23, ruler = 13, row_h = 10.5f, column_1x = 18.5f;
-constexpr unsigned rows = roll_rows, columns_1x = roll_columns, columns_most = roll_columns * 8;
+constexpr float gutter = 23, ruler = 13, row_h_12 = 10.5f, column_1x = 18.5f;
+constexpr unsigned columns_1x = roll_columns, columns_most = roll_columns * 8;
 enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowQuantize, RowLegato, RowDuplicate, RowDelete, sheet_rows };
 enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, ViewSelectAll, ViewPaste, view_rows }; // LAB: Paste notes
 enum SelRow : uint8_t { SelEarlier, SelLater, SelUp, SelDown, SelOctaveUp, SelOctaveDown, SelDuplicate, SelQuantize, SelCopy, SelDelete, SelClear, sel_rows }; // LAB: Copy notes
@@ -58,6 +58,9 @@ juce::String where(const Snapshot& s, uint32_t tick) {
 }
 
 void draw(Paint& p, const Snapshot& s) {
+    // LAB: the rows in view, 1..16 (a kit's FADER zooms them); twelve fill the picture as before.
+    const unsigned rows = s.ui.roll_rows_shown();
+    const float row_h = row_h_12 * float(roll_rows) / float(rows);
     const auto& pattern = s.pattern;
     UiState ui = s.ui;
     roll_follow(pattern, ui); // the view onto the cursor, even when it came from another page

@@ -232,6 +232,8 @@ public:
     void delete_pad(unsigned kit);                           // Erase + pad on a kit, stopped: the pad empty
     void erase_pad_notes(unsigned kit);                      // playing or recording: its notes out of the pattern, one edit
     void copy_pad(unsigned from, unsigned to);               // Shift + Erase, pad, pad: sound and effects
+    // INDIGO X DENIM LAB: a pad copied (or with swap, the two traded) from one track's kit onto another's (or the same).
+    void copy_pad_between(unsigned from_track, unsigned from, unsigned to_track, unsigned to, bool swap);
     void restore_pattern(unsigned track, unsigned pattern, const Pattern& value);
     void restore_pad(unsigned track, unsigned kit, const PadState& value);
     void send_trims(unsigned track, unsigned kit); // round 3 "instrument C": the pad's zone trims, afresh

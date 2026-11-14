@@ -1350,7 +1350,8 @@ was chopped from, else from its length. Other pads keep theirs.
 
 ### SEQ opens STEPS or ROLL
 
-Settings > PADS > **SEQ opens**: Last used (as before), STEPS or ROLL.
+Settings > PADS > **SEQ opens**: Last used (as before: SEQ shows the patterns, again the editor), or STEPS or ROLL:
+then SEQ goes straight to that editor from any page, and SEQ again shows the patterns.
 
 ### FADER: rows and lists
 

@@ -9829,7 +9829,8 @@ void loop_seams() {
     auto shifted = shift_bindings(*project, ui, none);
     CHECK(shifted[1].kind == Binding::Kind::PadLink && shifted[2].kind == Binding::Kind::PadLoopXfade && shifted[2].value == 10);
     ui.sampler_row = 1;
-    CHECK(!shift_bindings(*project, ui, none)[1].bound() && shift_bindings(*project, ui, none)[2].kind == Binding::Kind::PadLoopXfade);
+    CHECK(shift_bindings(*project, ui, none)[1].kind == Binding::Kind::PadPingRegion && shift_bindings(*project, ui, none)[2].kind == Binding::Kind::PadLoopXfade); // LAB: Sample Tail's repeat on row 2
+    CHECK(shift_bindings(*project, ui, none)[0].kind == Binding::Kind::PadPingTail);
     auto file = save_project(*project, *bank);
     auto loaded = std::make_unique<Project>();
     auto loaded_bank = std::make_unique<PatternBank>();

@@ -247,7 +247,14 @@ void draw(Paint& p, const Snapshot& s) {
         const auto& marker = song.markers[m];
         if (marker.bar < view || marker.bar >= view + zoom) continue;
         float mx = x0 + (marker.bar - view) * bw;
-        p.text(marker.name, mx + 2, zone::picture_y, 80, 13, caps_text(colour::mid));
+        // LAB: zoomed far out markers sit close: a name gets only the room up to the next one (none under 18 px)
+        float room = 80;
+        for (unsigned o = 0; o < song.marker_count; ++o)
+            if (song.markers[o].bar > marker.bar) room = std::min(room, (song.markers[o].bar - marker.bar) * bw - 4);
+        juce::String name(marker.name);
+        auto style = caps_text(colour::mid);
+        while (name.length() > 1 && p.width(name, style) > room) name = name.dropLastCharacters(1);
+        if (room >= 18) p.text(name, mx + 2, zone::picture_y, room, 13, style);
         p.fill(mx, zone::picture_y, 0.5f, lane_top - zone::picture_y + lanes * (lane_h + lane_gap), colour::line);
     }
     for (unsigned b = view; b < view + zoom; ++b)

@@ -22,6 +22,7 @@
 #include "melodee/pages/pages.h"
 #include "melodee/pages/sampler_common.h"
 #include "melodee/ui/waveform.h"
+#include "melodee/ui/widgets.h"
 #include <cstdio>
 
 namespace melodee {
@@ -42,7 +43,8 @@ void draw(Paint& p, const Snapshot& s) {
     h.left.push_back(chip("CHOP", c));
     h.left.push_back(pill(Icon::Scissors, juce::String(slices.count), c));
     h.right.push_back(tag_of(s, s.ui.track));
-    if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
+    if (s.ui.chop_bank_sheet) frame(p, s, {{"BACK", "", "TO PADS"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}}, h); // LAB
+    else if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
     else {
         SoftKeys keys {{"CANCEL", "SNAP", "TO PADS"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
         keys.toggles = 2; keys.lit = s.ui.settings.zero_snap ? 2 : 0;
@@ -138,7 +140,7 @@ void draw(Paint& p, const Snapshot& s) {
     juce::String lands;
     if (!taking) {
         const auto& track = s.track();
-        unsigned pad = 0, n = 0;
+        unsigned pad = track.bank % sampler_banks * 16, n = 0; // LAB: from the bank in view on
         for (; pad < sampler_pads; ++pad) if (!track.pads[pad].used() && n++ == selected) break;
         if (pad < sampler_pads) { char label[4]; pad_label(pad, label); lands = juce::String(label); }
     }
@@ -153,11 +155,31 @@ void draw(Paint& p, const Snapshot& s) {
     char text[24];
     std::snprintf(text, sizeof(text), "%.3f s", (slices.end(selected, frames) - slices.start[selected]) / 44100.0);
     p.text(text, x, y + wh + 13, w, 16, plain(colour::text, type::body, Weight::SemiBold), juce::Justification::centredRight);
+    if (s.ui.chop_bank_sheet) { // LAB: TO PADS: which bank the slices start on (free pads from there on)
+        p.dim_zone(zone::picture_y, zone::picture_h, 0.7f);
+        MenuSheet m;
+        m.title = "TO PADS";
+        m.detail = juce::String(slices.count) + (slices.count == 1 ? " slice" : " slices") + ", mute group 3";
+        m.accent = c;
+        const auto& track = s.track();
+        for (unsigned b = 0; b < sampler_banks; ++b) {
+            unsigned room = 0;
+            for (unsigned pd = b * 16; pd < sampler_pads; ++pd) room += !track.pads[pd].used();
+            unsigned here = 0;
+            for (unsigned pd = b * 16; pd < b * 16 + 16; ++pd) here += !track.pads[pd].used();
+            juce::String value = juce::String(here) + " free";
+            m.rows[b] = {"Bank " + juce::String::charToString(juce::juce_wchar('A' + b)), value, false, false, room < 1};
+        }
+        m.count = sampler_banks; m.current = s.ui.chop_bank % sampler_banks;
+        menu_sheet(p, m);
+    }
 }
 
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& ui = c.ui;
     if (!down) return;
+    if (ui.chop_bank_sheet) return; // the bank sheet is up
+    pad = c.track().bank % sampler_banks * 16 + pad % 16; // LAB: a bank's pads are its slices (bank B: 17-32)
     if (ui.erase) { // the slice out: it joins the one before (the chop is Manual from here)
         if (pad == 0 || pad >= ui.slices.count) return;
         ui.slices.remove(pad);
@@ -169,17 +191,26 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
 }
 
 void wheel(Context& c, int delta) {
+    if (c.ui.chop_bank_sheet) { c.ui.chop_bank = uint8_t(std::clamp<int>(c.ui.chop_bank + delta, 0, int(sampler_banks) - 1)); return; } // LAB
     if (!c.ui.slices.count) return;
     c.ui.chop_slice = uint8_t(std::clamp<int>(c.ui.chop_slice + delta, 0, int(c.ui.slices.count) - 1));
 }
 
+void place(Context& c) { // LAB: TO PADS on the bank chosen
+    c.ui.chop_bank_sheet = false;
+    c.chop_to_pads(c.ui.chop_bank);
+    c.open(PageId::Pads);
+}
+
 void push(Context& c) { // Manual, armed: pad 1 plays the region again and the taps cut it afresh
+    if (c.ui.chop_bank_sheet) { place(c); return; } // LAB
     c.ui.chop_mode = ChopMode::Manual;
     c.rechop();
 }
 
 void soft(Context& c, int key) {
     auto& ui = c.ui;
+    if (ui.chop_bank_sheet) { if (key == 0) ui.chop_bank_sheet = false; if (key == 2) place(c); return; } // LAB: BACK, TO PADS
     if (ui.shift) {
         uint32_t frames = ui.chop_sample < sample_slots ? c.project.samples[ui.chop_sample].frames : 0;
         if (key == 0) c.extract_slice();
@@ -201,7 +232,16 @@ void soft(Context& c, int key) {
     }
     if (key == 0) c.back();
     if (key == 1) c.toggle_zero_snap();
-    if (key == 2) { c.chop_to_pads(); c.open(PageId::Pads); }
+    if (key == 2) { // LAB: which bank first; the first with room for every slice, from the bank in view on
+        if (!ui.slices.count) return;
+        unsigned from = c.track().bank % sampler_banks, pick = from;
+        for (unsigned k = 0; k < sampler_banks; ++k) {
+            unsigned b = (from + k) % sampler_banks;
+            if (c.chop_room(b) >= ui.slices.count) { pick = b; break; }
+        }
+        ui.chop_bank = uint8_t(pick);
+        ui.chop_bank_sheet = true;
+    }
 }
 } // namespace
 

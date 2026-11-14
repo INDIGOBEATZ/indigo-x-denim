@@ -2105,6 +2105,15 @@ const Preview previews[] {
          on_stage(s, 3, 0, 0); s.playing = true; s.sample = break_sample();
          s.ui.process_open = true; s.ui.process_row = 2;
      }},
+    {"settingsseqfirst", [](Shell&, Snapshot& s) { // LAB: PADS > SEQ opens (the seventh row: the list scrolled)
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 0; s.ui.settings_cursor = Settings::SeqFirst;
+         s.ui.settings_editing = true; s.ui.settings.seq_first = 2;
+     }},
+    {"chopbanks", [](Shell&, Snapshot& s) { // LAB: TO PADS: which bank first
+         s.ui.page = PageId::Chop; s.ui.track = 3; s.sample = break_sample(); s.ui.chop_sample = 4;
+         s.ui.slices = chop(ChopMode::Regions, 12, 0, 0, s.sample.frames, s.sample.hits, s.sample.hit_count, 920);
+         s.ui.chop_mode = ChopMode::Regions; s.ui.chop_bank_sheet = true; s.ui.chop_bank = 1;
+     }},
     {"settingsknobslab", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::ChopNotes; }},
     {"tuner", [](Shell&, Snapshot& s) { s.ui.page = PageId::Tuner; s.tuner_hz = 443.1f; s.tuner_level = 0.2f; }},
     {"sublens", [](Shell&, Snapshot& s) { // a kick and an 808 ducked under it

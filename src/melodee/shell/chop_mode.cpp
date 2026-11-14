@@ -21,18 +21,23 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
         send(a);
     };
+    // INDIGO X DENIM LAB: `pad` is the slice's own number, its bank in it (a bank's pads play its slices).
     if (ui.chop_take_at) { // Manual's take: a cut where the region is now
         uint32_t at = sl.start[0] + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
-        if (at < sl.end(sl.count - 1, frames)) {
+        // LAB: a pad of a slice already cut ends the take and plays it (the take never holds the pads hostage);
+        // a pad past them cuts, while the region still plays.
+        if (pad < sl.count || at >= sl.end(sl.count - 1, frames)) ui.chop_take_at = 0;
+        else {
             if (library) {
                 auto loaded = library->slot(ui.chop_sample);
                 at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
             }
-            if (sl.add(at, frames, manual_slices))
+            if (sl.add(at, frames, manual_slices)) {
                 for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
+                if (sl.count >= manual_slices) { ui.chop_take_at = 0; notice("16 slices: take done"); }
+            }
             return;
         }
-        ui.chop_take_at = 0; // it has played out: the pads play slices again
     }
     if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
         sl.count = 1; // the take starts from one slice, the whole region

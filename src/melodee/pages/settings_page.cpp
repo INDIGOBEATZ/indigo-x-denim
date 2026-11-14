@@ -41,19 +41,19 @@ namespace melodee {
 namespace {
 using namespace ui;
 
-struct Door { Icon icon; const char* name; std::array<int8_t, 6> rows; };
+struct Door { Icon icon; const char* name; std::array<int8_t, 8> rows; }; // LAB: up to eight, six in view (the list scrolls)
 constexpr int8_t none = -1;
 const std::array<Door, 8> doors {{
     {Icon::Pads, "PADS", {Settings::PadResponse, Settings::PadPressure, Settings::PadLights, Settings::DoubleSeq, Settings::CaptureBars,
-                          Settings::CaptureQuantize}},
-    {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, Settings::ShiftMapDelay, Settings::ChopNotes, Settings::PreviewTempo}},
-    {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::StartFolder, Settings::ProjectFolder}}, // INDIGO X DENIM: Font, Sample and Project folder
-    {Icon::Speaker, "AUDIO", {Settings::SampleRate, Settings::AudioBuffer, Settings::LevelLeds, Settings::PreviewLevel, Settings::SystemBar, Settings::FlattenTail}}, // INDIGO X DENIM: Level LEDs; LAB: preview volume, CPU / RAM bar
+                          Settings::CaptureQuantize, Settings::SeqFirst, none}}, // LAB: SEQ opens STEPS or ROLL
+    {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, Settings::ShiftMapDelay, Settings::ChopNotes, Settings::PreviewTempo, none, none}},
+    {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::StartFolder, Settings::ProjectFolder, none, none}}, // INDIGO X DENIM: Font, Sample and Project folder
+    {Icon::Speaker, "AUDIO", {Settings::SampleRate, Settings::AudioBuffer, Settings::LevelLeds, Settings::PreviewLevel, Settings::SystemBar, Settings::FlattenTail, none, none}}, // INDIGO X DENIM: Level LEDs; LAB: preview volume, CPU / RAM bar
     {Icon::Mic, "SAMPLING", {Settings::RecallGrabRow, Settings::RecallGap, Settings::RecallTrimEnd, Settings::TakeAutoEnd, Settings::AutoEndAfter,
-                             Settings::SilenceBelow}},
-    {Icon::Din, "MIDI", {none, none, none, none, none, none}},  // MIDI Config's own page
-    {Icon::Info, "ABOUT", {none, none, none, none, none, none}}, // the About page
-    {Icon::Pads, "SHORTCUTS", {none, none, none, none, none, none}}, // INDIGO X DENIM LAB: Shift + pad, each its own job
+                             Settings::SilenceBelow, none, none}},
+    {Icon::Din, "MIDI", {none, none, none, none, none, none, none, none}},  // MIDI Config's own page
+    {Icon::Info, "ABOUT", {none, none, none, none, none, none, none, none}}, // the About page
+    {Icon::Pads, "SHORTCUTS", {none, none, none, none, none, none, none, none}}, // INDIGO X DENIM LAB: Shift + pad, each its own job
 }};
 constexpr unsigned audio_door = 3, midi_door = 5, about_door = 6, shortcuts_door = 7;
 bool in_shortcuts(const UiState& ui) { return ui.settings_in && ui.settings_door % doors.size() == shortcuts_door; }
@@ -126,9 +126,10 @@ void rows_draw(Paint& p, const Snapshot& s) {
     frame(p, s, {{"BACK", "", ""}, -1, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}, h);
     const auto& set = s.ui.settings;
     float x = zone::pad, w = zone::width - 2 * zone::pad;
-    for (unsigned n = 0; n < door_rows(d); ++n) {
+    const unsigned count = door_rows(d), first = count > 6 ? std::min(place_of(s.ui) >= 5 ? place_of(s.ui) - 5 : 0u, count - 6) : 0;
+    for (unsigned n = first; n < std::min(count, first + 6); ++n) {
         unsigned row = unsigned(d.rows[n]);
-        float y = zone::picture_y + 1 + n * (list_row_h + list_row_gap);
+        float y = zone::picture_y + 1 + (n - first) * (list_row_h + list_row_gap);
         bool cursor = row == s.ui.settings_cursor, editing = cursor && s.ui.settings_editing;
         if (cursor) { p.fill(x, y, w, list_row_h, colour::raised, 3); p.fill(x, y, 2.5f, list_row_h, colour::text, 1); }
         p.text(Settings::row_name(row), x + 10, y, w / 2, list_row_h, plain(cursor ? colour::text : colour::sec, type::list, cursor ? Weight::Medium : Weight::Regular));

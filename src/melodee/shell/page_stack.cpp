@@ -38,6 +38,8 @@ bool seq_editor(PageId page) { return page == PageId::Steps || page == PageId::R
 
 PageId seq_editor_page(const UiState& ui, bool kit) {
     static const PageId editors[] {PageId::Steps, PageId::Roll, PageId::Motion};
+    if (ui.settings.seq_first == 1) return PageId::Steps; // LAB: Settings > SCREEN > SEQ opens
+    if (ui.settings.seq_first == 2) return PageId::Roll;
     unsigned kept = ui.seq_editor[ui.track % track_count];
     if (kept >= 1 && kept <= 3) return editors[kept - 1];
     return kit ? PageId::Steps : PageId::Roll;

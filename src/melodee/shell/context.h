@@ -402,8 +402,10 @@ public:
     uint32_t zero_cut(uint32_t frame) const;                           // Chop: a cut on a zero crossing, with Zero Snap on
     void snap_slices();                                                // Chop: every cut of the slices onto one
     void toggle_zero_snap();                                           // Chop, B2: Zero Snap on / off (a setting)
-    void chop_to_pads();                                               // the slices onto pads, from the first free one
-    void follow_tempos(); // Follow on: each pad's own tempo, from its length as whole bars
+    void chop_to_pads(unsigned bank = 0);                              // the slices onto pads, from the bank's first free one (LAB: the bank chosen)
+    unsigned chop_room(unsigned bank) const;                           // LAB: free pads from that bank on
+    uint16_t guess_tempo(uint16_t sample, uint32_t from, uint32_t to) const; // LAB: a region's own tempo (tenths), for Warp's Seq
+    void follow_tempos(bool all = false); // Warp's Seq: the last pad's own tempo guessed (all: Follow, every pad without one)
     bool host_recording() const;                                       // a take is armed, cued or running
     // Input Config and Sample Record (parity phase 6, shell/sample_record.cpp).
     InputRoute* input = nullptr;                          // set by the app: the hardware behind the source

@@ -37,6 +37,7 @@
 #endif
 
 namespace melodee {
+unsigned bpm_in_name(const std::string& path); // LAB: shell/sample_files.cpp
 using Type = Command::Type;
 
 void Context::send(const Command& command) {
@@ -229,6 +230,7 @@ void Context::open(PageId page) {
     ui.song_export = false;
     ui.song_wipe = false; // LAB
     ui.ref_pick = false;  // LAB: reference_pick() sets it after opening Samples
+    ui.chop_bank_sheet = false;
     if (ui.page == PageId::Sounds && page != PageId::Sounds) audition(-1);
     if (page != ui.page) {
         push_back_stack(ui, page);
@@ -517,7 +519,7 @@ void Context::apply(const Binding& b, int value) {
     case Kind::Param:
         set_param(ui.track, b.id, value);
         if (t.engine != EngineKind::Midi || midi_track::is_cc(b.id) || b.id == midi_track::Bend) record_motion(b.id, value); // of a MIDI track's own, its slots and bend are lanes
-        if (t.engine == EngineKind::Sampler && b.id == sampler::Follow && value) follow_tempos();
+        if (t.engine == EngineKind::Sampler && b.id == sampler::Follow && value) follow_tempos(true);
         break;
     case Kind::Level: t.mix.level = uint8_t(value); send({Type::Level, ui.track, 0, 0, int16_t(value)}); record_motion(int(motion_level), value); break;
     case Kind::Pan: t.mix.pan = int8_t(value); send({Type::Pan, ui.track, 0, 0, int16_t(value)}); record_motion(int(motion_pan), value); break;
@@ -1581,46 +1583,85 @@ void Context::rechop() {
     ui.chop_take_at = 0;
 }
 
-void Context::follow_tempos() {
+// Warp's Seq turned on for the last pad with no tempo of its own: guess_tempo()'s (LAB: that pad only; the
+// others keep theirs, and a chop's slices share their region's).
+void Context::follow_tempos(bool all) {
     auto& t = track();
     for (unsigned n = 0; n < sampler_pads; ++n) {
+        if (!all && n != t.last_pad % sampler_pads) continue;
         auto& pad = t.pads[n];
+        if (all && pad.own_tempo) continue; // Follow (the kit's): a pad that knows its tempo keeps it
         uint32_t frames = pad.used() ? project.samples[pad.sample % sample_slots].frames : 0;
         if (!frames) continue;
-        uint32_t end = pad.end ? pad.end : frames, length = end > pad.start ? end - pad.start : 0;
-        if (length < 4410) continue; // a hit, not a loop: it keeps its speed
-        // The number of bars that puts it nearest the project's tempo, between 70 and 180 BPM.
-        double best = 0, target = project.tempo / 10.0;
-        for (double bars : {0.25, 0.5, 1.0, 2.0, 4.0, 8.0}) {
-            double bpm = bars * 4 * 60 * 44100.0 / length;
-            if (bpm >= 70 && bpm <= 180 && (best == 0 || std::fabs(bpm - target) < std::fabs(best - target))) best = bpm;
-        }
-        pad.own_tempo = uint16_t(best * 10);
+        uint32_t end = pad.end ? std::min(pad.end, frames) : frames;
+        uint16_t guess = guess_tempo(pad.sample, pad.start, end);
+        if (!guess) { if (!all) notice("Warp: too short to follow"); continue; }
+        pad.own_tempo = guess;
         send_pad(ui.track, n);
     }
 }
 
 bool Context::host_recording() const { return host.recorder().state() != TakeRecorder::State::Idle; }
 
-void Context::chop_to_pads() {
+unsigned Context::chop_room(unsigned bank) const {
+    const auto& t = project.tracks[ui.track % track_count];
+    unsigned room = 0;
+    for (unsigned pad = bank % sampler_banks * 16; pad < sampler_pads; ++pad) room += !t.pads[pad].used();
+    return room;
+}
+
+// INDIGO X DENIM LAB: a region's own tempo for Warp's Seq (tenths of a BPM): what its file's name says, else the
+// region its chop cut (so every slice of one break shares one tempo), else the bars that put its length nearest
+// the project's tempo (70 to 180 BPM). 0: too short to tell (a hit keeps its speed).
+uint16_t Context::guess_tempo(uint16_t sample, uint32_t from, uint32_t to) const {
+    if (sample >= sample_slots) return 0;
+    const auto& ref = project.samples[sample];
+    if (unsigned bpm = bpm_in_name(ref.path); bpm) return uint16_t(bpm * 10);
+    const auto& kept = project.chops[sample];
+    uint32_t frames = ref.frames;
+    if (kept.used()) {
+        uint32_t a = kept.slices.start[0], b = kept.slices.end(kept.slices.count - 1, frames);
+        if (from >= a && to <= b && b > a) { from = a; to = b; }
+    }
+    if (to <= from) return 0;
+    uint32_t length = to - from;
+    if (length < 4410) return 0;
+    double best = 0, target = project.tempo / 10.0;
+    for (double bars : {0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0}) {
+        double bpm = bars * 4 * 60 * 44100.0 / length;
+        if (bpm >= 70 && bpm <= 180 && (best == 0 || std::fabs(bpm - target) < std::fabs(best - target))) best = bpm;
+    }
+    return uint16_t(std::lround(best * 10));
+}
+
+void Context::chop_to_pads(unsigned bank) {
     auto& t = track();
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
-    if (!frames) return;
-    unsigned pad = 0, placed = 0;
+    if (!frames || !ui.slices.count) return;
+    keep_chop(); // the region and its slices kept first: guess_tempo() reads the whole region from it
+    // LAB: every slice at the tempo of the whole region, so Warp plays one break as one.
+    const uint16_t region_tempo = guess_tempo(ui.chop_sample, ui.slices.start[0], ui.slices.end(ui.slices.count - 1, frames));
+    unsigned pad = bank % sampler_banks * 16, placed = 0, first = sampler_pads;
     std::array<int16_t, max_slices> placed_pads; placed_pads.fill(-1); // LAB: which pad each slice went to
     for (unsigned n = 0; n < ui.slices.count; ++n) {
-        while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
+        while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the bank's first free pad on
         if (pad >= sampler_pads) break;
         PadSound sound;
         sound.sample = ui.chop_sample; sound.start = ui.slices.start[n]; sound.end = ui.slices.end(n, frames);
         sound.mono = true; // INDIGO X DENIM: a chop's slices cut each other off (Mono), as one played break
+        sound.group = 3;   // INDIGO X DENIM LAB: and all in mute group 3
+        sound.own_tempo = region_tempo;
         t.pads[pad] = sound;
         send_pad(ui.track, pad);
         placed_pads[n] = int16_t(pad);
+        first = std::min(first, pad);
         ++placed;
     }
-    // INDIGO X DENIM LAB: and the slices as notes, so the pattern plays the break back as it was (SXL's Extract with
-    // events): the region taken as whole bars at the project's tempo, each slice's note where it starts, as long as it
+    if (first < sampler_pads) { t.bank = uint8_t(first / 16); t.last_pad = uint8_t(first); } // the pads show where they went
+    if (placed < ui.slices.count) notice(std::to_string(placed) + " of " + std::to_string(ui.slices.count) + " on pads: kit full");
+    else notice(std::to_string(placed) + " slices on bank " + std::string(1, char('A' + first / 16)) + ", group 3");
+    // LAB: the slices as notes too, only when Settings asks (KNOBS > Chop to pads: Pads + notes; off by default):
+    // the region taken as whole bars at the project's tempo, each slice's note where it starts, as long as it
     // lasts; into the pattern in play when it is empty, else the first empty one.
     if (!ui.settings.chop_notes || !placed) return;
     const uint32_t from = ui.chop_from, to = ui.chop_to ? std::min(ui.chop_to, frames) : frames;

@@ -38,7 +38,7 @@ bool seq_editor(PageId page) { return page == PageId::Steps || page == PageId::R
 
 PageId seq_editor_page(const UiState& ui, bool kit) {
     static const PageId editors[] {PageId::Steps, PageId::Roll, PageId::Motion};
-    if (ui.settings.seq_first == 1) return PageId::Steps; // LAB: Settings > SCREEN > SEQ opens
+    if (ui.settings.seq_first == 1) return PageId::Steps; // LAB: Settings > PADS > SEQ opens
     if (ui.settings.seq_first == 2) return PageId::Roll;
     unsigned kept = ui.seq_editor[ui.track % track_count];
     if (kept >= 1 && kept <= 3) return editors[kept - 1];
@@ -51,6 +51,8 @@ void remember_editor(UiState& ui, PageId page) {
 }
 
 PageId seq_tap_page(const UiState& ui, bool kit) {
+    // LAB: Settings > PADS > SEQ opens STEPS or ROLL: SEQ goes straight there from any page; again, Patterns.
+    if (ui.settings.seq_first == 1 || ui.settings.seq_first == 2) return seq_editor(ui.page) ? PageId::Patterns : seq_editor_page(ui, kit);
     if (ui.page == PageId::Patterns || ui.page == PageId::StepEdit) return seq_editor_page(ui, kit);
     return PageId::Patterns; // from an editor, Song or any other page
 }

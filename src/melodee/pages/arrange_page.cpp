@@ -15,6 +15,7 @@
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/roll.h"
 #include "melodee/ui/widgets.h"
 #include <algorithm>
 #include <cmath>
@@ -224,9 +225,11 @@ void nudge(Context& c, int way) {
 
 void grid(Context& c) { // the selected track's notes at the cursor (MPC's track editor: Roll here)
     if (!c.track().used()) { c.notice("Empty track"); return; }
-    uint32_t length = std::max<uint32_t>(c.pattern().length, 1);
-    c.ui.locate = c.ui.arr_cursor % length;
+    const auto& pattern = c.pattern();
+    uint32_t length = std::max<uint32_t>(pattern.length, 1), q = std::max(1u, pattern.q());
     c.open(PageId::Roll);
+    c.ui.step_cursor = int16_t(std::min<uint32_t>(c.ui.arr_cursor % length / q, 0x7fff)); // Roll's cursor where ARRANGE's was
+    roll_follow(pattern, c.ui);
 }
 
 void push(Context& c) {

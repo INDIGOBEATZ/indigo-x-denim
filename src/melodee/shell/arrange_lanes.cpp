@@ -34,9 +34,17 @@ void fill_arrange_lanes(Snapshot& out, const PatternBank& patterns, const std::f
         int lo = 127, hi = 0;
         for (const auto& e : p.events) if (e.tick < length) { lo = std::min<int>(lo, e.key); hi = std::max<int>(hi, e.key); }
         if (lo > hi) continue;
-        for (uint32_t base = from / length * length; base < to && lane.count < ArrangeLane::most; base += length)
-            for (const auto& e : p.events) {
-                if (e.tick >= length || lane.count >= ArrangeLane::most) break;
+        uint32_t longest = 1; // the longest note: one starting that much before the view still reaches into it
+        for (const auto& e : p.events) if (e.tick < length) longest = std::max<uint32_t>(longest, e.length);
+        for (uint32_t base = from / length * length; base < to && lane.count < ArrangeLane::most; base += length) {
+            // Only the notes this pass of the loop can show (the events are in order): zoomed in on a long pattern,
+            // a few instead of all of them, every frame.
+            uint32_t seek = from > base ? from - base : 0;
+            seek = seek > longest ? seek - longest : 0;
+            auto first = std::lower_bound(p.events.begin(), p.events.end(), seek, [](const Event& e, uint32_t t) { return e.tick < t; });
+            for (auto it = first; it != p.events.end(); ++it) {
+                const auto& e = *it;
+                if (e.tick >= length || base + e.tick >= to || lane.count >= ArrangeLane::most) break;
                 uint32_t a = base + e.tick, b = a + std::max<uint32_t>(e.length, 1);
                 if (b <= from || a >= to) continue;
                 uint16_t x0 = uint16_t((std::max(a, from) - from) * px), x1 = uint16_t((std::min(b, to) - from) * px);
@@ -47,6 +55,7 @@ void fill_arrange_lanes(Snapshot& out, const PatternBank& patterns, const std::f
                 m.x0 = x0; m.x1 = x1; m.y = y;
                 m.velocity = e.velocity; m.ghost = base > 0;
             }
+        }
     }
 }
 

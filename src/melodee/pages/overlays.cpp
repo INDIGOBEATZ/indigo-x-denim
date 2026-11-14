@@ -79,7 +79,7 @@ void draw_system_bar(Paint& p, const Snapshot& s) {
     for (const auto& [name, value] : parts) {
         int v = std::clamp(value, 0, 100);
         auto ink = v >= 85 ? colour::rec : v >= 65 ? colour::amber : colour::sec;
-        float tw = p.text(name, x, y + 1, 26, h - 1, caps_text(colour::mid));
+        float tw = p.text(name, x, y + 1, 34, h - 1, caps_text(colour::mid));
         juce::String number = m.cores || name[0] == 'D' ? juce::String(v) + "%" : juce::String("-");
         float nw = p.text(number, x + tw + 3, y + 1, 34, h - 1, plain(ink, type::floor, Weight::Medium));
         float bx = x + tw + nw + 7, bw = part_w - (bx - x) - 8;

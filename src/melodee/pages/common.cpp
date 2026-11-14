@@ -48,6 +48,11 @@ ui::Header header_of(const Snapshot& s) {
         char clock[32];
         std::snprintf(clock, sizeof(clock), "%s %u:%02u", s.ui.rendering == 2 ? "MIXDOWN" : s.ui.rendering == 4 ? "FLATTEN" : "RESAMPLE", seconds / 60, seconds % 60);
         h.left.push_back(ui::chip(clock, ui::colour::rec));
+    } else if (s.ui.memo_on) { // INDIGO X DENIM LAB: a voice memo recording, its time
+        unsigned seconds = (s.now - s.ui.memo_at) / 1000;
+        char clock[24];
+        std::snprintf(clock, sizeof(clock), "MEMO %u:%02u", seconds / 60, seconds % 60);
+        h.left.push_back(ui::chip(clock, ui::colour::rec));
     } else if (s.ui.resample_pick) h.left.push_back(ui::chip(s.ui.resample_song ? "SONG: TAP A PAD" : "RESAMPLE: TAP A PAD", ui::colour::rec));
     // INDIGO X DENIM: ALL (Shift + MUTE) on a kit, on the pages whose knobs it widens: a short chip, left out first
     // when the header is full.

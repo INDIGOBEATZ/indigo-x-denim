@@ -1291,6 +1291,48 @@ choose **Paste notes** in **VIEW**. Notes past the pattern's end wrap round.
 In mute mode, pad mutes while recording are written into the pattern as
 Motion (the **MUTE** lane), and play back as they were recorded.
 
+
+### Reference track A/B (Master)
+
+- **Shift** + **B3** (**LOAD REF**): pick a finished song in the browser (up to six minutes).
+- **B3** switches between **A: MIX** (your mix) and **B: REF** (the reference). The reference
+  starts from its beginning when you press Play.
+- **Shift** + **B2** (**MATCH**): play your mix first, then MATCH sets the reference to the same
+  loudness (LUFS), so you compare sound rather than volume.
+
+### Custom Shift shortcuts
+
+Settings > **SHORTCUTS**: for each pad choose what **Shift** + pad does. You can pick Mixer,
+Master, Tuner, Sub Lens, Arrange, Reference A/B, Load reference, Quick save, Find samples,
+Looper, Samples, Tempo, Scenes, Motion, Tap tempo, Chord builder, Voice memo or Autosampler.
+A custom shortcut shows in amber on the Shift map. **B3** (**PRINTED**) sets the pad back to
+its printed job.
+
+### Chord builder
+
+Open it through a shortcut. It has 4 or 8 slots across the pattern, each holding a chord from
+the project's key.
+
+- Pads 1-7 play I-VII and put that chord in the slot in hand. Pad 8 is a rest.
+- Use the encoder to pick a slot and Minus / Plus to change it. Push plays the slot's chord.
+- **B1** cycles preset progressions, **B2** switches between 4 and 8 slots.
+- **B3** (**WRITE**) writes the chords into the selected track's pattern as one undo, using the
+  track's chord type, voicing and inversion.
+
+### Voice memo
+
+Set it up as a shortcut. Press it once to start recording the input (as set in Input Config)
+and again to stop. The header shows MEMO and the time. The memo is saved as
+Samples/Voice Memos/Memo N.wav (up to five minutes).
+
+### Autosampler
+
+Open it through a shortcut and select a keys track, or a MIDI track that drives an external
+synth whose sound comes back through the input. Set the lowest and highest note, the interval
+between notes, the hold time, the tail and the velocity, then press **B3** (**START**). Each
+note is saved as a WAV file in Samples/Autosampled/<name>/, together with an .sfz instrument
+that maps them across the keys. **B3** again stops early and keeps what was already sampled.
+
 ## Projects and files
 
 ### The Project page

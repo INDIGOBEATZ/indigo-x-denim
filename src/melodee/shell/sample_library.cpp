@@ -7,6 +7,7 @@
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/sample_decode.h"
 #include "melodee/engine/listen.h"
+#include "melodee/model/scales.h"
 #include <juce_graphics/juce_graphics.h>
 #include "drivers/mixer.h"
 #include "drivers/platform.h"
@@ -261,6 +262,61 @@ void SampleLibrary::reference(const std::string& path) {
     std::lock_guard<std::mutex> guard(lock);
     ref_wanted = path; ref_pending = true;
 }
+void SampleLibrary::write_autosample(std::vector<float> frames, unsigned rate, const AutoPlan& plan) {
+    std::lock_guard<std::mutex> guard(lock);
+    auto_pending = std::move(frames); auto_rate = rate; auto_plan = plan; auto_waiting = true;
+}
+
+// Each note's slot of the take: from where its sound starts (the first frame past -40 dB in its first 400 ms, a
+// couple of ms before), to the slot's end, faded out over its last 20 ms; written at the take's rate. The SFZ maps
+// each file from halfway after the note below to halfway before the note above.
+void SampleLibrary::cut_autosample(const std::vector<float>& take, unsigned rate, const AutoPlan& plan, const std::string& root) {
+    if (root.empty()) { finish("Autosampler: no card"); return; }
+    std::error_code error;
+    std::string base = plan.name.empty() ? std::string("Autosampled") : plan.name, dir;
+    for (unsigned n = 1; n < 1000 && dir.empty(); ++n) {
+        auto name = root + "/Autosampled/" + base + (n == 1 ? std::string() : " " + std::to_string(n));
+        if (!fs::exists(name, error)) dir = name;
+    }
+    if (dir.empty() || !fs::create_directories(dir, error)) { finish("Autosampler: no folder"); return; }
+    const size_t frames = take.size() / 2;
+    auto at_ms = [&](uint32_t ms) { return size_t(uint64_t(ms) * rate / 1000); };
+    std::string sfz = "// " + base + ", autosampled on INDIGO X DENIM LAB\n<group> ampeg_release=0.3\n";
+    unsigned written = 0;
+    const size_t count = plan.notes.size();
+    for (size_t k = 0; k < count; ++k) {
+        size_t from = at_ms(plan.first_ms + uint32_t(k) * plan.slot_ms), to = std::min(frames, from + at_ms(plan.slot_ms));
+        if (from + 64 >= to) break;
+        size_t look = std::min(to, from + at_ms(400)), start = from;
+        for (size_t f = from; f < look; ++f)
+            if (std::fabs(take[2 * f]) > 0.01f || std::fabs(take[2 * f + 1]) > 0.01f) { start = f > from + at_ms(2) ? f - at_ms(2) : from; break; }
+        SampleData data;
+        data.frames = uint32_t(to - start);
+        data.left.resize(data.frames); data.right.resize(data.frames);
+        size_t fade = std::min<size_t>(data.frames, at_ms(20));
+        for (uint32_t f = 0; f < data.frames; ++f) {
+            float g = f + fade >= data.frames ? float(data.frames - f) / float(std::max<size_t>(fade, 1)) : 1.0f;
+            data.left[f] = take[2 * (start + f)] * g; data.right[f] = take[2 * (start + f) + 1] * g;
+        }
+        int note = plan.notes[k];
+        std::string pitch = note_name(note);
+        for (auto& ch : pitch) if (ch == '#') ch = 's'; // C#3 as Cs3: no SFZ comment sign in a file name
+        std::string file = base + " " + pitch + ".wav";
+        if (!write_wav(dir + "/" + file, data, rate).empty()) continue;
+        int lo = k == 0 ? 0 : (plan.notes[k - 1] + note) / 2 + 1, hi = k + 1 == count ? 127 : (note + plan.notes[k + 1]) / 2;
+        sfz += "<region> pitch_keycenter=" + std::to_string(note) + " lokey=" + std::to_string(lo) + " hikey=" + std::to_string(hi) + " sample=" + file + "\n"; // last: a name with spaces
+        ++written;
+    }
+    std::ofstream(dir + "/" + base + ".sfz") << sfz;
+    finish(written ? "Autosampled " + std::to_string(written) + " notes" : "Autosampler: nothing heard");
+    changes.fetch_add(1, std::memory_order_release);
+}
+
+void SampleLibrary::write_memo(std::vector<float> frames, unsigned rate) {
+    std::lock_guard<std::mutex> guard(lock);
+    memo_pending = std::move(frames); memo_rate = rate; memo_waiting = true;
+}
+
 float SampleLibrary::reference_lufs() const {
     std::lock_guard<std::mutex> guard(lock);
     return ref_lufs;
@@ -409,6 +465,44 @@ void SampleLibrary::service(Hardware& hardware) {
         if (pending && !heard.empty()) hear(heard);
         // LAB: Reference A/B's song: its 44.1 kHz frames only (no copy at the device's rate: the engine reads
         // between them), up to six minutes.
+        // LAB: a voice memo to keep.
+        std::vector<float> memo;
+        unsigned memo_at = 0;
+        bool memo_now = false;
+        std::string memo_root;
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            if (memo_waiting) { memo = std::move(memo_pending); memo_pending = {}; memo_at = memo_rate; memo_now = true; memo_waiting = false; memo_root = known.root; }
+        }
+        if (memo_now) {
+            if (memo_root.empty()) finish("Memo: no card");
+            else {
+                std::error_code error;
+                std::string dir = memo_root + "/Voice Memos", path;
+                fs::create_directories(dir, error);
+                unsigned number = 0;
+                for (unsigned n = 1; n < 10000 && path.empty(); ++n) {
+                    auto name = dir + "/Memo " + std::to_string(n) + ".wav";
+                    if (!fs::exists(name, error)) { path = name; number = n; }
+                }
+                SampleData data;
+                data.frames = uint32_t(memo.size() / 2);
+                data.left.resize(data.frames); data.right.resize(data.frames);
+                for (uint32_t f = 0; f < data.frames; ++f) { data.left[f] = memo[2 * f]; data.right[f] = memo[2 * f + 1]; }
+                std::string failed = path.empty() ? std::string("full") : write_wav(path, data, memo_at);
+                finish(failed.empty() ? "Saved Memo " + std::to_string(number) : "Memo not saved");
+            }
+        }
+        // LAB: the autosampler's take to cut.
+        std::vector<float> take;
+        AutoPlan plan;
+        unsigned take_rate = 0;
+        std::string take_root;
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            if (auto_waiting) { take = std::move(auto_pending); auto_pending = {}; plan = auto_plan; take_rate = auto_rate; auto_waiting = false; take_root = known.root; }
+        }
+        if (take_rate) cut_autosample(take, take_rate, plan, take_root);
         std::string ref;
         bool ref_now = false;
         { std::lock_guard<std::mutex> guard(lock); std::swap(ref_now, ref_pending); ref = ref_wanted; }

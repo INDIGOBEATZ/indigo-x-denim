@@ -2659,6 +2659,13 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     }
     recall_ring.write(record_l, record_r, frames);
     input_ring.push(record_l, record_r, frames); // INDIGO X DENIM LAB: the tuner's
+    if (memo_on.load(std::memory_order_acquire)) { // INDIGO X DENIM LAB: a voice memo
+        if (float* memo = memo_buffer.load(std::memory_order_acquire)) {
+            uint32_t at = memo_frames.load(std::memory_order_relaxed), cap = memo_capacity.load(std::memory_order_relaxed);
+            for (unsigned f = 0; f < frames && at < cap; ++f, ++at) { memo[2 * at] = record_l[f]; memo[2 * at + 1] = record_r[f]; } // interleaved
+            memo_frames.store(at, std::memory_order_release);
+        }
+    }
     keep_sources(input, usb, frames);
     take_stems(frames); // roadmap P4: the stems by the same bounds, before the bounce moves on
     if (bounce_pad_left && render_out.running()) { // INDIGO X DENIM LAB: a flattened pad ends on its frame

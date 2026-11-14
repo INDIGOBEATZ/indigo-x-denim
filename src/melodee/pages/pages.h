@@ -17,7 +17,7 @@ void song_repeat(Context& c);
 // Loop: the brace on the clip's bars, or off. False when there was nothing to do.
 bool song_loop(Context& c);
 extern const PageSpec mixer_page; // INDIGO X DENIM
-extern const PageSpec tuner_page, sublens_page; // INDIGO X DENIM LAB
+extern const PageSpec tuner_page, sublens_page, chord_builder_page, autosampler_page; // INDIGO X DENIM LAB
 unsigned lens_window_ms(const UiState& ui);     // Sub Lens's window
 extern const PageSpec stage_page, keys_page, sounds_page, edit_page, steps_page, roll_page, motion_page, patterns_page, song_page, input_config_page,
     rack_page, sends_page, bus_page, master_page,

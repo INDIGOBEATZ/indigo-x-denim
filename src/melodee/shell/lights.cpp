@@ -75,6 +75,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         std::string name = library_->referenced();
         context_.notice(!name.empty() && name[0] == '!' ? "Reference: " + name.substr(1) : "Reference in: B3 A/B");
     }
+    context_.memo_tick(now); // LAB: a voice memo stopped: handed over to be written
     context_.files_landed();  // Trim Sample, Extract, Save Sample, takes, Recall, Resample: done on the service thread
     context_.record_tick(now); // Input Config's route and monitor, settings kept, renders followed
     context_.browser_tick();  // the browser's listings and previews

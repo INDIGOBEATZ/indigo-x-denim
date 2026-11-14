@@ -32,6 +32,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Steps, Roll, Motion, Pa
                             Scenes,                            // roadmap P5: scenes and follow actions (Push on Patterns)
                             Mixer,                             // INDIGO X DENIM: MUTE's mixer, PADS and TRACKS (pages/mixer_page.cpp)
                             Tuner, SubLens,                    // INDIGO X DENIM LAB (pages/lab_pages.cpp)
+                            ChordBuilder, AutoSampler,         // INDIGO X DENIM LAB (pages/chord_page.cpp)
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has
@@ -212,7 +213,18 @@ struct UiState {
     // INDIGO X DENIM LAB: Song's ERASE wizard (Erase on empty time or with the marquee up): its row, which bars
     // (0 marquee, 1 loop, 2 cursor to the end, 3 whole song), which lanes (0 this track, 1 the marquee's, 2 all) and
     // what (0 clips, 1 muted clips, 2 markers, 3 everything).
+    // INDIGO X DENIM LAB: the chord builder: each slot a degree of the key (1..7, 0 rest), 4 or 8 slots over the
+    // pattern, the slot in hand and the last preset picked.
+    std::array<uint8_t, 8> prog {1, 5, 6, 4, 1, 5, 6, 4};
+    uint8_t prog_slots = 4, prog_cursor = 0, prog_preset = 0;
+    // INDIGO X DENIM LAB: the autosampler: notes from auto_low to auto_high every auto_step semitones, each held
+    // auto_hold tenths of a second with auto_tail tenths after, at auto_velocity; its row in hand, whether it runs,
+    // which note it is on of how many.
+    uint8_t auto_low = 36, auto_high = 84, auto_step = 12, auto_hold = 20, auto_tail = 10, auto_velocity = 100, auto_row = 0;
+    bool auto_running = false;
+    uint8_t auto_at = 0, auto_count = 0;
     uint8_t shortcut_cursor = 0; // INDIGO X DENIM LAB: Settings > SHORTCUTS: the pad in hand
+    bool memo_on = false; uint32_t memo_at = 0; // INDIGO X DENIM LAB: a voice memo recording, since when (ms)
     bool ref_pick = false; // INDIGO X DENIM LAB: Samples' Push picks Reference A/B's song
     bool song_wipe = false;
     uint8_t wipe_row = 0, wipe_range = 3, wipe_lanes = 0, wipe_what = 0;

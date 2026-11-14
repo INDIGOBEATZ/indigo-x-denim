@@ -38,6 +38,8 @@ const PageSpec& page_spec(PageId page) {
     case PageId::Scenes: return scenes_page; // roadmap P5
     case PageId::Mixer: return mixer_page; // INDIGO X DENIM
     case PageId::Tuner: return tuner_page; // INDIGO X DENIM LAB
+    case PageId::ChordBuilder: return chord_builder_page;
+    case PageId::AutoSampler: return autosampler_page;
     case PageId::SubLens: return sublens_page;
     case PageId::EnvelopePage: return envelope_page;
     case PageId::FilterPage: return filter_page;

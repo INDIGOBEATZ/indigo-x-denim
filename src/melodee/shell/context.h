@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
+#include "melodee/shell/auto_plan.h"
 #include "melodee/engine/command.h"
 #include "melodee/model/sound_file.h"
 #include "melodee/engine/effect_info.h"
@@ -307,7 +308,26 @@ public:
     // INDIGO X DENIM LAB: Song's marquee copy: the clips, their bars from the copy's start and lanes from its first lane.
     // INDIGO X DENIM LAB, Reference A/B (Master: B3 A/B, Shift + B3 the browser to pick its song, Shift + B2 its
     // level matched to the mix's loudness). shell/reference.cpp.
+    void chord_pad(unsigned pad, uint8_t velocity, bool down); // LAB: the chord builder's pads: a degree's chord, heard
+    void chord_write();                                         // LAB: its progression into the pattern, one undo
     void reference_pick();
+    // LAB: a voice memo (a custom Shift shortcut): starts recording the input; again, stops and keeps it.
+    void voice_memo();
+    void memo_tick(uint32_t now);
+    bool memo_begin(size_t frames);
+    void memo_end(uint32_t t);
+    // LAB: the autosampler (its own page): the selected track played note by note into one take of the input, cut
+    // on the service thread into a file a note and an SFZ instrument (SampleLibrary::write_autosample).
+    void autosample_start();
+    void autosample_stop();
+    void autosample_tick(uint32_t now);
+    AutoPlan auto_plan;
+    bool memo_for_auto = false;
+    uint32_t auto_t0 = 0;
+    unsigned auto_step_at = 0; // the next note on or off: 2 * note (+1 its off)
+    uint8_t auto_track = 0;
+    std::unique_ptr<std::vector<float>> memo_store;
+    uint32_t memo_stopped_at = 0;
     void reference_load(const std::string& path);
     void reference_toggle();
     void reference_match();

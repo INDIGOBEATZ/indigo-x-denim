@@ -227,6 +227,12 @@ public:
     std::atomic<bool> ref_on {false}, ref_loaded {false};
     std::atomic<float> ref_gain {1.0f};
     std::atomic<uint32_t> ref_seconds {0}, ref_length {0};
+    // INDIGO X DENIM LAB, any thread: a voice memo or the autosampler's take: the input (Input Config's source and
+    // gain), left and right interleaved, into a buffer the MIDI thread made (memo_buffer, memo_capacity frames) while
+    // memo_on; memo_frames how far it got.
+    std::atomic<float*> memo_buffer {nullptr};
+    std::atomic<uint32_t> memo_capacity {0}, memo_frames {0};
+    std::atomic<bool> memo_on {false};
     // INDIGO X DENIM LAB: the input as it is recorded (the tuner), and two tracks after their effects (Sub Lens, A and
     // B; -1 none), each fed silence while it makes none.
     const ScopeRing& input_scope() const { return input_ring; }

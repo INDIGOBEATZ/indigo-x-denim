@@ -2028,6 +2028,17 @@ const Preview previews[] {
          s.ui.page = PageId::Stage; s.ui.track = 3; s.ui.shift = true; s.ui.shift_at = s.now - 2000;
          s.ui.settings.shortcuts[4] = 3; s.ui.settings.shortcuts[2] = 6; s.ui.settings.shortcuts[6] = 8;
      }},
+    {"chordbuilder", [](Shell&, Snapshot& s) { // LAB: the chord builder, four slots, the third in hand
+         s.ui.page = PageId::ChordBuilder; s.ui.prog_slots = 4; s.ui.prog_cursor = 2; s.project.root = 9; s.project.scale = 1;
+         s.ui.prog = {1, 6, 3, 7, 1, 6, 3, 7};
+     }},
+    {"chordbuilder8", [](Shell&, Snapshot& s) { // LAB: eight slots, a rest among them
+         s.ui.page = PageId::ChordBuilder; s.ui.prog_slots = 8; s.ui.prog_cursor = 5;
+         s.ui.prog = {1, 5, 6, 4, 2, 0, 5, 1};
+     }},
+    {"autosampler", [](Shell&, Snapshot& s) { s.ui.page = PageId::AutoSampler; s.ui.auto_row = 2; }},
+    {"autosampling", [](Shell&, Snapshot& s) { s.ui.page = PageId::AutoSampler; s.ui.auto_running = true; s.ui.auto_at = 3; s.ui.auto_count = 5; s.playing = false; }},
+    {"voicememo", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.track = 3; s.ui.memo_on = true; s.ui.memo_at = s.now - 83000; }},
     {"mixercompact", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.mixer_half = 2; }},
     {"history", [](Shell&, Snapshot& s) { // a moment after an undo: what a redo brings back above, the rest below
          s.ui.page = PageId::Stage; s.ui.track = 3;

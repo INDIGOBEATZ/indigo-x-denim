@@ -8,7 +8,7 @@
 namespace melodee {
 class Context;
 
-constexpr unsigned shortcut_count = 16;
+constexpr unsigned shortcut_count = 19;
 const char* shortcut_name(unsigned id);           // "Tuner", "Quick save"; 0 "As printed"
 // Shift + pad's custom job, when one is set; false: none, the printed job runs.
 bool run_shortcut(Context& c, unsigned pad);

@@ -10,6 +10,7 @@
 #include "melodee/model/sampler.h"
 #include "melodee/shell/sample_cache.h"
 #include "melodee/shell/sample_finder.h"
+#include "melodee/shell/auto_plan.h"
 #include "melodee/shell/zone_shapes.h"
 #include "surface/midi.h"
 #include <array>
@@ -141,6 +142,12 @@ public:
     // INDIGO X DENIM LAB, MIDI thread: a finished song to compare the mix with (Reference A/B; reference_slot), read
     // on the service thread (at most six minutes); referenced() its name once in, ref_failed() what went wrong.
     void reference(const std::string& path);
+    // INDIGO X DENIM LAB, MIDI thread: a voice memo's frames (one channel at `rate`) written on the service thread
+    // as Samples/Voice Memos/Memo N.wav; done() says where.
+    void write_memo(std::vector<float> frames, unsigned rate);
+    // LAB: the autosampler's take (interleaved, at `rate`) cut by `plan` into Samples/Autosampled/<name>/: a WAV a
+    // note and <name>.sfz mapping them over the keys; done() says how it went.
+    void write_autosample(std::vector<float> frames, unsigned rate, const AutoPlan& plan);
     std::string referenced() const;
     float reference_lufs() const; // its integrated loudness, read as it came in (-inf: silence)
     unsigned references() const { return ref_count.load(std::memory_order_acquire); }
@@ -336,6 +343,9 @@ private:
     std::string preview_wanted, preview_heard; // under `lock`
     std::string ref_wanted, ref_name; bool ref_pending = false; float ref_lufs = -INFINITY; // LAB, under `lock`
     std::atomic<unsigned> ref_count {0};
+    std::vector<float> memo_pending; unsigned memo_rate = 0; bool memo_waiting = false; // LAB, under `lock`
+    std::vector<float> auto_pending; unsigned auto_rate = 0; AutoPlan auto_plan; bool auto_waiting = false;
+    void cut_autosample(const std::vector<float>& take, unsigned rate, const AutoPlan& plan, const std::string& root);
     // INDIGO X DENIM: the favourites (path, name) in the order starred, the service thread's own; the stars asked for,
     // under `lock`.
     std::vector<std::pair<std::string, std::string>> stars, stars_wanted;

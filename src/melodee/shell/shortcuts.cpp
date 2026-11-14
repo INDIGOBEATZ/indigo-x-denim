@@ -8,7 +8,7 @@ namespace melodee {
 namespace {
 const char* const names[shortcut_count] {
     "As printed", "Mixer", "Master", "Tuner", "Sub Lens", "Arrange", "Reference A/B", "Load reference",
-    "Quick save", "Find samples", "Looper", "Samples", "Tempo", "Scenes", "Motion", "Tap tempo",
+    "Quick save", "Find samples", "Looper", "Samples", "Tempo", "Scenes", "Motion", "Tap tempo", "Chord builder", "Voice memo", "Autosampler",
 };
 } // namespace
 
@@ -37,6 +37,9 @@ bool run_shortcut(Context& c, unsigned pad) {
     case 13: c.open(PageId::Scenes); break;
     case 14: c.open(PageId::Motion); break;
     case 15: c.tap_tempo(); break;
+    case 16: c.open(PageId::ChordBuilder); break;
+    case 17: c.voice_memo(); break;
+    case 18: c.open(PageId::AutoSampler); break;
     default: return false;
     }
     return true;

@@ -11344,7 +11344,24 @@ void samples_found_again() {
     fs::remove_all(card);
 }
 
+// INDIGO X DENIM LAB: ways out (a track into a bus, a pad into another) and eight inserts a bus survive a save.
+void lab_outs() {
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    CHECK(project->buses[0].fx.size == bus_slots && project->master.size == track_slots && project->tracks[0].fx.size == track_slots);
+    project->tracks[2].mix.out = 3;
+    project->tracks[4].pads[7].sample = 0; project->tracks[4].pads[7].out = 1;
+    for (unsigned k = 0; k < 7; ++k) project->buses[1].fx.slots[k].kind = uint8_t(EffectKind::Eq);
+    project->buses[1].fx.slots[7].kind = uint8_t(EffectKind::Limiter);
+    auto bytes = save_project(*project, *bank);
+    auto back = std::make_unique<Project>();
+    CHECK(load_project(bytes, *back, *bank).empty());
+    CHECK(back->tracks[2].mix.out == 3 && back->tracks[4].pads[7].out == 1 && back->tracks[0].mix.out == 0);
+    CHECK(back->buses[1].fx.size == bus_slots && back->buses[1].fx.slots[7].kind == uint8_t(EffectKind::Limiter));
+}
+
 int main() {
+    lab_outs();
     samples_found_again();
     tempo_lane_p5();
     capture_p5();

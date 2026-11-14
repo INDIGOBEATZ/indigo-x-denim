@@ -113,6 +113,7 @@ struct PadSound {
     // INDIGO X DENIM LAB: Sample Tail (as Jsen Surreal's SXL has it): a one shot played past its end ping-pongs over its
     // last `ping_region` milliseconds and fades over `ping_tail` tenths of a second (0: no tail). The file's PTAL section.
     uint8_t ping_tail = 0, ping_region = 40;
+    uint8_t out = 0; // INDIGO X DENIM LAB: where the pad goes: 0 with its track, 1-4 straight into bus A-D (the file's OUTS)
     uint32_t loop_point() const { return loop_lock ? start : loop_start; }
     bool used() const { return sample != no_sample; }
     bool warped() const { return warp == warp_seq || warp >= warp_min; }

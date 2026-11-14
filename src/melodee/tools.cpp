@@ -1111,6 +1111,15 @@ const Preview previews[] {
          for (auto& pair : starred) { SampleFile f; f.path = pair[0]; f.name = pair[1]; f.starred = true; s.files.push_back(f); }
          s.ui.files_count = uint16_t(s.files.size());
      }},
+    {"browserfavfolders", [](Shell&, Snapshot& s) { // LAB: starred folders first in FAVS
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = uint8_t(Drive::Favourites); s.ui.files_cursor = 0;
+         s.sample_root = "/media/card/Samples"; s.files_folder = ""; s.files_top = true;
+         const char* folders[][2] {{"/media/card/Samples", "SAMPLES"}, {"/media/card/Samples/DRUMS", "DRUMS"}};
+         for (auto& pair : folders) { SampleFile f; f.path = pair[0]; f.name = pair[1]; f.folder = true; f.starred = true; s.files.push_back(f); }
+         const char* starred[][2] {{"/media/card/Samples/BREAKS/AMEN 136.wav", "AMEN 136"}, {"/media/card/Samples/DRUMS/KICK PUNCH.wav", "KICK PUNCH"}};
+         for (auto& pair : starred) { SampleFile f; f.path = pair[0]; f.name = pair[1]; f.starred = true; s.files.push_back(f); }
+         s.ui.files_count = uint16_t(s.files.size());
+     }},
     {"browserfavouritesempty", [](Shell&, Snapshot& s) {
          s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = uint8_t(Drive::Favourites);
          s.sample_root = "/media/card/Samples"; s.files_folder = ""; s.files_top = true;
@@ -2039,6 +2048,20 @@ const Preview previews[] {
     {"autosampler", [](Shell&, Snapshot& s) { s.ui.page = PageId::AutoSampler; s.ui.auto_row = 2; }},
     {"autosampling", [](Shell&, Snapshot& s) { s.ui.page = PageId::AutoSampler; s.ui.auto_running = true; s.ui.auto_at = 3; s.ui.auto_count = 5; s.playing = false; }},
     {"voicememo", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.track = 3; s.ui.memo_on = true; s.ui.memo_at = s.now - 83000; }},
+    {"mixerout", [](Shell& shell, Snapshot& s) { // LAB: Shift on TRACKS: K1 OUT, the track into bus B
+         preview_as(shell, s, "mixertracks", 1, 0); s.ui.shift = true; s.ui.shift_used = true; s.project.tracks[s.ui.track % track_count].mix.out = 2;
+     }},
+    {"stepsbars", [](Shell&, Snapshot& s) { // LAB: STEPS held: the pads pick a bar
+         s.ui.page = PageId::Steps; s.ui.step_cursor = 6; s.playing = true; s.ui.steps_b1 = true;
+     }},
+    {"stepsshift", [](Shell&, Snapshot& s) { s.ui.page = PageId::Steps; s.ui.step_cursor = 6; s.ui.shift = true; s.ui.bar_copied = true; }},
+    {"songzoom256", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "song", 1, 0); s.ui.song_all = true; s.ui.song_zoom = 6; }},
+    {"bus8", [](Shell&, Snapshot& s) { // LAB: eight inserts on a bus
+         s.ui.page = PageId::Bus; s.ui.track = 2; s.playing = true;
+         static const EffectKind kinds[] {EffectKind::Compressor, EffectKind::Eq, EffectKind::Tape, EffectKind::Chorus, EffectKind::Echo, EffectKind::Room, EffectKind::Limiter};
+         auto& fx = s.project.buses[0].fx;
+         for (unsigned k = 0; k < 7; ++k) { fx.slots[k] = EffectSlot {}; fx.slots[k].kind = uint8_t(kinds[k]); }
+     }},
     {"mixercompact", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.mixer_half = 2; }},
     {"history", [](Shell&, Snapshot& s) { // a moment after an undo: what a redo brings back above, the rest below
          s.ui.page = PageId::Stage; s.ui.track = 3;

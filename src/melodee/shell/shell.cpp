@@ -257,6 +257,10 @@ void Shell::press(Button b, bool pressed) {
     }
     if (!pressed) {
         if (b == Button::TapTempo) tap_held = false;
+        if (b == Button::TopLeft && ui.steps_b1) { // LAB: STEPS let go: unused for a bar, its own job (the TRIG / EUCLID rows)
+            ui.steps_b1 = false;
+            if (!ui.steps_b1_used && ui.page == PageId::Steps) page_spec(PageId::Steps).soft(context_, 3);
+        }
         return;
     }
     if (ui.shift) ui.shift_used = true;

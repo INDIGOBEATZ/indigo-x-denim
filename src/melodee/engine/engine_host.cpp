@@ -307,6 +307,7 @@ void EngineHost::load_track(unsigned t, const Track& track) {
     apply({Command::Type::Level, uint8_t(t), 0, 0, track.mix.level});
     apply({Command::Type::Pan, uint8_t(t), 0, 0, track.mix.pan});
     for (unsigned b = 0; b < bus_count; ++b) { slot.sends[b] = track.mix.sends[b] / 100.0f; slot.mix_sends[b] = track.mix.sends[b]; }
+    slot.out = uint8_t(std::min<unsigned>(track.mix.out, bus_count)); // LAB
     slot.mute = track.mix.mute; slot.solo = track.mix.solo;
     slot.pattern = track.pattern;
     patterns_now[t].store(slot.pattern, std::memory_order_relaxed);
@@ -780,6 +781,7 @@ void EngineHost::apply(const Command& c) {
     case Type::Level: slot.mix_level = c.value; set_level(slot, c.value); if (mods_on) mod_note(c.track % track_count, motion_level, 0, c.value, true); break; // roadmap P4: kept, Motion borrows it
     case Type::Pan: slot.mix_pan = c.value; set_pan(slot, c.value); if (mods_on) mod_note(c.track % track_count, motion_pan, 0, c.value, true); break;
     case Type::Send: // index: the bus
+        if (c.index >= 0x100) { slot.out = uint8_t(std::min<unsigned>(c.value, bus_count)); break; } // LAB: index 0x100, the track's way out
         slot.mix_sends[c.index % bus_count] = int16_t(std::clamp<int>(c.value, 0, 100));
         slot.sends[c.index % bus_count] = std::clamp<int>(c.value, 0, 100) / 100.0f;
         if (mods_on) mod_note(c.track % track_count, motion_send(c.index), 0, slot.mix_sends[c.index % bus_count], true);
@@ -1017,10 +1019,11 @@ void EngineHost::render_engine(unsigned t, Slot& slot, unsigned at, unsigned fra
         bool pad_key = keyed_pad == int(t);
         slot.sampler.set_key_pad(pad_key ? int(comp.key_pad()) : -1, pad_key ? key_pad_l + at : nullptr, pad_key ? key_pad_r + at : nullptr);
         slot.sampler.set_knob_out(knob_heard ? slot.knob_pad_l + at : nullptr, knob_heard ? slot.knob_pad_r + at : nullptr);
+        slot.sampler.set_bus_out(slot.bus_pad_l[0] + at, slot.bus_pad_r[0] + at, block);
     }
     if (slot.engine->stereo()) slot.engine->render_stereo(slot.left + at, slot.right + at, frames);
     else slot.engine->render(slot.buffer + at, frames);
-    if (slot.engine == &slot.sampler) slot.knob_pad_fed |= slot.sampler.knob_fed();
+    if (slot.engine == &slot.sampler) { slot.knob_pad_fed |= slot.sampler.knob_fed(); slot.bus_pad_fed |= slot.sampler.bus_fed(); }
 }
 
 // A track's engine over the whole block (its job): in runs from one kept call to the next, each call made on its frame.
@@ -2305,6 +2308,8 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         std::fill(slot.buffer, slot.buffer + frames, 0.0f);
         std::fill(slot.left, slot.left + frames, 0.0f); std::fill(slot.right, slot.right + frames, 0.0f);
         slot.knob_pad_fed = false;
+        if (slot.bus_pad_fed) for (unsigned b = 0; b < bus_count; ++b) { std::fill(slot.bus_pad_l[b], slot.bus_pad_l[b] + block, 0.0f); std::fill(slot.bus_pad_r[b], slot.bus_pad_r[b] + block, 0.0f); }
+        slot.bus_pad_fed = 0;
         if (knob_heard && slot.engine == &slot.sampler) { // Knob FX on kit pads: they play apart, into the slot's knob_pad_l / knob_pad_r
             std::fill(slot.knob_pad_l, slot.knob_pad_l + frames, 0.0f); std::fill(slot.knob_pad_r, slot.knob_pad_r + frames, 0.0f);
         }
@@ -2356,6 +2361,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
                 bool pad_key = pad_keyed >= 0 && &slot == &slots[unsigned(pad_keyed)];
                 slot.sampler.set_key_pad(pad_key ? int(comp.key_pad()) : -1, pad_key ? key_pad_l + done : nullptr, pad_key ? key_pad_r + done : nullptr);
                 slot.sampler.set_knob_out(knob_heard ? slot.knob_pad_l + done : nullptr, knob_heard ? slot.knob_pad_r + done : nullptr);
+                slot.sampler.set_bus_out(slot.bus_pad_l[0] + done, slot.bus_pad_r[0] + done, block);
             }
         }
         cuts[cut_count++] = uint16_t(done); // a run starts here (at most one a frame)
@@ -2367,7 +2373,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
             auto t0 = std::chrono::steady_clock::now();
             if (slot.engine->stereo()) slot.engine->render_stereo(slot.left + done, slot.right + done, n);
             else slot.engine->render(slot.buffer + done, n);
-            if (slot.engine == &slot.sampler) slot.knob_pad_fed |= slot.sampler.knob_fed();
+            if (slot.engine == &slot.sampler) { slot.knob_pad_fed |= slot.sampler.knob_fed(); slot.bus_pad_fed |= slot.sampler.bus_fed(); }
             track_ns[t] += uint32_t(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - t0).count());
         };
         if (parallel) workers.run(active, engine_job, true); // the old way keeps the workers awake between its runs
@@ -2515,9 +2521,20 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
                     }
                     knob_fed = true;
                 }
-                // Into Knob FX as much as it is picked, the rest to the master (or aside, the Sidechain's key).
-                float* rest_l = keying ? aside_l : master_l;
-                float* rest_r = keying ? aside_r : master_r;
+                // LAB: a kit's pads sent straight to a bus: at the track's level and pan, past its chain.
+                if (slot.engine == &slot.sampler && slot.bus_pad_fed)
+                    for (unsigned b = 0; b < bus_count; ++b) {
+                        if (!((slot.bus_pad_fed >> b) & 1)) continue;
+                        for (unsigned f = 0; f < frames; ++f) {
+                            float a = slot.audible.at(f);
+                            bus_l[b][f] += slot.bus_pad_l[b][f] * slot.mix_l.at(f) * a; bus_r[b][f] += slot.bus_pad_r[b][f] * slot.mix_r.at(f) * a;
+                        }
+                    }
+                // Into Knob FX as much as it is picked, the rest to the master (or aside, the Sidechain's key); LAB: or
+                // all of it into the bus the track goes to.
+                const unsigned out_bus = slot.out >= 1 && slot.out <= bus_count ? slot.out - 1u : bus_count;
+                float* rest_l = keying ? aside_l : out_bus < bus_count ? bus_l[out_bus] : master_l;
+                float* rest_r = keying ? aside_r : out_bus < bus_count ? bus_r[out_bus] : master_r;
                 knob_fed |= !slot.knob_share.silent();
                 float unpan = 1.0f / std::max(slot.pan_left + slot.pan_right, 1.0f); // a centred mono track's stem sums to itself
                 for (unsigned f = 0; f < frames; ++f) {

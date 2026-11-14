@@ -458,6 +458,12 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::ZonePick: c.label = "ZONE"; c.value = juce::String(b.value + 1); c.unit = "/ " + juce::String(b.max + 1); break; // round 3
     case Kind::ZoneTune: c.label = "TUNE"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.unit = "ct"; c.bipolar = true; break;
     case Kind::ZoneLevel: c.label = "LEVEL"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value / 10.0, 1); c.unit = "dB"; c.bipolar = true; break;
+    case Kind::TrackOut: case Kind::PadOut: { // LAB
+        static const char* const outs[] {"MAIN", "BUS A", "BUS B", "BUS C", "BUS D"};
+        c.label = "OUT";
+        c.value = b.kind == Kind::PadOut && b.value == 0 ? juce::String("TRACK") : juce::String(outs[std::clamp(b.value, 0, 4)]);
+        break;
+    }
     case Kind::PadKeySync: c.label = "KEY SYNC"; c.value = b.value ? juce::String("On") : juce::String("Off"); break;
     case Kind::PadPingTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;
     case Kind::PadPingRegion: c.label = "REPEAT"; c.value = juce::String(b.value); c.unit = "ms"; break;

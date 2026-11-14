@@ -117,6 +117,7 @@ void Context::restore_mix(const MixState& m) {
         if (x.pan != m.pan[t]) { x.pan = m.pan[t]; send({Type::Pan, uint8_t(t), 0, 0, int16_t(x.pan)}); }
         for (unsigned b = 0; b < bus_count; ++b)
             if (x.sends[b] != m.sends[t][b]) { x.sends[b] = m.sends[t][b]; send({Type::Send, uint8_t(t), 0, uint16_t(b), int16_t(x.sends[b])}); }
+        if (x.out != m.out[t]) { x.out = m.out[t]; send({Type::Send, uint8_t(t), 0, 0x100, int16_t(x.out)}); } // LAB
     }
     for (unsigned b = 0; b < bus_count; ++b) if (project.buses[b].level != m.returns[b]) set_return(b, m.returns[b]);
 }

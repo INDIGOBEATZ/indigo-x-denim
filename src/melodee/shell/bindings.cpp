@@ -564,6 +564,15 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
         return {tap, Binding {}, Binding {Kind::RecGain, 0, -12, 24, in.gain}};
     }
     case PageId::Patterns: return pattern_shift_cards(project, ui, pattern);
+    case PageId::Mixer: { // INDIGO X DENIM LAB: Shift + K1 the way out: a pad's on PADS, the track's on TRACKS
+        const auto& tr = project.tracks[ui.track % track_count];
+        if (ui.mixer_view == 0 && tr.engine == EngineKind::Sampler) {
+            const auto& pd = tr.pads[tr.last_pad % sampler_pads];
+            if (!pd.used()) return {};
+            return {Binding {Kind::PadOut, 0, 0, int(bus_count), pd.out}, Binding {}, Binding {}};
+        }
+        return {Binding {Kind::TrackOut, 0, 0, int(bus_count), tr.mix.out}, Binding {}, Binding {}};
+    }
     case PageId::Song: { // roadmap P5: the tempo lane at the cursor's bar: its tempo, and (a point there) its shape
         if (ui.song_export) return {};
         const auto& lane = project.song.tempo;

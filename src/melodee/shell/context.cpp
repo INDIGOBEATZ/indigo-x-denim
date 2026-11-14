@@ -374,15 +374,26 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
 // its own: Settings::rec_grid). A note moved ahead of the playhead is skipped
 // once by the audio thread, as it was heard live.
 void Context::record(int key, int velocity, int cutoff) {
-    if (!ui.recording || !host.playing() || host.count_in()) return;
+    if (!ui.recording) return;
     auto& p = pattern();
     int position = 0;
     uint32_t ticks = 0;
-    if (!host.heard_place(ui.track, hit_ns, position, ticks)) { position = host.position_of(ui.track); ticks = host.ticks(); }
-    int playhead = host.position_of(ui.track);
-    if (playhead < 0) return;
+    // INDIGO X DENIM LAB: the first note: played just before the take starts (the count-in's last beat, or Play
+    // pressed with the pad and the audio thread not started yet, or the playhead not past its start), it lands on
+    // the take's first tick, heard once, instead of being lost.
+    unsigned beats = std::max(1u, unsigned(project.bar_ticks() / ticks_per_quarter));
+    bool counting = host.count_in() != 0, early = false;
+    int playhead = host.playing() && !counting ? host.position_of(ui.track) : -1;
+    if (counting) early = host.count_in() >= beats;                // the last beat of the count
+    else if (!host.playing() || playhead < 0) early = rec_play_at && now - rec_play_at < 400; // Play just pressed
+    if (!early && (playhead < 0 || counting)) return;
+    if (!early && !host.heard_place(ui.track, hit_ns, position, ticks)) { position = host.position_of(ui.track); ticks = host.ticks(); }
+    if (early) { position = int(rec_start_at); ticks = host.ticks(); playhead = position; }
     uint32_t at = wrap_tick(position, p.length);
-    bool ahead = false;
+    bool ahead = early;
+    // INDIGO X DENIM LAB: a note played a hair before the pattern comes round (inside half a step of its end) was
+    // meant for its first beat, as the MPC takes it: there, heard once (it is about to play).
+    if (!early && !ui.settings.rec_quantize && p.length > p.q() && at + p.q() / 2 >= p.length) { at = 0; ahead = true; }
     if (ui.settings.rec_quantize) {
         unsigned grid = division_ticks(grid_division(ui.settings.rec_grid, p.division));
         uint32_t snapped = quantise_tick(p, at, grid); // past the last step: the first, next time round
@@ -395,6 +406,7 @@ void Context::record(int key, int velocity, int cutoff) {
     if (!p.add(e)) { notice("Pattern full"); return; }
     sync_pattern(ui.track, track().pattern);
     if (ahead) { Command c {Type::Recorded, ui.track, track().pattern, uint16_t(key)}; c.position = at; send(c); }
+    if (early) return; // its length stays a step: the count's ticks say nothing of how long it was held
     for (auto& h : held_notes)
         if (h.key < 0) { h = {key, ui.track, track().pattern, at, ticks}; break; }
 }
@@ -516,6 +528,11 @@ void Context::apply(const Binding& b, int value) {
         record_motion(int(motion_send(bus)), t.mix.sends[bus]); // roadmap P4: the mix's lanes
         break;
     }
+    case Kind::TrackOut: // LAB: the whole track into a bus (or the master)
+        t.mix.out = uint8_t(std::clamp(value, 0, int(bus_count)));
+        send({Type::Send, ui.track, 0, 0x100, int16_t(t.mix.out)});
+        break;
+    case Kind::PadOut: pad().out = uint8_t(std::clamp(value, 0, int(bus_count))); send_pad(ui.track, t.last_pad); break; // LAB
     case Kind::Root: project.root = uint8_t(value); break;
     case Kind::Scale: project.scale = uint8_t(value); break;
     case Kind::Layout:
@@ -1777,6 +1794,7 @@ void Context::play(bool external) {
     played_song = ui.page == PageId::Song;
     ui.span_count = 0; // the punches heard (pad-fx C) counted from this Play
     if (ui.rec_armed) { ui.rec_armed = false; set_recording(true); }
+    rec_play_at = std::max<uint32_t>(now, 1); rec_start_at = 0; // LAB: where a first note played early lands
     // A loop armed while stopped counts in as a recording does (docs/LOOPER.md).
     bool count = (ui.recording || host.looper().armed()) && ui.settings.count_in && !external;
     if (played_song) send({Type::Play, uint8_t(count), 0, ui.song_cursor, 1});
@@ -1797,6 +1815,7 @@ void Context::play_continue(bool external) {
     if (host.playing()) return;
     ui.span_count = 0; // the punches heard (pad-fx C) counted from this Play
     if (ui.rec_armed) { ui.rec_armed = false; set_recording(true); }
+    rec_play_at = std::max<uint32_t>(now, 1); rec_start_at = played_song ? 0 : ui.locate; // LAB
     bool count = (ui.recording || host.looper().armed()) && ui.settings.count_in && !external;
     if (played_song) send({Type::Play, uint8_t(count), 0, uint16_t(host.song_bar()), 1}); // from the bar it stopped in
     else { Command c {Type::Play, uint8_t(count)}; c.position = ui.locate; send(c); }

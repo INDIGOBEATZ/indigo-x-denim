@@ -1333,6 +1333,40 @@ between notes, the hold time, the tail and the velocity, then press **B3** (**ST
 note is saved as a WAV file in Samples/Autosampled/<name>/, together with an .sfz instrument
 that maps them across the keys. **B3** again stops early and keeps what was already sampled.
 
+
+### Buses: a track or a pad into a bus
+
+On the mixer (MUTE), hold **Shift** and turn **K1 (OUT)**:
+
+- On **TRACKS**: where the whole track goes, MAIN (the master) or BUS A-D. The track then plays
+  only through that bus and its inserts, like a submix on the MPC.
+- On **PADS**: where the last pad hit goes, TRACK (with its kit) or BUS A-D. So a kick can have
+  its own bus while the rest of the kit stays on the track.
+
+The header shows OUT BUS x while the strip in hand goes to a bus. A bus now has **8 inserts**.
+
+### Steps: bars on the pads, copy and paste a bar
+
+- Hold **STEPS (B1)** and tap pad 1-16 to jump straight to that bar. B1 on its own still steps
+  through the TRIG and EUCLID rows.
+- **Shift + B2** (**COPY BAR**) copies the bar in view (notes and Motion). Go to another bar or
+  pattern, even on another track, and press **Shift + B3** (**PASTE BAR**).
+
+### Favourites: folders
+
+In the browser, **Shift + B3 (STAR)** now works on folders too. Starred folders appear at the top
+of FAVS; push one to go straight into it.
+
+### Recording the first note
+
+A note played on the last beat of the count-in now lands on beat 1. While playing, a note played
+just before the pattern comes round also lands on beat 1, instead of at the very end of the
+pattern.
+
+### Song zoom
+
+Song's **K1 (ZOOM)** now goes up to 128 and 256 bars, for the helicopter view of a long song.
+
 ## Projects and files
 
 ### The Project page

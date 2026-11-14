@@ -13,7 +13,7 @@
 // file as the cursor lands on it. Shift + pad loads the file onto the
 // kit's next empty pad (here instead of the printed Shift + pad jobs). K2
 // jumps. The pads play the kit.
-// INDIGO X DENIM: Shift + B3 STAR stars the file under the cursor, or takes
+// INDIGO X DENIM: Shift + B3 STAR stars the file (LAB: or the folder) under the cursor, or takes
 // its star off; starred rows carry a star. B2 goes on from the internal
 // drive to FAVOURITES: every starred file, from either drive, by name, which
 // Push loads as anywhere else (a star taken off there leaves the list).
@@ -118,7 +118,7 @@ void draw(Paint& p, const Snapshot& s) {
     keys.toggles = 4; // PREVIEW names a thing that is on or off: its LED, never ON / OFF (the row fills while it sounds)
     keys.lit = s.ui.preview ? 4 : 0;
     if (s.ui.shift) { // Shift + B3: the file under the cursor starred, or its star off
-        bool on_file = !s.files.empty() && !s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].folder;
+        bool on_file = !s.files.empty(); // LAB: a folder too
         bool starred = on_file && s.files[std::min<size_t>(s.ui.files_cursor, s.files.size() - 1)].starred;
         bool folder_here = drive != Drive::Favourites && !s.files_folder.empty();
         keys = SoftKeys {{folder_here ? "SET START" : "", grid_view(s) ? "LIST" : "GRID", on_file ? (starred ? "UNSTAR" : "STAR") : ""}, -1, c};
@@ -180,7 +180,12 @@ void push(Context& c) {
     auto files = c.library->files();
     if (c.ui.files_cursor >= files.size()) return;
     const auto& file = files[c.ui.files_cursor];
-    if (file.folder) c.library->browse(Drive(c.ui.files_drive), file.path);
+    if (file.folder && Drive(c.ui.files_drive) == Drive::Favourites) { // LAB: a starred folder: into it, on its own drive
+        auto top = c.library->card();
+        Drive d = !top.empty() && file.path.rfind(top, 0) == 0 ? Drive::Card : Drive::Internal;
+        c.ui.files_drive = uint8_t(d);
+        c.library->browse(d, file.path);
+    } else if (file.folder) c.library->browse(Drive(c.ui.files_drive), file.path);
     else if (c.ui.ref_pick) { if (!file.bank && !file.kit && !file.expansion && !file.midi) c.reference_load(file.path); } // LAB: Reference A/B's song
     else if (file.bank) c.load_bank_file(file.path, file.name);
     else if (file.kit) c.load_kit_file(file.path, file.name);
@@ -214,7 +219,7 @@ void soft(Context& c, int key) {
         }
         if (key != 2) return;
         auto files = c.library->files();
-        if (ui.files_cursor >= files.size() || files[ui.files_cursor].folder) { c.notice("Star: a file first"); return; }
+        if (ui.files_cursor >= files.size()) return; // LAB: a folder may be starred too, for FAVS
         const auto& file = files[ui.files_cursor];
         c.library->star(file.path, file.name);
         c.notice(file.starred ? "Star off" : "Starred");

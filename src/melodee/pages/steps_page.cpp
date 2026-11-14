@@ -101,6 +101,8 @@ void draw(Paint& p, const Snapshot& s) {
         h.left.push_back(pill("LANE " + juce::String((pattern.lane_length(unsigned(steps_lane(s.track()))) + pattern.q() - 1) / pattern.q())));
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"STEPS", "ROLL", "MOTION"}, 0, c};
+    if (s.ui.shift) keys = SoftKeys {{"", "COPY BAR", s.ui.bar_copied ? "PASTE BAR" : ""}, -1, c}; // LAB
+    if (s.ui.steps_b1) h.left.push_back(pill("PADS: BAR 1-" + juce::String(bars_of(pattern)), colour::amber)); // LAB: STEPS held
     bool kit_lane = steps_lane(s.track()) >= 0;
     keys.dots[0] = kit_lane ? 3 : 2; // STEPS again: the TRIG row of cards; on a kit again the EUCLID row (roadmap P1)
     keys.dot_at[0] = s.ui.euclid_cards && kit_lane ? 2 : s.ui.trig_cards ? 1 : 0;
@@ -207,6 +209,15 @@ void clear_step(Context& c, unsigned st, int lane) {
 }
 
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
+    if (c.ui.steps_b1) { // LAB: STEPS held: the pad is a bar of the pattern
+        if (!down) return;
+        c.ui.steps_b1_used = true;
+        unsigned bars = bars_of(c.pattern());
+        if (pad % 16 >= bars) { c.notice("Pattern has " + std::to_string(bars) + (bars == 1 ? " bar" : " bars")); return; }
+        c.ui.steps_bar = uint8_t(pad % 16);
+        c.ui.step_cursor = int16_t(c.ui.steps_bar * bar_steps + c.ui.step_cursor % bar_steps);
+        return;
+    }
     if (down) c.ui.sheet_open = false; // a pad leaves the VARY sheet and does its job
     auto& pattern = c.pattern();
     unsigned st = unsigned(c.ui.steps_bar) * bar_steps + pad % 16;
@@ -284,13 +295,40 @@ void push(Context& c) { // VARY: Push opens it on the row last used; there Push 
     c.ui.sheet_open = true;
 }
 
+// LAB: COPY BAR / PASTE BAR (Shift + B2 / B3): the bar in view's notes and Motion, onto another bar of any pattern.
+void steps_copy_bar(Context& c) {
+    const auto& p = c.pattern();
+    const uint32_t q = std::max(1u, p.q()), from = c.ui.steps_bar * bar_steps * q, to = from + bar_steps * q;
+    c.bar_board.clear(); c.bar_motion.clear();
+    for (const auto& e : p.events) if (e.tick >= from && e.tick < to) { Event x = e; x.tick -= from; c.bar_board.push_back(x); }
+    for (const auto& m : p.motion) if (m.tick >= from && m.tick < to) { MotionPoint x = m; x.tick -= from; c.bar_motion.push_back(x); }
+    c.ui.bar_copied = true;
+    c.notice("Bar " + std::to_string(c.ui.steps_bar + 1) + " copied");
+}
+void steps_paste_bar(Context& c) {
+    if (!c.ui.bar_copied) { c.notice("Copy a bar first"); return; }
+    const unsigned tr = c.ui.track, pa = c.track().pattern, bar = c.ui.steps_bar;
+    c.edit_pattern(tr, pa, "Paste bar", [&] {
+        auto& p = c.pattern();
+        const uint32_t q = std::max(1u, p.q()), from = bar * bar_steps * q, to = std::min<uint32_t>(from + bar_steps * q, p.length);
+        p.events.erase(std::remove_if(p.events.begin(), p.events.end(), [&](const Event& e) { return e.tick >= from && e.tick < to; }), p.events.end());
+        for (auto e : c.bar_board) { e.tick += from; if (e.tick < to) p.add(e); }
+        p.motion.erase(std::remove_if(p.motion.begin(), p.motion.end(), [&](const MotionPoint& m) { return m.tick >= from && m.tick < to; }), p.motion.end());
+        for (auto m : c.bar_motion) { m.tick += from; if (m.tick < to) p.write_motion(m); }
+        c.sync_pattern(tr, pa);
+    });
+    c.notice("Pasted on bar " + std::to_string(bar + 1));
+}
+
 void soft(Context& c, int key) {
     if (c.ui.sheet_open) { // BACK, -, DO IT
         if (key == 0) c.ui.sheet_open = false;
         if (key == 2) push(c);
         return;
     }
-    if (key == 0) { // STEPS again: the step's TRIG cards, on a kit then the lane's EUCLID ones, and back
+    if (c.ui.shift && key >= 1) { c.ui.shift_used = true; if (key == 1) steps_copy_bar(c); else steps_paste_bar(c); return; } // LAB
+    if (key == 0) { c.ui.steps_b1 = true; c.ui.steps_b1_used = false; return; } // LAB: held, the pads pick a bar; let go unused, as before
+    if (key == 3) { // STEPS let go (shell): the step's TRIG cards, on a kit then the lane's EUCLID ones, and back
         bool kit = steps_lane(c.track()) >= 0;
         if (!c.ui.trig_cards && !c.ui.euclid_cards) c.ui.trig_cards = true;
         else if (c.ui.trig_cards && kit) { c.ui.trig_cards = false; c.ui.euclid_cards = true; }

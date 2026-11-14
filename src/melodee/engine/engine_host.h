@@ -380,6 +380,9 @@ private:
         float left[block] {}, right[block] {};
         float knob_pad_l[block] {}, knob_pad_r[block] {}; // a kit's pads under Knob FX, as the sampler left them
         bool knob_pad_fed = false;                         // and some sub-block of this block put something there
+        float bus_pad_l[bus_count][block] {}, bus_pad_r[bus_count][block] {}; // LAB: a kit's pads sent straight to a bus
+        unsigned bus_pad_fed = 0;                          // which buses
+        uint8_t out = 0;                                   // LAB: the track's own way out: 0 master, 1-4 bus A-D
         Arp arp;
         PendingOn arp_late;
         std::array<PendingHit, 32> hits {}; // ratchets' hits to come, each on its frame

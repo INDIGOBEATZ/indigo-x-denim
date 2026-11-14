@@ -104,7 +104,8 @@ struct Binding {
         // there; with none, the lane's tempo there) and its shape (0 a step on its bar, 1 a ramp from the point before).
         SongTempo, SongTempoShape,
         PitchBend, // a PLUGIN track's pitch bend (the fader's Pitch Bend), -64..63 around the centre
-        ViewZoom   // INDIGO X DENIM: Roll's or Steps' zoom (Shift + K3), 0..3: 1, 2, 4 or 8 bars in view
+        ViewZoom,  // INDIGO X DENIM: Roll's or Steps' zoom (Shift + K3), 0..3: 1, 2, 4 or 8 bars in view
+        TrackOut, PadOut // INDIGO X DENIM LAB, the mixer's Shift + K1: where the track (TRACKS) or the pad (PADS) goes, 0 master or its track, 1-4 bus A-D
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter
@@ -177,7 +178,7 @@ constexpr int warp_card_seq = 152;
 inline int warp_card(uint8_t warp) { return warp == warp_seq ? warp_card_seq : warp >= warp_min ? int(warp) - (warp_min - 1) : 0; }
 inline uint8_t warp_of_card(int value) { return value >= warp_card_seq ? warp_seq : value <= 0 ? warp_off : uint8_t(value + warp_min - 1); }
 // Song's zoom steps, in bars across the view.
-constexpr unsigned song_zooms[] {4, 8, 16, 32, 64};
+constexpr unsigned song_zooms[] {4, 8, 16, 32, 64, 128, 256}; // LAB: 128 and 256, the helicopter view of a long song
 // Stage's cards for the selected track's page (shell/stage_map.h), and its Shift row.
 std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui, bool shift_row);
 // The engines an empty track can become on Stage's SYNTH page, in K1's order.

@@ -575,10 +575,15 @@ void SampleLibrary::scan() {
             std::string file = path.substr(0, path.find('#')); // an .sf2's preset, a program's pad: the file itself
             if (!fs::exists(file, error)) continue;
             SampleFile f = file_entry(path, name);
+            f.folder = fs::is_directory(file, error); // INDIGO X DENIM LAB: a starred folder, to go straight into
+            if (f.folder) { f.bank = f.instrument = f.expansion = f.midi = f.kit = false; }
             f.starred = true;
             files.push_back(std::move(f));
         }
-        std::sort(files.begin(), files.end(), [](const SampleFile& a, const SampleFile& b) { return a.name != b.name ? a.name < b.name : a.path < b.path; });
+        std::sort(files.begin(), files.end(), [](const SampleFile& a, const SampleFile& b) { // folders first
+            if (a.folder != b.folder) return a.folder;
+            return a.name != b.name ? a.name < b.name : a.path < b.path;
+        });
         std::lock_guard<std::mutex> guard(lock);
         bool same = known.drive == drive && known.files.size() == files.size()
             && std::equal(files.begin(), files.end(), known.files.begin(), [](const SampleFile& a, const SampleFile& b) { return a.path == b.path; });
@@ -618,7 +623,7 @@ void SampleLibrary::scan() {
     if (files.size() <= 200) // INDIGO X DENIM: the folders' covers (an expansion's art), read once each
         for (auto& f : files) if (f.folder && !f.presets) f.cover = cover_of(f.path);
     for (auto& f : files) // INDIGO X DENIM: the rows' stars
-        f.starred = !f.folder && std::any_of(stars.begin(), stars.end(), [&](const auto& s) { return s.first == f.path; });
+        f.starred = std::any_of(stars.begin(), stars.end(), [&](const auto& s) { return s.first == f.path; }); // LAB: folders too
     int came_from = -1;
     for (size_t n = 0; n < files.size() && !left.empty(); ++n) if (files[n].path == left) came_from = int(n);
     bool top = drive == Drive::Internal ? folder.empty() : (folder.empty() || folder == card_top);

@@ -73,11 +73,11 @@ constexpr bool fx_keyable(uint8_t kind) { return kind == 25 || kind == 26; } // 
 // A chain's slots stay packed from the front; `size` of them may be used.
 struct Chain {
     std::array<EffectSlot, max_slots> slots {};
-    uint8_t size = max_slots;
+    uint8_t size = track_slots; // a track's and the master's (LAB: a bus has bus_slots, a pad pad_slots)
     unsigned count() const { unsigned n = 0; while (n < size && slots[n].used()) ++n; return n; }
 };
 struct Bus {
-    Chain fx;
+    Chain fx {{}, bus_slots};
     uint8_t level = 70; // the return, 0..100
 };
 // Chains are numbered for commands: tracks 0-15, buses 16-19, master 20, the Looper's L1-L4 21-24.
@@ -101,6 +101,7 @@ struct Mix {
     uint8_t bus = 0;     // 0..3: A-D
     bool mute = false, solo = false;
     std::array<uint8_t, 4> sends {}; // a track's send into each bus A-D, 0..100 (round 2: four sends a track)
+    uint8_t out = 0; // INDIGO X DENIM LAB: where the track goes: 0 the master, 1-4 bus A-D (all of it, as an MPC submix)
 };
 
 // The arrange view: clips of patterns on track lanes over bars, named

@@ -81,6 +81,12 @@ void draw(Paint& p, const Snapshot& s) {
     auto which = pill(pads ? "PADS " + juce::String(half ? "9-16" : "1-8") : compact ? juce::String("TRACKS ALL") : "TRACKS " + juce::String(half ? "9-16" : "1-8"), c);
     which.spare = true; // the soft keys' dots say it too
     h.left.push_back(which);
+    { // LAB: where the strip in hand goes, when not the usual way (Shift + K1 sets it)
+        static const char* const buses[] {"", "BUS A", "BUS B", "BUS C", "BUS D"};
+        const auto& tr = s.track();
+        unsigned out = pads ? (tr.engine == EngineKind::Sampler ? tr.pads[tr.last_pad % sampler_pads].out : 0u) : tr.mix.out;
+        if (out >= 1 && out <= 4) h.left.push_back(pill(juce::String(pads ? "PAD OUT " : "OUT ") + buses[out], colour::amber));
+    }
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"PADS", "TRACKS", "FX"}, pads ? 0 : 1, c};
     keys.dots[0] = 2; keys.dot_at[0] = uint8_t(pads ? half : 0);

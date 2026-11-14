@@ -33,8 +33,8 @@ constexpr unsigned song_punches = 128;  // punches written into the song (Seq Re
 constexpr unsigned song_bars = 999;
 constexpr unsigned song_tempo_points = 64; // roadmap P5: the song's tempo lane (model/tempo_lane.h)
 // Effects along the signal (open question 5: slot counts and four buses).
-constexpr unsigned track_slots = 6, bus_slots = 6, master_slots = 6, bus_count = 4;
-constexpr unsigned max_slots = 6;
+constexpr unsigned track_slots = 6, bus_slots = 8, master_slots = 6, bus_count = 4; // INDIGO X DENIM LAB: eight inserts a bus
+constexpr unsigned max_slots = 8;
 // The Looper's four tracks, L1-L4 (docs/LOOPER.md): a mix strip and a chain each, there while it is on.
 constexpr unsigned loop_tracks = 4;
 constexpr unsigned chain_count = track_count + bus_count + 1 + loop_tracks; // tracks, buses A-D, master, L1-L4

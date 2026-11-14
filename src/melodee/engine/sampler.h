@@ -123,6 +123,10 @@ public:
     // buffers before each render; nullptr: none.
     void set_knob_pads(uint64_t low, uint64_t high) { knob_mask[0] = low; knob_mask[1] = high; }
     void set_knob_out(float* l, float* r) { knob_l = l; knob_r = r; }
+    // INDIGO X DENIM LAB: pads sent straight to a bus (PadSound::out) come out apart, into bus b's buffer at
+    // l + b * stride (nullptr: with the kit); bus_fed() which buses the last render put something in.
+    void set_bus_out(float* l, float* r, unsigned stride) { bus_l = l; bus_r = r; bus_stride = stride; }
+    unsigned bus_fed() const { return bus_used; }
     bool knob_fed() const { return knob_used; } // the last render put something there
     // INDIGO X DENIM: each pad's loudest output sample since the last take (the mixer's faders as meters), then 0.
     float take_pad_peak(unsigned pad) { float p = peaks[pad % peaks.size()]; peaks[pad % peaks.size()] = 0; return p; }
@@ -300,6 +304,7 @@ private:
     uint64_t knob_mask[2] {};
     bool knob_used = false;
     float* knob_l = nullptr;
+    float* bus_l = nullptr; float* bus_r = nullptr; unsigned bus_stride = 0, bus_used = 0; // LAB
     float* knob_r = nullptr;
     int key_pad = -1;
     float* key_l = nullptr;

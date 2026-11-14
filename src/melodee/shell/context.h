@@ -332,7 +332,9 @@ public:
     void reference_toggle();
     void reference_match();
     unsigned reference_seen = 0;
-    std::vector<Event> note_board; // LAB: Roll's copied notes, ticks from the first
+    std::vector<Event> note_board;
+    std::vector<Event> bar_board; // LAB: Steps' COPY BAR, its notes' ticks from the bar's start
+    std::vector<MotionPoint> bar_motion; // LAB: Roll's copied notes, ticks from the first
     std::vector<Clip> song_board;
     uint16_t song_board_bars = 0;
     void save_project_to(const std::string& path);
@@ -410,7 +412,8 @@ public:
     void audio_recall();                                  // Shift + Sample Record: the ring's last 25 s onto the next empty pad
     void record_tick(uint32_t at);                        // often (ms): monitor and route wishes, settings kept, renders followed
     uint32_t settings_save_at = 0;                        // ms; 0 nothing waiting
-    uint32_t rec_armed_at = 0;                            // ms
+    uint32_t rec_armed_at = 0;
+    uint32_t rec_play_at = 0, rec_start_at = 0; // LAB: when Play last started and where (a first note played early)                            // ms
     bool monitor_sent = false, monitor_known = false;
     int loop_monitor_sent = -1;
     int gain_sent = 0;

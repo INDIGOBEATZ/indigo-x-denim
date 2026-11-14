@@ -225,6 +225,7 @@ struct UiState {
     uint8_t auto_at = 0, auto_count = 0;
     uint8_t shortcut_cursor = 0; // INDIGO X DENIM LAB: Settings > SHORTCUTS: the pad in hand
     bool memo_on = false; uint32_t memo_at = 0; // INDIGO X DENIM LAB: a voice memo recording, since when (ms)
+    bool steps_b1 = false, steps_b1_used = false, bar_copied = false; // INDIGO X DENIM LAB: STEPS (B1) held on Steps: pads 1-16 jump to that bar
     bool ref_pick = false; // INDIGO X DENIM LAB: Samples' Push picks Reference A/B's song
     bool song_wipe = false;
     uint8_t wipe_row = 0, wipe_range = 3, wipe_lanes = 0, wipe_what = 0;

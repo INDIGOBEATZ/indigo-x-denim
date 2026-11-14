@@ -640,6 +640,16 @@ std::vector<uint8_t> save_project(const Project& project, const PatternBank& pat
             if (tr.pads[k].used() && tr.pads[k].ping_tail) { w.u8(k); w.u8(tr.pads[k].ping_tail); w.u8(tr.pads[k].ping_region); ++written; }
         w.end(at);
     }
+    for (unsigned t = 0; t < track_count; ++t) { // INDIGO X DENIM LAB: ways out: the track's, and pads sent to a bus
+        const auto& tr = project.tracks[t];
+        unsigned pads = 0;
+        for (const auto& pad : tr.pads) pads += pad.out != 0;
+        if (!tr.mix.out && !pads) continue;
+        at = w.begin("OUTS");
+        w.u8(t); w.u8(tr.mix.out); w.u8(std::min(pads, 255u));
+        for (unsigned k = 0; k < sampler_pads; ++k) if (tr.pads[k].out) { w.u8(k); w.u8(tr.pads[k].out); }
+        w.end(at);
+    }
     for (unsigned n = 0; n < sample_slots; ++n) { // a sample's chop (roadmap P3): its region, type, amount and slices
         const auto& c = project.chops[n];
         if (!c.used() || !project.samples[n].used()) continue;
@@ -729,6 +739,13 @@ std::string load_project(const std::vector<uint8_t>& data, Project& target, Patt
                     project->tracks[t].pads[pad].ping_tail = uint8_t(std::min(tail, 100u));
                     project->tracks[t].pads[pad].ping_region = uint8_t(std::clamp(region, 5u, 250u));
                 }
+            }
+        } else if (name == "OUTS") { // INDIGO X DENIM LAB: ways out
+            unsigned t = r.u8(), out = r.u8(), count = r.u8();
+            if (t < track_count) project->tracks[t].mix.out = uint8_t(std::min(out, bus_count));
+            for (unsigned k = 0; k < count && r.ok; ++k) {
+                unsigned pad = r.u8(), to = r.u8();
+                if (t < track_count && pad < sampler_pads) project->tracks[t].pads[pad].out = uint8_t(std::min(to, bus_count));
             }
         } else if (name == "CHOP") { // a sample's chop (roadmap P3); without it Chop cuts afresh
             unsigned n = r.u8();
@@ -1117,6 +1134,7 @@ std::string load_project(const std::vector<uint8_t>& data, Project& target, Patt
             if (b >= bus_count) continue;
             project->buses[b].level = uint8_t(std::min(100u, r.u8()));
             read_chain(r, project->buses[b].fx);
+            project->buses[b].fx.size = uint8_t(bus_slots); // LAB: eight inserts, an older file's six among them
         } else if (name == "MSTR") {
             read_chain(r, project->master);
         } else if (name == "LOOP") { // the Looper (docs/LOOPER.md)

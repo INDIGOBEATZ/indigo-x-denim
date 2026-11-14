@@ -58,7 +58,8 @@ struct MixState {
     std::array<std::array<uint8_t, bus_count>, track_count> sends {}; // each track's send into each bus
     std::array<int8_t, track_count> pan {};
     std::array<uint8_t, bus_count> returns {};
-    bool operator==(const MixState& o) const { return level == o.level && sends == o.sends && pan == o.pan && returns == o.returns; }
+    std::array<uint8_t, track_count> out {}; // INDIGO X DENIM LAB: each track's way out
+    bool operator==(const MixState& o) const { return level == o.level && sends == o.sends && pan == o.pan && returns == o.returns && out == o.out; }
 };
 // A track's sound: its engine's values and its mod routes.
 struct SoundState {

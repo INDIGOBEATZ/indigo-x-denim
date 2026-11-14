@@ -93,8 +93,8 @@ void draw_tiles(Paint& p, const Snapshot& s, const ProjectStore::View& v) {
     SoftKeys keys {{"SAVE", "OPEN", "NEW"}, 0, colour::text};
     keys.glyphs = {Icon::Save, Icon::Folder, Icon::Plus};
     if (s.ui.shift) { // INDIGO X DENIM: Shift + B2 looks the card over for the project's missing samples
-        keys = SoftKeys {{"", "FIND SAMPLES", ""}, -1, colour::text};
-        keys.glyphs = {Icon::None, Icon::Folder, Icon::None};
+        keys = SoftKeys {{"QUICK SAVE", "FIND SAMPLES", "NEXT"}, -1, colour::text}; // LAB: Quick Save, the folder as a playlist
+        keys.glyphs = {Icon::Save, Icon::Folder, Icon::ChevronRight};
     }
     frame(p, s, keys, h);
     unsigned projects = 0;
@@ -253,6 +253,21 @@ ProjectStore::View view_of(Context& c) {
 
 void close_sheet(Context& c) { c.ui.sheet_open = false; c.ui.sheet_more = false; c.ui.delete_armed = false; }
 
+// INDIGO X DENIM LAB: the folder in view as a playlist (as SXL's Project Playlist): the project after the open one, in
+// the list's order, round to the first after the last.
+void next_project(Context& c) {
+    if (c.dirty) { c.notice("Unsaved: QUICK SAVE first"); return; } // never a change lost by a playlist step
+    auto v = view_of(c);
+    std::vector<const ProjectEntry*> projects;
+    for (const auto& e : v.entries) if (e.kind == ProjectEntry::Kind::Project) projects.push_back(&e);
+    if (projects.empty()) { c.notice("No projects here"); return; }
+    size_t at = 0;
+    for (size_t i = 0; i < projects.size(); ++i) if (projects[i]->path == c.project_path) { at = (i + 1) % projects.size(); break; }
+    if (projects[at]->path == c.project_path) { c.notice("The only project here"); return; }
+    c.notice("Next: " + projects[at]->name);
+    c.store->load(projects[at]->path);
+}
+
 void act(Context& c, Action action) {
     auto v = view_of(c);
     const auto* e = entry_at(v, c.ui.project_cursor, c.project_folder);
@@ -359,7 +374,16 @@ void push(Context& c) {
 
 void soft(Context& c, int key) {
     if (!c.ui.project_list) { // SAVE, OPEN, NEW
-        if (c.ui.shift) { c.ui.shift_used = true; if (key == 1) c.find_samples(); return; } // INDIGO X DENIM: FIND SAMPLES
+        if (c.ui.shift) { // INDIGO X DENIM: FIND SAMPLES; LAB: QUICK SAVE (no name asked) and NEXT (the folder's next project)
+            c.ui.shift_used = true;
+            if (key == 1) c.find_samples();
+            if (key == 0 && c.store) {
+                c.save_project_to(c.project_path.empty() ? c.store->free_path_in(c.save_folder(), "") : c.project_path);
+                c.notice("Saved");
+            }
+            if (key == 2 && c.store) next_project(c);
+            return;
+        }
         if (key == 0) c.save_project();
         if (key == 1) open_list(c);
         if (key == 2) c.ask_new_project(); // asks first, as the MPC does; the open one is saved first if it has a file

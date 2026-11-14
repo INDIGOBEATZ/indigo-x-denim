@@ -82,7 +82,7 @@ void draw(Paint& p, const Snapshot& s) {
     SoftKeys keys {{"PADS", "TRACKS", "FX"}, pads ? 0 : 1, c};
     keys.dots[0] = 2; keys.dot_at[0] = uint8_t(pads ? half : 0);
     keys.dots[1] = 2; keys.dot_at[1] = uint8_t(pads ? 0 : half);
-    if (s.ui.shift) keys = SoftKeys {{pads ? "FLATTEN" : "", pads ? "EXPLODE" : "", "UNMUTE ALL"}, -1, c}; // LAB: Flatten Pad, Explode Pads to Tracks on PADS
+    if (s.ui.shift) keys = SoftKeys {{pads ? "FLATTEN" : "SUB LENS", pads ? "EXPLODE" : "TUNER", "UNMUTE ALL"}, -1, c}; // LAB: Flatten Pad, Explode Pads to Tracks on PADS
     frame(p, s, keys, h);
 
     std::array<Strip, strips> list {};
@@ -174,6 +174,14 @@ void step(Context& c, int way) {
     if (c.ui.mixer_view == 0 && t.engine == EngineKind::Sampler) {
         unsigned bank = t.bank % sampler_banks, in_bank = t.last_pad % 16;
         int at = std::clamp(int(in_bank) + way, 0, 15);
+        if (c.ui.shift && at != int(in_bank)) { // LAB: Reorder: the pad in hand moves along, its neighbour taking its place
+            c.ui.shift_used = true;
+            swap_pads(c, t.last_pad, bank * 16 + unsigned(at));
+            c.track().last_pad = uint8_t(bank * 16 + unsigned(at));
+            c.ui.mixer_half = uint8_t(at / int(strips));
+            c.notice(std::string("Pad to ") + char('A' + bank) + (at < 9 ? "0" : "") + std::to_string(at + 1));
+            return;
+        }
         t.last_pad = uint8_t(bank * 16 + unsigned(at));
         c.ui.mixer_half = uint8_t(at / int(strips));
         return;
@@ -208,7 +216,13 @@ void push(Context& c) { // the strip in hand muted, or not
 
 void soft(Context& c, int key) {
     auto& ui = c.ui;
-    if (ui.shift) { ui.shift_used = true; if (key == 2) unmute_all(c); if (key == 0 && ui.mixer_view == 0) c.flatten_start(); if (key == 1 && ui.mixer_view == 0) explode_pads(c); return; }
+    if (ui.shift) { // UNMUTE ALL; LAB: PADS FLATTEN, EXPLODE; TRACKS SUB LENS, TUNER
+        ui.shift_used = true;
+        if (key == 2) unmute_all(c);
+        else if (ui.mixer_view == 0) { if (key == 0) c.flatten_start(); else explode_pads(c); }
+        else c.open(key == 0 ? PageId::SubLens : PageId::Tuner);
+        return;
+    }
     if (key == 0) { // PADS, again the other eight
         if (ui.mixer_view == 0) ui.mixer_half = uint8_t((ui.mixer_half + 1) % 2);
         else { ui.mixer_view = 0; ui.mixer_half = uint8_t(c.track().last_pad % 16 / strips); }

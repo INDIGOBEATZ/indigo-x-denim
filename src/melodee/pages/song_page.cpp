@@ -34,6 +34,7 @@ constexpr unsigned lanes = 6;
 constexpr float x0 = 34, x1 = zone::width - zone::pad, lane_top = zone::picture_y + 29, lane_h = 15, lane_gap = 1;
 constexpr float strip_h = 14; // roadmap P5: the tempo lane, over the tracks (one track lane fewer while it has points)
 
+float lh_now = lane_h; // INDIGO X DENIM LAB: the lanes' height now (all sixteen lanes: thinner); screen thread
 unsigned zoom_of(const UiState& ui) { return song_zooms[ui.song_zoom % (sizeof(song_zooms) / sizeof(song_zooms[0]))]; }
 // The first bar in view: the remembered one, moved just enough to show the cursor.
 unsigned view_of(const UiState& ui) {
@@ -56,8 +57,8 @@ void draw_clip(Paint& p, const Snapshot& s, const Clip& clip, float y, unsigned 
     if (right <= left + 1) return;
     auto c = track_colour(clip.track);
     p.g.saveState();
-    p.g.reduceClipRegion(juce::Rectangle<int>(int(left), int(y), int(right - left + 1), int(lane_h)));
-    p.fill(cx + 0.5f, y, cw - 1, lane_h, selected ? c : c.withAlpha(clip.muted ? 0.12f : 0.38f), 2.5f);
+    p.g.reduceClipRegion(juce::Rectangle<int>(int(left), int(y), int(right - left + 1), int(lh_now)));
+    p.fill(cx + 0.5f, y, cw - 1, lh_now, selected ? c : c.withAlpha(clip.muted ? 0.12f : 0.38f), 2.5f);
     const auto& sketch = s.sketches[clip.track][clip.pattern];
     // Its notes in small: the pattern repeated across the clip.
     // In sixteenths: the sketch keeps the first note of each.
@@ -72,22 +73,27 @@ void draw_clip(Paint& p, const Snapshot& s, const Clip& clip, float y, unsigned 
         for (unsigned k = 0; k < steps; ++k) {
             unsigned at = k % length;
             if (at >= 64 || !sketch.keys[at]) continue;
-            float nx = cx + k * step_w, ny = y + lane_h - 3 - (hi > lo ? float(sketch.keys[at] - lo) / (hi - lo) : 0.5f) * (lane_h - 7);
+            float nx = cx + k * step_w, ny = y + lh_now - 3 - (hi > lo ? float(sketch.keys[at] - lo) / (hi - lo) : 0.5f) * (lh_now - 7);
             if (nx > right) break;
             p.fill(nx, ny, std::max(1.0f, step_w * 0.8f), 1, note);
         }
     // A notch at each repeat of the pattern.
     float repeat = length * step_w;
     if (repeat >= 4)
-        for (float rx = cx + repeat; rx < cx + cw - 1; rx += repeat) p.fill(rx, y, 0.5f, lane_h, colour::bg);
-    p.text("P" + juce::String(clip.pattern + 1), cx + 3, y, 24, lane_h, plain(selected ? colour::bg : c, type::small, Weight::Bold));
-    if (selected) p.ring(cx + 0.5f, y, cw - 1, lane_h, colour::text, 2.5f);
+        for (float rx = cx + repeat; rx < cx + cw - 1; rx += repeat) p.fill(rx, y, 0.5f, lh_now, colour::bg);
+    if (lh_now >= 12) p.text("P" + juce::String(clip.pattern + 1), cx + 3, y, 24, lh_now, plain(selected ? colour::bg : c, type::small, Weight::Bold));
+    if (selected) p.ring(cx + 0.5f, y, cw - 1, lh_now, colour::text, 2.5f);
     p.g.restoreState();
 }
 
 // B1-B3 follow what is under the cursor; with Shift, the clip's second jobs.
 SoftKeys keys_of(const Snapshot& s, const Clip* clip, juce::Colour c) {
-    if (s.ui.shift) return {{"", clip ? "MOTION" : "", clip ? "OWN PATTERN" : ""}, -1, c};
+    if (s.ui.song_marq) { // LAB: the marquee's jobs (Shift: its mode, paste at the cursor, let it go)
+        static const char* modes[] {"", "MODE MRQ", "MODE TRK", "MODE ARR"};
+        if (s.ui.shift) return {{modes[s.ui.song_marq % 4], "PASTE", "DESELECT"}, -1, c};
+        return {{"COPY", "DELETE", "LOOP"}, -1, c};
+    }
+    if (s.ui.shift) return {{s.ui.song_all ? "6 TRACKS" : "ALL TRACKS", clip ? "MOTION" : "", clip ? "OWN PATTERN" : ""}, -1, c};
     if (clip) return {{"EXPORT", clip->muted ? "UNMUTE" : "MUTE", "DUPLICATE"}, -1, c};
     return {{"EXPORT", "", s.project.tracks[s.ui.track].used() ? "PLACE" : ""}, -1, c};
 }
@@ -104,6 +110,10 @@ void draw(Paint& p, const Snapshot& s) {
     // Following MIDI clock or MTC in, its chip takes the loop's room (the ruler's brace still shows the loop).
     else if (song.looping() && !s.following) h.left.push_back(pill("LOOP " + juce::String(song.loop_start + 1) + dash() + juce::String(song.loop_end), colour::text));
     h.right.push_back(tag_of(s, s.ui.track));
+    if (s.ui.song_marq) { // LAB
+        static const char* modes[] {"", "MRQ", "TRK", "ARR"};
+        h.left.push_back(pill(juce::String(modes[s.ui.song_marq % 4]) + " " + juce::String(s.ui.marq_from + 1) + dash() + juce::String(s.ui.marq_to), colour::text));
+    }
 
     if (s.ui.song_export) {
         // Export (B1), as on the MPC: B2 an audio mixdown, B3 a new pattern; a tile under each says what it makes.
@@ -208,20 +218,40 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(juce::String(int(std::lround(here / 10))), zone::pad, sy, 26, sh, plain(colour::amber, type::small, Weight::SemiBold),
                juce::Justification::centred);
     }
-    // Lanes: six tracks in view (five under the tempo lane), the selected one among them.
-    unsigned first = std::min<unsigned>(s.ui.track >= 2 ? s.ui.track - 2 : 0, track_count - shown);
+    // Lanes: six tracks in view (five under the tempo lane), the selected one among them; LAB: or all sixteen, thin.
+    float lane_room = lane_h;
+    if (s.ui.song_all) { shown = track_count; lane_room = std::floor((lanes * (lane_h + lane_gap) - (tempo_lane ? strip_h + 2 : 0)) / track_count) - lane_gap; }
+    lh_now = lane_room;
+    unsigned first = s.ui.song_all ? 0 : std::min<unsigned>(s.ui.track >= 2 ? s.ui.track - 2 : 0, track_count - shown);
     for (unsigned row = 0; row < shown; ++row) {
         unsigned t = first + row;
-        float y = tracks_top + row * (lane_h + lane_gap);
+        float y = tracks_top + row * (lane_room + lane_gap);
         auto tc = track_colour(t);
         bool selected = t == s.ui.track;
-        if (selected) p.fill(zone::pad, y, 22, lane_h, tc, 3);
-        p.text(juce::String(t + 1), zone::pad, y, 22, lane_h, plain(selected ? colour::bg : s.project.tracks[t].used() ? tc : colour::dim, type::small, Weight::Bold),
-               juce::Justification::centred);
+        if (s.ui.song_all) { // a colour tab for each lane, the selected one wide and bright
+            p.fill(zone::pad + (selected ? 0 : 8), y, selected ? 22 : 14, lane_room, s.project.tracks[t].used() ? tc.withAlpha(selected ? 1.0f : 0.55f) : colour::quiet, 1.5f);
+        } else {
+            if (selected) p.fill(zone::pad, y, 22, lane_room, tc, 3);
+            p.text(juce::String(t + 1), zone::pad, y, 22, lane_room, plain(selected ? colour::bg : s.project.tracks[t].used() ? tc : colour::dim, type::small, Weight::Bold),
+                   juce::Justification::centred);
+        }
         for (unsigned n = 0; n < song.count; ++n)
             if (song.clips[n].track == t) draw_clip(p, s, song.clips[n], y, view, bw, int(n) == selected_clip);
     }
-    float bottom = tracks_top + shown * (lane_h + lane_gap);
+    float bottom = tracks_top + shown * (lane_room + lane_gap);
+    if (s.ui.song_marq) { // LAB: the marquee over its bars and lanes
+        unsigned t0 = s.ui.song_marq == 3 ? 0 : s.ui.song_marq == 2 ? s.ui.track : std::min(s.ui.marq_t0, s.ui.marq_t1);
+        unsigned t1 = s.ui.song_marq == 3 ? track_count - 1 : s.ui.song_marq == 2 ? s.ui.track : std::max(s.ui.marq_t0, s.ui.marq_t1);
+        int r0 = int(t0) - int(first), r1 = int(t1) - int(first);
+        r0 = std::max(r0, 0); r1 = std::min(r1, int(shown) - 1);
+        float mx0 = x0 + (float(s.ui.marq_from) - float(view)) * bw, mx1 = x0 + (float(s.ui.marq_to) - float(view)) * bw;
+        mx0 = std::max(mx0, x0); mx1 = std::min(mx1, x1);
+        if (r1 >= r0 && mx1 > mx0) {
+            float my0 = tracks_top + r0 * (lane_room + lane_gap) - 1, my1 = tracks_top + (r1 + 1) * (lane_room + lane_gap);
+            p.fill(mx0, my0, mx1 - mx0, my1 - my0, colour::text.withAlpha(0.13f), 2);
+            p.ring(mx0, my0, mx1 - mx0, my1 - my0, colour::text, 2, 1);
+        }
+    }
     p.fill(x0 - 1, lane_top - 2, 0.5f, bottom - lane_top + 2, colour::line);
     // The cursor, and the playhead when the song plays.
     float cx = x0 + (float(cursor) - float(view)) * bw;
@@ -304,13 +334,81 @@ void open_clip(Context& c, int index, bool motion) {
 }
 
 void pad(Context& c, unsigned pad, uint8_t, bool down) {
-    if (down) c.select_track(pad); // pads pick the lane
+    if (!down) return;
+    if (c.ui.song_marq == 1) c.ui.marq_t1 = uint8_t(pad % track_count); // LAB: the marquee's lanes reach to the pad's
+    c.select_track(pad); // pads pick the lane
 }
 
 void wheel(Context& c, int delta) {
     if (c.ui.song_export) { c.ui.export_kind = uint8_t(std::clamp(int(c.ui.export_kind) + delta, 0, 4)); return; } // what B2 makes (roadmap P4)
-    c.ui.song_cursor = uint16_t(std::clamp<int>(c.ui.song_cursor + delta, 0, int(song_bars) - 1));
+    auto& ui = c.ui;
+    if (ui.shift) { // LAB: Shift + wheel draws the marquee from where the cursor was (as MPC 3.10's Shift + drag)
+        ui.shift_used = true;
+        if (!ui.song_marq) { ui.song_marq = 1; ui.marq_anchor = ui.song_cursor; ui.marq_t0 = ui.marq_t1 = uint8_t(ui.track); }
+    }
+    ui.song_cursor = uint16_t(std::clamp<int>(ui.song_cursor + delta, 0, int(song_bars) - 1));
+    ui.song_view = uint16_t(view_of(ui));
+    if (ui.shift && ui.song_marq) {
+        ui.marq_from = std::min(ui.marq_anchor, ui.song_cursor);
+        ui.marq_to = uint16_t(std::max(ui.marq_anchor, ui.song_cursor) + 1);
+    }
+}
+
+// LAB: the marquee's lanes, bars and jobs.
+void marquee_lanes(const UiState& ui, unsigned& t0, unsigned& t1) {
+    t0 = ui.song_marq == 3 ? 0 : ui.song_marq == 2 ? ui.track : std::min(ui.marq_t0, ui.marq_t1);
+    t1 = ui.song_marq == 3 ? track_count - 1 : ui.song_marq == 2 ? ui.track : std::max(ui.marq_t0, ui.marq_t1);
+}
+
+void marquee_copy(Context& c) {
+    const auto& song = c.project.song;
+    unsigned t0, t1;
+    marquee_lanes(c.ui, t0, t1);
+    c.song_board.clear();
+    c.song_board_bars = uint16_t(c.ui.marq_to - c.ui.marq_from);
+    for (unsigned n = 0; n < song.count; ++n) {
+        Clip clip = song.clips[n];
+        if (clip.track < t0 || clip.track > t1 || clip.end() <= c.ui.marq_from || clip.bar >= c.ui.marq_to) continue;
+        uint16_t from = std::max(clip.bar, c.ui.marq_from), to = std::min(clip.end(), c.ui.marq_to);
+        clip.bar = uint16_t(from - c.ui.marq_from); clip.bars = uint16_t(to - from);
+        clip.track = uint8_t(clip.track - t0);
+        c.song_board.push_back(clip);
+    }
+    c.notice(std::to_string(c.song_board.size()) + (c.song_board.size() == 1 ? " clip copied" : " clips copied"));
+}
+
+void marquee_delete(Context& c) {
+    unsigned t0, t1;
+    marquee_lanes(c.ui, t0, t1);
+    for (unsigned t = t0; t <= t1; ++t) c.project.song.cut(t, c.ui.marq_from, c.ui.marq_to);
+    c.sync_song();
+    c.notice("Deleted bars " + std::to_string(c.ui.marq_from + 1) + "-" + std::to_string(c.ui.marq_to));
+}
+
+void marquee_paste(Context& c) {
+    if (c.song_board.empty()) { c.notice("Nothing copied"); return; }
+    unsigned at = c.ui.song_cursor, lane = c.ui.track;
+    unsigned placed = 0;
+    for (auto clip : c.song_board) {
+        unsigned t = lane + clip.track;
+        if (t >= track_count || at + clip.bar + clip.bars > song_bars) continue;
+        clip.track = uint8_t(t); clip.bar = uint16_t(at + clip.bar);
+        if (c.project.song.place(clip)) ++placed;
+    }
+    c.sync_song();
+    // The pasted bars, selected and in view (as MPC 3.10 scrolls to what it pasted).
+    c.ui.song_marq = c.ui.song_marq ? c.ui.song_marq : 1;
+    c.ui.marq_from = uint16_t(at); c.ui.marq_to = uint16_t(std::min<unsigned>(at + c.song_board_bars, song_bars));
+    c.ui.song_cursor = uint16_t(std::max<int>(int(c.ui.marq_to) - 1, int(at)));
     c.ui.song_view = uint16_t(view_of(c.ui));
+    c.notice(std::to_string(placed) + (placed == 1 ? " clip pasted" : " clips pasted"));
+}
+
+void marquee_loop(Context& c) { // whole bars, as MPC 3.10's Loop to Marquee Selection
+    auto& song = c.project.song;
+    song.loop_start = c.ui.marq_from; song.loop_end = c.ui.marq_to;
+    c.sync_song();
+    c.notice("Loop bars " + std::to_string(c.ui.marq_from + 1) + "-" + std::to_string(c.ui.marq_to));
 }
 
 void push(Context& c) {
@@ -322,8 +420,22 @@ void push(Context& c) {
 
 void soft(Context& c, int key) {
     if (c.ui.song_export) { c.song_export_soft(key); return; } // B1 Cancel, B2 Audio mixdown, B3 New pattern
+    if (c.ui.song_marq) { // LAB: COPY, DELETE, LOOP; Shift: MODE, PASTE, DESELECT
+        if (c.ui.shift) {
+            c.ui.shift_used = true;
+            if (key == 0) c.ui.song_marq = uint8_t(c.ui.song_marq % 3 + 1);
+            if (key == 1) marquee_paste(c);
+            if (key == 2) c.ui.song_marq = 0;
+            return;
+        }
+        if (key == 0) marquee_copy(c);
+        if (key == 1) marquee_delete(c);
+        if (key == 2) marquee_loop(c);
+        return;
+    }
     int index = clip_index(c);
     if (c.ui.shift) {
+        if (key == 0) { c.ui.shift_used = true; c.ui.song_all = !c.ui.song_all; return; } // LAB: all sixteen lanes
         if (index < 0) return;
         if (key == 1) open_clip(c, index, true);
         if (key == 2) own_pattern(c, index);

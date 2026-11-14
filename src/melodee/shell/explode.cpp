@@ -34,6 +34,38 @@ void drop_key(Pattern& p, uint8_t key) {
 }
 } // namespace
 
+// INDIGO X DENIM LAB: Reorder (as SXL's): pad `a` and pad `b` of the selected kit trade places, with their effects,
+// mutes and every note and lane that names them, so nothing plays differently. One undo.
+void swap_pads(Context& c, unsigned a, unsigned b) {
+    const unsigned t = c.ui.track % track_count;
+    a %= sampler_pads; b %= sampler_pads;
+    if (a == b || c.project.tracks[t].engine != EngineKind::Sampler) return;
+    if (c.ui.recording) { c.notice("Reorder: not in a take"); return; }
+    const TrackState before = track_state(c, t);
+    auto next = std::make_unique<TrackState>(before);
+    auto& tr = next->track;
+    std::swap(tr.pads[a], tr.pads[b]);
+    std::swap(tr.pad_fx.at[a], tr.pad_fx.at[b]);
+    bool ma = tr.pad_muted(a), mb = tr.pad_muted(b);
+    tr.set_pad_muted(a, mb); tr.set_pad_muted(b, ma);
+    const uint8_t ka = uint8_t(sampler_first_note + a), kb = uint8_t(sampler_first_note + b);
+    auto swap_key = [&](uint8_t& key) { if (key == ka) key = kb; else if (key == kb) key = ka; };
+    for (auto& p : next->patterns) {
+        for (auto& e : p.events) swap_key(e.key);
+        std::stable_sort(p.events.begin(), p.events.end(), [](const Event& x, const Event& y) { return x.tick != y.tick ? x.tick < y.tick : x.key < y.key; });
+        for (auto& l : p.lanes) swap_key(l.key);
+        std::sort(p.lanes.begin(), p.lanes.end(), [](const LaneLength& x, const LaneLength& y) { return x.key < y.key; });
+        for (auto& l : p.euclids) swap_key(l.key);
+        std::sort(p.euclids.begin(), p.euclids.end(), [](const EuclidLane& x, const EuclidLane& y) { return x.key < y.key; });
+    }
+    if (tr.last_pad == a) tr.last_pad = uint8_t(b); else if (tr.last_pad == b) tr.last_pad = uint8_t(a);
+    Edit edit = c.begin_edit("Reorder pads", t, -1, false);
+    edit.track_before = std::make_unique<TrackState>(before);
+    restore_track(c, t, *next);
+    edit.track_after = std::move(next);
+    c.edits.push(std::move(edit));
+}
+
 void explode_pads(Context& c) {
     const unsigned src = c.ui.track % track_count;
     const auto& kit = c.project.tracks[src];

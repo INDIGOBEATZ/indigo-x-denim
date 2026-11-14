@@ -304,6 +304,9 @@ public:
     unsigned samples_found = 0;       // INDIGO X DENIM: this project's samples found again elsewhere on the card
     void find_samples();              // INDIGO X DENIM: the missing ones looked for afresh (Shift + OPEN on Project)
     std::string save_folder() const;  // INDIGO X DENIM: where a new project goes
+    // INDIGO X DENIM LAB: Song's marquee copy: the clips, their bars from the copy's start and lanes from its first lane.
+    std::vector<Clip> song_board;
+    uint16_t song_board_bars = 0;
     void save_project_to(const std::string& path);
     void save_project();              // to its file, or a new one
     void new_project();

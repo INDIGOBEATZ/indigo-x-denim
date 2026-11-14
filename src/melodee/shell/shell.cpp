@@ -446,7 +446,7 @@ void Shell::wheel(int delta) {
     }
     if (seq_wheel(context_, delta)) return;     // Seq held: the tempo
     if (pad_bank_move(context_, delta)) return; // Pad Bank held: the wheel jumps banks
-    if (ui_.shift && ui_.last_pot >= 0 && ui_.page != PageId::Patterns && ui_.page != PageId::Roll) { // Patterns: locates by Q; Roll: note to note
+    if (ui_.shift && ui_.last_pot >= 0 && ui_.page != PageId::Patterns && ui_.page != PageId::Roll && ui_.page != PageId::Song && ui_.page != PageId::Mixer) { // Patterns: locates by Q; Roll: note to note; LAB: Song's marquee, Mixer's reorder
         // Shift + wheel: fine edit of the last pot touched, one step a detent.
         ui_.shift_used = true;
         auto bindings = page_bindings(*project_, ui_, context_.pattern(), ui_.last_pot_shift);
@@ -662,6 +662,59 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
                                   : track_spectrum.update(host.track_scope(), dsp::sample_rate(), dt);
             spectrum_at = now;
         } else spectrum_at = 0;
+        // The tuner: the input's pitch, YIN-style (a difference function, normalised, its first dip under 0.15), on the
+        // last 2048 frames brought down to about 12 kHz.
+        if (page == PageId::Tuner) {
+            static std::array<float, 2048> in {};
+            static std::array<float, 512> low {};
+            static std::array<float, 260> d {};
+            host.input_scope().last(in.data(), unsigned(in.size()));
+            const unsigned step = std::max(1u, unsigned(std::lround(dsp::sample_rate() / 12000.0f)));
+            const unsigned n = std::min<unsigned>(unsigned(low.size()), unsigned(in.size()) / step);
+            float level = 0;
+            for (unsigned i = 0; i < n; ++i) {
+                float v = 0;
+                for (unsigned k = 0; k < step; ++k) v += in[i * step + k];
+                low[i] = v / step; level = std::max(level, std::fabs(low[i]));
+            }
+            const float rate = dsp::sample_rate() / step;
+            const unsigned most = std::min<unsigned>(unsigned(d.size()), n / 2);
+            float hz = 0, running = 0;
+            d[0] = 1;
+            for (unsigned tau = 1; tau < most; ++tau) {
+                float sum = 0;
+                for (unsigned i = 0; i + most < n; ++i) { float diff = low[i] - low[i + tau]; sum += diff * diff; } // a window of n - most
+                running += sum;
+                d[tau] = running > 0 ? sum * tau / running : 1;
+            }
+            for (unsigned tau = 3; tau + 1 < most; ++tau)
+                if (d[tau] < 0.15f && d[tau] <= d[tau + 1]) {
+                    float a = d[tau - 1], b = d[tau], c = d[tau + 1], den = a - 2 * b + c;
+                    float exact = tau + (std::fabs(den) > 1e-9f ? 0.5f * (a - c) / den : 0.0f);
+                    hz = rate / exact;
+                    break;
+                }
+            out.tuner_hz = hz; out.tuner_level = level;
+        }
+        // Sub Lens: its two tracks under 150 Hz over the window, a point for each slice.
+        if (page == PageId::SubLens) {
+            host.set_lens(ui_.lens_a, ui_.lens_b);
+            static std::array<float, ScopeRing::size> raw {};
+            static std::array<float, Snapshot::lens_points> keep_a {}, keep_b {};
+            if (!ui_.lens_freeze) {
+                const unsigned frames = std::min<unsigned>(ScopeRing::size, unsigned(dsp::sample_rate() * lens_window_ms(ui_) / 1000.0f));
+                const float k = 1 - std::exp(-2 * float(M_PI) * 150 / dsp::sample_rate());
+                for (unsigned side = 0; side < 2; ++side) {
+                    auto& keep = side ? keep_b : keep_a;
+                    if ((side ? ui_.lens_b : ui_.lens_a) < 0) { keep.fill(0); continue; }
+                    host.lens_scope(side).last(raw.data(), frames);
+                    float y1 = 0, y2 = 0;
+                    for (unsigned i = 0; i < frames; ++i) { y1 += k * (raw[i] - y1); y2 += k * (y1 - y2); raw[i] = y2; } // two poles
+                    for (unsigned pnt = 0; pnt < keep.size(); ++pnt) keep[pnt] = raw[std::min<unsigned>(frames - 1, pnt * frames / unsigned(keep.size()))];
+                }
+            }
+            out.lens_a = keep_a; out.lens_b = keep_b;
+        } else host.set_lens(-1, -1);
         const auto& loud = host.loudness();
         out.lufs_momentary = loud.momentary(); out.lufs_short = loud.short_term();
         if (page == PageId::Master) out.lufs_integrated = loud.integrated(); // its histogram summed: only where it shows

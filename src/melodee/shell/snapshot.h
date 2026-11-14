@@ -54,6 +54,11 @@ struct Snapshot {
     std::array<float, spectrum_bands> spectrum {};
     bool spectrum_live = false;
     float lufs_momentary = -INFINITY, lufs_short = -INFINITY, lufs_integrated = -INFINITY;
+    // INDIGO X DENIM LAB: the tuner's pitch of the input (Hz, 0 none) and its level; Sub Lens's two tracks under 150 Hz,
+    // oldest first, each point the window's slice of it.
+    float tuner_hz = 0, tuner_level = 0;
+    static constexpr unsigned lens_points = 296;
+    std::array<float, lens_points> lens_a {}, lens_b {};
     // The voices of the track in view as the engine left them (engine/voice_tap.h), output frames from their stamp
     // to the frame heard now, and each voice's head where it is heard, newest first (shell/playheads.h).
     TrackTaps taps;

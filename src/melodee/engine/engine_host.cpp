@@ -2477,6 +2477,8 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     }
     const int scoped = tap_track.load(std::memory_order_relaxed); // INDIGO X DENIM LAB: the track in view, for the spectrum
     bool scope_fed = false;
+    const int lens_a = lens_tracks[0].load(std::memory_order_relaxed), lens_b = lens_tracks[1].load(std::memory_order_relaxed);
+    bool lens_fed[2] {false, false};
     for (unsigned t = 0; t < track_count; ++t) {
         auto& slot = slots[t];
         float level = 0;
@@ -2535,6 +2537,8 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
             }
         }
         if (int(t) == scoped && level > 0) { track_ring.push(slot.left, slot.right, frames); scope_fed = true; }
+        if (int(t) == lens_a && level > 0) { lens_rings[0].push(slot.left, slot.right, frames); lens_fed[0] = true; }
+        if (int(t) == lens_b && level > 0) { lens_rings[1].push(slot.left, slot.right, frames); lens_fed[1] = true; }
         float shown = meters[t].load(std::memory_order_relaxed) * dsp::fall_per_block(0.97f, frames); // a short fall, as fast at any rate
         meters[t].store(std::max(level, shown), std::memory_order_relaxed);
         { // every track, so a kit turned into another sound lets its pads' meters fall
@@ -2645,6 +2649,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         meter(in_levels[0], in_l); meter(in_levels[1], in_r);
     }
     recall_ring.write(record_l, record_r, frames);
+    input_ring.push(record_l, record_r, frames); // INDIGO X DENIM LAB: the tuner's
     keep_sources(input, usb, frames);
     take_stems(frames); // roadmap P4: the stems by the same bounds, before the bounce moves on
     if (bounce_pad_left && render_out.running()) { // INDIGO X DENIM LAB: a flattened pad ends on its frame
@@ -2671,6 +2676,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     loudness_meter.process(master_l, master_r, frames);
     master_ring.push(master_l, master_r, frames);
     if (!scope_fed && scoped >= 0) track_ring.push(nullptr, nullptr, frames);
+    for (unsigned side = 0; side < 2; ++side) if (!lens_fed[side] && lens_tracks[side].load(std::memory_order_relaxed) >= 0) lens_rings[side].push(nullptr, nullptr, frames);
     float peak = 0, out_l = 0, out_r = 0;
     for (unsigned f = 0; f < frames; ++f) {
         if (click_wait) --click_wait;

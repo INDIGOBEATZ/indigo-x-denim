@@ -31,6 +31,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Steps, Roll, Motion, Pa
                             ModPage,                           // roadmap P4: modulators and macros (MOTION again on Motion)
                             Scenes,                            // roadmap P5: scenes and follow actions (Push on Patterns)
                             Mixer,                             // INDIGO X DENIM: MUTE's mixer, PADS and TRACKS (pages/mixer_page.cpp)
+                            Tuner, SubLens,                    // INDIGO X DENIM LAB (pages/lab_pages.cpp)
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has
@@ -195,6 +196,17 @@ struct UiState {
     uint16_t song_cursor = 0;   // bar
     uint16_t song_view = 0;     // first bar in view
     uint8_t song_zoom = 2;      // index into song_zooms
+    // INDIGO X DENIM LAB: Song with all sixteen lanes at once, and its marquee (as MPC 3.10's Arrange): 0 none, 1 MRQ (the
+    // bars and the lanes picked), 2 TRK (the bars on the selected lane), 3 ARR (the bars on every lane). Bars [from,
+    // to), lanes marq_t0..marq_t1.
+    bool song_all = false;
+    // INDIGO X DENIM LAB: Sub Lens: its two tracks (A the kick's, B the bass's; -1 not picked yet), how it shows them
+    // (0 over each other, 1 apart, 2 summed), its window (index into lens_windows) and whether it stands still.
+    int8_t lens_a = -1, lens_b = -1;
+    uint8_t lens_mode = 0, lens_window = 1;
+    bool lens_freeze = false;
+    uint8_t song_marq = 0, marq_t0 = 0, marq_t1 = 0;
+    uint16_t marq_from = 0, marq_to = 0, marq_anchor = 0;
     uint8_t song_pattern = 0;   // what Push places on empty time
     uint8_t song_length = 4;    // bars
     // Per chain: the slot (or + ADD) and parameter row; the pad chains share the last entry (cursor_of()).

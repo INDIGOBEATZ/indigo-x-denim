@@ -222,6 +222,11 @@ public:
     const ScopeRing& master_scope() const { return master_ring; }
     const ScopeRing& track_scope() const { return track_ring; }
     const Loudness& loudness() const { return loudness_meter; }
+    // INDIGO X DENIM LAB: the input as it is recorded (the tuner), and two tracks after their effects (Sub Lens, A and
+    // B; -1 none), each fed silence while it makes none.
+    const ScopeRing& input_scope() const { return input_ring; }
+    const ScopeRing& lens_scope(unsigned side) const { return lens_rings[side & 1]; }
+    void set_lens(int a, int b) { lens_tracks[0].store(a, std::memory_order_relaxed); lens_tracks[1].store(b, std::memory_order_relaxed); }
     float pad_meter(unsigned track, unsigned pad) const { return pad_meters[track % track_count][pad % sampler_pads].load(std::memory_order_relaxed); }
     // The voices of the track the screen watches (engine/voice_tap.h), as the last block left them; false while a
     // write was under way each time it looked. watch_taps(-1): none taken.
@@ -809,6 +814,9 @@ private:
     std::array<std::atomic<float>, track_count> meters {};
     std::array<std::array<std::atomic<float>, sampler_pads>, track_count> pad_meters {};
     ScopeRing master_ring, track_ring;   // INDIGO X DENIM LAB
+    ScopeRing input_ring;
+    std::array<ScopeRing, 2> lens_rings;
+    std::array<std::atomic<int>, 2> lens_tracks {-1, -1};
     Loudness loudness_meter;
     float loudness_rate = 0;
     bool loudness_was_running = false;

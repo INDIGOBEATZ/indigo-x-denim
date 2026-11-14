@@ -2009,6 +2009,20 @@ const Preview previews[] {
          s.ui.page = PageId::Master; s.ui.fx_cursor[master_chain] = 1; s.playing = true;
          s.lufs_momentary = -11.8f; s.lufs_short = -13.2f; s.lufs_integrated = -13.9f;
      }},
+    {"tuner", [](Shell&, Snapshot& s) { s.ui.page = PageId::Tuner; s.tuner_hz = 443.1f; s.tuner_level = 0.2f; }},
+    {"sublens", [](Shell&, Snapshot& s) { // a kick and an 808 ducked under it
+         s.ui.page = PageId::SubLens; s.ui.lens_a = 0; s.ui.lens_b = 1; s.playing = true;
+         for (unsigned i = 0; i < Snapshot::lens_points; ++i) {
+             float t = i / float(Snapshot::lens_points), kt = std::fmod(t, 0.5f);
+             s.lens_a[i] = std::exp(-kt * 30) * std::sin(kt * 180);
+             s.lens_b[i] = (1 - std::exp(-kt * 12)) * 0.6f * std::sin(t * 140);
+         }
+     }},
+    {"songall", [](Shell& shell, Snapshot& s) { // Song with all sixteen lanes and a marquee over bars 3-6 of lanes 1-3
+         preview_as(shell, s, "song", 1, 0);
+         s.ui.song_all = true; s.ui.song_marq = 1; s.ui.marq_from = 2; s.ui.marq_to = 6; s.ui.marq_t0 = 0; s.ui.marq_t1 = 2;
+     }},
+    {"mixerlab", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.shift = true; s.ui.shift_used = true; }},
     {"playtail", [](Shell&, Snapshot& s) { // PLAY with Shift: Sample Tail on K1
          s.ui.page = PageId::PlayPage; s.ui.track = 3; s.sample = break_sample(); s.playing = true; s.ui.shift = true;
          auto& t = s.project.tracks[3]; t.last_pad = 3; t.pads[3].ping_tail = 15;

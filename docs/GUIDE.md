@@ -1248,6 +1248,27 @@ LAB adds features inspired by Jsen Surreal's SXL build for the MPC Sample
 - **Sample Tail**: on the **PLAY** page, **SHIFT** + **K1** (**TAIL**) lets a
   one shot ping-pong over its last moments and fade out over that time;
   row 2's **SHIFT** + **K2** (**REPEAT**) sets how much of the end repeats.
+- **Quick Save and Next**: on the Project page hold **SHIFT**: **B1**
+  **QUICK SAVE** saves at once (a new project gets a free name in the
+  Project folder, nothing asked), **B3** **NEXT** opens the next project in
+  the folder in view, the folder working as a playlist (only once the open
+  project is saved).
+- **Reorder pads**: on the mixer's **PADS**, **SHIFT** + the encoder moves
+  the pad in hand along the bank; its neighbour takes its place, notes,
+  effects and mutes moving with both.
+- **Tuner**: mixer **TRACKS**, **SHIFT** + **B2**: the input's note, octave
+  and cents, a needle and the frequency.
+- **Sub Lens**: mixer **TRACKS**, **SHIFT** + **B1**: two tracks' low end
+  (under 150 Hz). **B1** / **B2** pick A (the kick) and B (the bass), **B3**
+  shows them over each other, apart or summed, the encoder sets the window
+  (100 ms to 1 s), Push freezes it.
+- **Song: all tracks and the marquee** (as MPC 3.10's Arrange): **SHIFT** +
+  **B1** shows all sixteen lanes at once. Hold **SHIFT** and turn the
+  encoder to draw a marquee over bars; tap pads to reach more lanes. Then
+  **B1** **COPY**, **B2** **DELETE**, **B3** **LOOP** (the loop on the
+  marquee's whole bars); with **SHIFT**: **B1** the mode (MRQ the lanes
+  picked, TRK the selected lane, ARR every lane), **B2** **PASTE** at the
+  cursor on the selected lane, **B3** **DESELECT**.
 
 ## Projects and files
 

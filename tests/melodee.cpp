@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Melodee's model and audio side on the host: pad layouts, knob bindings,
 // the engine host's sequencer and mixer, and synth tracks as plug-ins.
+#include "melodee/shell/sample_finder.h"
 #include "melodee/engine/effects.h"
 #include <fstream>
 #include <filesystem>
@@ -11316,7 +11317,34 @@ void live_pad_values() {
     }
 }
 
+// INDIGO X DENIM: a project's samples found again: on a card mounted elsewhere, moved to another folder, a name
+// cut short by the old 160-character limit; the closest folders win; gone is gone.
+void samples_found_again() {
+    namespace fs = std::filesystem;
+    auto card = fs::temp_directory_path() / ("melodee-finder-" + std::to_string(getpid()));
+    fs::remove_all(card);
+    fs::create_directories(card / "Samples" / "Drums");
+    fs::create_directories(card / "Expansions" / "Vault" / "Kicks");
+    fs::create_directories(card / "Other" / "Kicks");
+    for (auto p : {card / "Samples/Drums/Snare 1.wav", card / "Expansions/Vault/Kicks/Kick Hard.wav", card / "Other/Kicks/Kick Hard.wav",
+                   card / "Samples/Drums/A Very Long Sample Name Indeed.wav"})
+        std::ofstream(p.string()) << "x";
+    SampleFinder f;
+    f.set_tops({card.string()});
+    auto here = (card / "Samples/Drums/Snare 1.wav").string();
+    CHECK(f.find(here) == here);
+    CHECK(f.find("/media/OLD-CARD/Samples/Drums/Snare 1.wav") == here);                        // another card's mount
+    CHECK(f.find("/media/OLD-CARD/Moved/Elsewhere/Snare 1.wav") == here);                      // by its name
+    CHECK(f.find("/media/X/Expansions/Vault/Kicks/kick hard.wav") == (card / "Expansions/Vault/Kicks/Kick Hard.wav").string());
+    std::string cut = ("/media/X/" + std::string(130, 'd') + "/A Very Long Sample Name Indeed.wav").substr(0, 159); // cut short
+    CHECK(f.find(cut) == (card / "Samples/Drums/A Very Long Sample Name Indeed.wav").string());
+    CHECK(f.find("/media/X/Samples/Gone.wav").empty());
+    CHECK(f.find("relative.wav").empty());
+    fs::remove_all(card);
+}
+
 int main() {
+    samples_found_again();
     tempo_lane_p5();
     capture_p5();
     scenes_p5();

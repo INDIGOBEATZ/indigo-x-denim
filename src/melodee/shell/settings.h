@@ -36,7 +36,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Font, LevelLeds, StartFolder, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Font, LevelLeds, StartFolder, ProjectFolder, Rows };
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
@@ -61,6 +61,13 @@ struct Settings {
     // empty: the browser as Melodee has it). Set on Samples with Shift + B1, cleared here.
     uint8_t level_leds = 0;
     std::array<char, 160> start_folder {};
+    // INDIGO X DENIM: where a new project is saved, a folder under Melodee/Projects ("" its top).
+    std::array<char, 160> project_folder {};
+    std::string project_folder_text() const { return std::string(project_folder.data(), strnlen(project_folder.data(), project_folder.size())); }
+    void set_project_folder(const std::string& path) {
+        project_folder.fill(0);
+        std::copy_n(path.begin(), std::min(path.size(), project_folder.size() - 1), project_folder.begin());
+    }
     std::string start_folder_text() const { return std::string(start_folder.data(), strnlen(start_folder.data(), start_folder.size())); }
     void set_start_folder(const std::string& path) {
         start_folder.fill(0);
@@ -104,7 +111,7 @@ struct Settings {
     static const char* row_name(unsigned row) {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Screen", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
-                                    "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Font", "Level LEDs", "Sample folder"};
+                                    "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Font", "Level LEDs", "Sample folder", "Project folder"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
@@ -120,6 +127,12 @@ struct Settings {
             auto cut = path.find_last_of('/');
             auto name = cut == std::string::npos ? path.substr(path.find(':') + 1) : path.substr(cut + 1);
             return name.empty() ? std::string("Card") : name;
+        }
+        case ProjectFolder: {
+            auto path = project_folder_text();
+            if (path.empty()) return "Projects";
+            auto cut = path.find_last_of('/');
+            return cut == std::string::npos ? path : path.substr(cut + 1);
         }
         case PadResponse: return responses[pad_response % 4];
         case PadPressure: return pressure ? "On" : "Off";
@@ -152,6 +165,7 @@ struct Settings {
         switch (row) {
         case LevelLeds: level_leds = level_leds ? 0 : 1; break;
         case StartFolder: start_folder.fill(0); break; // back to the browser's own start
+        case ProjectFolder: project_folder.fill(0); break; // back to Melodee/Projects itself
         case Font: font = uint8_t((font + ui::font_count + (way > 0 ? 1 : ui::font_count - 1)) % ui::font_count); break;
         case Palette: palette = uint8_t((palette + ui::palette_count + (way > 0 ? 1 : ui::palette_count - 1)) % ui::palette_count); break;
         case PadResponse: pad_response = uint8_t((pad_response + 4 + way) % 4); break;
@@ -211,7 +225,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
-            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nlevel_leds=" << int(level_leds) << "\nstart_folder=" << start_folder_text() << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
+            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nlevel_leds=" << int(level_leds) << "\nstart_folder=" << start_folder_text() << "\nproject_folder=" << project_folder_text() << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nthreshold=" << int(input.threshold)
@@ -263,6 +277,7 @@ struct Settings {
             else if (key == "click_level") click_level = uint8_t(std::clamp(value, 0, 100));
             else if (key == "level_leds") level_leds = value == 1 ? 1 : 0; // 2 and 3 (the bank lights, taken out): on
             else if (key == "start_folder") set_start_folder(line.substr(eq + 1));
+            else if (key == "project_folder") set_project_folder(line.substr(eq + 1));
             else if (key == "font") font = uint8_t(std::clamp(value, 0, int(ui::font_count) - 1));
             else if (key == "palette") palette = uint8_t(std::clamp(value, 0, int(ui::palette_count) - 1));
             else if (key == "roll_follow") roll_follow = value != 0;

@@ -87,6 +87,18 @@ public:
         auto path = (folder / name).string();
         std::error_code error;
         missing = !fs::exists(path, error);
+        // INDIGO X DENIM: a project renamed or copied without its data folder's name: beside the project, or in any
+        // "_[ProjectData]" folder there. (What is still not found is looked for by name as it loads: sample_finder.h.)
+        if (missing) {
+            auto beside = folder.parent_path();
+            std::vector<fs::path> places {beside};
+            for (const auto& entry : fs::directory_iterator(beside, error)) {
+                auto n = entry.path().filename().string();
+                if (n.size() > 14 && n.compare(n.size() - 14, 14, "_[ProjectData]") == 0 && entry.path() != folder) places.push_back(entry.path());
+            }
+            for (const auto& place : places)
+                if (fs::exists(place / name, error)) { path = (place / name).string(); missing = false; break; }
+        }
         if (path.size() >= sizeof(SampleRef::path)) return -1;
         for (unsigned n = 0; n < sample_slots; ++n) {
             auto& ref = project.samples[n];

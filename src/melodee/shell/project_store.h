@@ -58,9 +58,12 @@ public:
     // A project path in the folder in view for a typed name: the name itself,
     // or with " 2", " 3"... when a project has it already.
     std::string named_path(const std::string& name) const;
+    // INDIGO X DENIM: the same in `folder` (relative to the root, "" the top) instead of the folder in view.
+    std::string named_path_in(const std::string& folder, const std::string& name) const;
     std::unique_ptr<LoadedProject> take_loaded(); // a loaded project, if one is waiting
     // A free name in the folder in view: "Project 3", or "<base> copy".
     std::string free_path(const std::string& base) const;
+    std::string free_path_in(const std::string& folder, const std::string& base) const; // INDIGO X DENIM
 
     // Any thread, before the threads start too: where projects live, $MELODEE_PROJECTS or Melodee/Projects on
     // the first card among `storage`'s mounts (empty with none), and the settings file beside them,

@@ -90,6 +90,7 @@ struct UiState {
     // The Loading sheet covers the screen and owns the controls (main volume still turns) until both are done.
     bool loading = false;
     uint32_t loading_since = 0;                 // ms
+    uint8_t samples_missing = 0; // INDIGO X DENIM: the project's samples not found on the card, even by name
     uint16_t loading_total = 0, loading_left = 0; // the project's sample slots in use, and those not in yet
     bool exit_off = false;         // the Exit sheet's POWER OFF chosen: saving, then the MPC turns off
     bool exit_saved = false;       // and the project is on the card: the sheet says so for a second first

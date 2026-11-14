@@ -117,6 +117,8 @@ public:
     void set_knob_pads(uint64_t low, uint64_t high) { knob_mask[0] = low; knob_mask[1] = high; }
     void set_knob_out(float* l, float* r) { knob_l = l; knob_r = r; }
     bool knob_fed() const { return knob_used; } // the last render put something there
+    // INDIGO X DENIM: each pad's loudest output sample since the last take (the mixer's faders as meters), then 0.
+    float take_pad_peak(unsigned pad) { float p = peaks[pad % peaks.size()]; peaks[pad % peaks.size()] = 0; return p; }
     // Sidechain: this kit pad's voices (after its own chain and punch) play into l / r instead of the kit,
     // added to what is there; the host hands this sub-block's place in its own buffers before each render
     // (a render can be part of the host's block). -1: none.
@@ -269,6 +271,7 @@ private:
     bool moved = false;
     std::array<uint64_t, (sampler_pads + 63) / 64> muted {};
     std::array<Voice, max_voices + spare_voices> voices {};
+    std::array<float, sampler_pads + 1> peaks {}; // INDIGO X DENIM: take_pad_peak()
     std::array<int, sampler::Count> p {};
     uint32_t clock = 0;
     float accent = 1; // the sequencer's, for the voices started next (set_accent)

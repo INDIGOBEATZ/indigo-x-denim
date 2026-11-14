@@ -186,7 +186,7 @@ inline bool set_trim(ZoneTrims& trims, unsigned pad, unsigned zone, unsigned slo
 inline void clear_trims(ZoneTrims& trims, unsigned pad) { for (auto& t : trims) if (t.used() && t.pad == pad) t = ZoneTrim {}; }
 
 struct SampleRef {
-    char path[160] {};  // on the card; empty: free
+    char path[256] {};  // on the card; empty: free (INDIGO X DENIM: 256, so an expansion's deep paths fit)
     char name[28] {};
     uint32_t frames = 0; // at 44.1 kHz, once loaded
     uint16_t zones = 0;  // a multisampled instrument's zones, once read (round 3 "instrument C": Stage's ZONES walks them)

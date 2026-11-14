@@ -89,7 +89,11 @@ unsigned Context::free_unused_samples() {
     return freed;
 }
 
-void Context::save_project() { save_project_to(project_path.empty() && store ? store->free_path("") : project_path); }
+// INDIGO X DENIM: where a new project is saved: the folder in view while the project list is open, else the one
+// Settings > Project folder names.
+std::string Context::save_folder() const { return ui.project_list ? project_folder : ui.settings.project_folder_text(); }
+
+void Context::save_project() { save_project_to(project_path.empty() && store ? store->free_path_in(save_folder(), "") : project_path); }
 
 void Context::new_project() {
     auto fresh = std::make_unique<Project>();
@@ -128,6 +132,7 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     if (store) store->opened(path); // a file of its own: the one the next start resumes
     dirty = false;
     samples_to_load = 0; // every sample slot again, a few each tick
+    samples_found = 0;
     slots_waiting.clear();
     load_loop_files(*this, path); // its loops, from beside its file (docs/LOOPER.md)
     midi_audio_sent.fill(0);      // roadmap P4 (M5): the MIDI tracks' inputs told again
@@ -199,6 +204,7 @@ void Context::reload_tick() {
     if (!in && now - ui.loading_since < loading_most_ms) return;
     ui.loading = false;
     ui.loading_left = 0;
+    if (ui.samples_missing) notice(std::to_string(ui.samples_missing) + (ui.samples_missing == 1 ? " SAMPLE MISSING" : " SAMPLES MISSING"));
 #if defined(__GLIBC__)
     malloc_trim(0); // what the last project's samples and patterns held, given back to the system
 #endif
@@ -866,6 +872,19 @@ void Context::pad_punch(unsigned pad, uint8_t velocity, bool down) {
 }
 
 void Context::change_setting(unsigned row, int way) {
+    if (row == Settings::ProjectFolder && store && way != 0) { // INDIGO X DENIM: through the card's project folders
+        ProjectStore::View v;
+        store->view(v);
+        std::vector<std::string> options {""}; // Melodee/Projects itself first
+        for (const auto& f : v.folders) if (f.size() < ui.settings.project_folder.size()) options.push_back(f);
+        auto now = ui.settings.project_folder_text();
+        size_t at = size_t(std::find(options.begin(), options.end(), now) - options.begin());
+        if (at >= options.size()) at = 0;
+        at = (at + options.size() + (way > 0 ? 1 : options.size() - 1)) % options.size();
+        ui.settings.set_project_folder(options[at]);
+        store->save_settings(ui.settings.text());
+        return;
+    }
     ui.settings.step(row, way);
     if (store) store->save_settings(ui.settings.text());
 }
@@ -887,7 +906,7 @@ void Context::open_name(NameTarget target, const std::string& initial, unsigned 
 
 void Context::name_project(bool as_new) {
     if (!store) return;
-    std::string suggestion = as_new ? std::string(project.name) : std::filesystem::path(store->free_path("")).stem().string();
+    std::string suggestion = as_new ? std::string(project.name) : std::filesystem::path(store->free_path_in(save_folder(), "")).stem().string();
     open_name(as_new ? NameTarget::ProjectSaveAs : NameTarget::ProjectSave, suggestion, sizeof(project.name) - 1, false);
 }
 
@@ -949,7 +968,7 @@ void Context::finish_name() {
     if (text.empty()) return; // an empty name changes nothing
     switch (target) {
     case NameTarget::ProjectSave: case NameTarget::ProjectSaveAs:
-        if (store) { save_project_to(store->named_path(text)); store->list(project_folder); }
+        if (store) { save_project_to(store->named_path_in(save_folder(), text)); store->list(project_folder); }
         break;
     case NameTarget::ProjectRename:
         if (name_path.empty() || name_path == project_path) std::snprintf(project.name, sizeof(project.name), "%s", text.c_str());
@@ -1472,6 +1491,22 @@ void Context::send_pad(unsigned t, unsigned n) {
     Command c {Type::Pad, uint8_t(t), 0, uint16_t(n % sampler_pads)};
     c.pad = project.tracks[t % track_count].pads[n % sampler_pads];
     send(c);
+}
+
+void Context::find_samples() {
+    if (!library) return;
+    library->find_again(); // the card listed afresh: files copied on since are found too
+    samples_found = 0;
+    unsigned asked = 0;
+    for (unsigned n = 0; n < sample_slots; ++n) {
+        const auto& ref = project.samples[n];
+        if (!ref.used() || ref.path[0] != '/') continue;
+        auto shown = library->slot(n);
+        if (shown.ready || shown.instrument || shown.error.empty()) continue;
+        if (!library->load(n, ref.path)) slots_waiting.push_back(uint8_t(n));
+        ++asked;
+    }
+    notice(asked ? "SEARCHING THE CARD" : "NO SAMPLES MISSING");
 }
 
 int Context::sample_slot(const std::string& path, const std::string& name) {

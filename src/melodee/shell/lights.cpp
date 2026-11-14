@@ -45,12 +45,28 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     // The library found files or finished a sample: the lengths go into the project.
     if (library_ && library_->generation() != library_seen) {
         library_seen = library_->generation();
-        for (unsigned n = 0; n < sample_slots; ++n)
-            if (project_->samples[n].used()) {
-                const auto shown = library_->slot(n);
-                project_->samples[n].frames = shown.frames;
-                project_->samples[n].zones = uint16_t(std::min<size_t>(shown.shapes.size(), 0xffff));
+        unsigned found = 0, missing = 0;
+        for (unsigned n = 0; n < sample_slots; ++n) {
+            auto& ref = project_->samples[n];
+            std::string from, to;
+            // INDIGO X DENIM: a file found elsewhere on the card (shell/sample_finder.h): the project follows it.
+            if (library_->take_healed(n, from, to) && ref.used() && from == ref.path && to.size() < sizeof(ref.path)) {
+                std::snprintf(ref.path, sizeof(ref.path), "%s", to.c_str());
+                ++found;
             }
+            if (ref.used()) {
+                const auto shown = library_->slot(n);
+                ref.frames = shown.frames;
+                ref.zones = uint16_t(std::min<size_t>(shown.shapes.size(), 0xffff));
+                missing += ref.path[0] == '/' && !shown.ready && !shown.instrument && !shown.error.empty();
+            }
+        }
+        ui_.samples_missing = uint8_t(missing);
+        if (found) {
+            context_.dirty = true; // saved with the project, so it opens straight next time
+            context_.samples_found += found;
+            context_.notice(std::to_string(context_.samples_found) + (context_.samples_found == 1 ? " SAMPLE FOUND" : " SAMPLES FOUND"));
+        }
         ui_.files_count = uint16_t(std::min<size_t>(library_->files().size(), 0xffff));
         if (ui_.page == PageId::Chop && !ui_.slices.count) context_.rechop();
     }

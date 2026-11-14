@@ -59,8 +59,14 @@ void ProjectStore::move(const std::string& path, const std::string& folder) {
 void ProjectStore::save_sound(const std::string& name, std::vector<uint8_t> bytes) { push(new Request {Request::Kind::SaveSound, name, std::move(bytes)}); }
 
 std::string ProjectStore::named_path(const std::string& name) const {
+    std::string folder;
+    { std::lock_guard<std::mutex> guard(lock); folder = known.folder; }
+    return named_path_in(folder, name);
+}
+
+std::string ProjectStore::named_path_in(const std::string& folder, const std::string& name) const {
     std::string dir;
-    { std::lock_guard<std::mutex> guard(lock); dir = known.root.empty() ? std::string() : write_dir(known.root, known.folder); }
+    { std::lock_guard<std::mutex> guard(lock); dir = known.root.empty() ? std::string() : write_dir(known.root, folder); }
     if (dir.empty() || name.empty()) return {};
     std::error_code error;
     for (unsigned n = 1; n < 1000; ++n) {
@@ -97,8 +103,14 @@ std::unique_ptr<LoadedProject> ProjectStore::take_loaded() {
 void ProjectStore::view(View& out) const { std::lock_guard<std::mutex> guard(lock); out = known; }
 
 std::string ProjectStore::free_path(const std::string& base) const {
+    std::string folder;
+    { std::lock_guard<std::mutex> guard(lock); folder = known.folder; }
+    return free_path_in(folder, base);
+}
+
+std::string ProjectStore::free_path_in(const std::string& folder, const std::string& base) const {
     std::string dir;
-    { std::lock_guard<std::mutex> guard(lock); dir = known.root.empty() ? std::string() : write_dir(known.root, known.folder); }
+    { std::lock_guard<std::mutex> guard(lock); dir = known.root.empty() ? std::string() : write_dir(known.root, folder); }
     if (dir.empty()) return {};
     std::error_code error;
     for (unsigned n = 1; n < 1000; ++n) {

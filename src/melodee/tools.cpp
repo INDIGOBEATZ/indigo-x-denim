@@ -1934,6 +1934,7 @@ const Preview previews[] {
          // Pads sounding: their VU meters up (A01 loud, A05 in hand, A08 fading).
          const std::pair<int, float> voices[] {{0, 0.95f}, {4, 0.6f}, {7, 0.25f}, {1, 0.4f}};
          for (unsigned n = 0; n < 4; ++n) { auto& hd = s.heads[n]; hd.pad = int16_t(voices[n].first); hd.level = voices[n].second; hd.wake = 1; hd.serial = n + 1; }
+         for (const auto& [pad, level] : voices) s.pad_meters[size_t(pad)] = level * level; // as the engine would measure them
      }},
     {"mixertracks", [](Shell& shell, Snapshot& s) {
          preview_as(shell, s, "pads", 1, 0);
@@ -1989,6 +1990,18 @@ const Preview previews[] {
          s.ui.settings.set_start_folder("card:Samples/Expansions/BOOM BAP SOUL");
      }},
     {"browsersetstart", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "browserstarred", 1, 0); s.ui.shift = true; }},
+    {"settingsprojectfolder", [](Shell&, Snapshot& s) { // Settings > SCREEN > Project folder: where new projects go
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 2; s.ui.settings_cursor = Settings::ProjectFolder;
+         s.ui.settings_editing = true; s.ui.settings.set_project_folder("Beats/2026");
+     }},
+    {"projectmissing", [](Shell&, Snapshot& s) { // samples not found even by name: the count, Shift + OPEN finds
+         s.ui.page = PageId::Project; s.playing = true; s.ui.samples_missing = 3; s.ui.shift = true;
+         preview_projects(s);
+     }},
+    {"projectshift", [](Shell&, Snapshot& s) { // Shift in the list: SET DEFAULT, NEW FOLDER, SAVE HERE
+         s.ui.page = PageId::Project; s.playing = true; s.ui.project_list = true; s.ui.project_cursor = 3; s.ui.shift = true;
+         preview_projects(s);
+     }},
     // Roadmap P1 (drums and sequencer): these rewrite the shell's patterns too.
     {"rollratchet", [](Shell& shell, Snapshot& s) { // Roll's TRIG row (B2 again): the note in focus a ratchet of four, ramped down
          roll_bass(shell, s, 24, 57);

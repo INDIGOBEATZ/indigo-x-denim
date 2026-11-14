@@ -648,6 +648,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
         }
     }
     for (unsigned t = 0; t < track_count; ++t) out.meters[t] = host.meter(t);
+    for (unsigned n = 0; n < sampler_pads; ++n) out.pad_meters[n] = host.pad_meter(ui_.track % track_count, n);
     // The voices of the track in view, placed where they are heard: the device frame heard now (the audio clock,
     // at the device's own rate, less what the PCM holds queued) against the frame the taps stand at.
     host.watch_taps(int(ui_.track % track_count));

@@ -214,6 +214,9 @@ public:
     bool song_playing() const { return in_song.load(std::memory_order_relaxed); }
     unsigned song_bar() const { return bar_now.load(std::memory_order_relaxed); }
     float meter(unsigned track) const { return meters[track % track_count].load(std::memory_order_relaxed); }
+    // INDIGO X DENIM: a kit's pad's level as heard (its voices' output, before the track's fader), falling as the
+    // track meters do.
+    float pad_meter(unsigned track, unsigned pad) const { return pad_meters[track % track_count][pad % sampler_pads].load(std::memory_order_relaxed); }
     // The voices of the track the screen watches (engine/voice_tap.h), as the last block left them; false while a
     // write was under way each time it looked. watch_taps(-1): none taken.
     void watch_taps(int track) { tap_track.store(track, std::memory_order_relaxed); }
@@ -798,6 +801,7 @@ private:
     std::atomic<bool> in_song {false};
     std::atomic<unsigned> bar_now {0};
     std::array<std::atomic<float>, track_count> meters {};
+    std::array<std::array<std::atomic<float>, sampler_pads>, track_count> pad_meters {};
     std::atomic<int> tap_track {-1};
     TapBoard tap_board;
     std::atomic<float> output_peak {0};

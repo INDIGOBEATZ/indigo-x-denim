@@ -761,7 +761,37 @@ void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsign
     changes.fetch_add(1, std::memory_order_release);
 }
 
-void SampleLibrary::read(const Request& request) {
+bool SampleLibrary::take_healed(unsigned slot, std::string& from, std::string& to) {
+    std::lock_guard<std::mutex> guard(lock);
+    auto& h = healed[slot % sample_slots];
+    if (h.first.empty()) return false;
+    from = std::move(h.first); to = std::move(h.second);
+    h = {};
+    return true;
+}
+
+void SampleLibrary::heal(Request& r) {
+    if (r.path[0] != '/') return;
+    if (forget_wanted.exchange(false)) finder.forget();
+    auto tops = internal_tops();
+    tops.insert(tops.begin(), card_top);
+    finder.set_tops(tops);
+    std::string path = r.path, file = path, tail;
+    std::error_code error;
+    auto hash = path.rfind('#'); // a program's pad or an .sf2's preset: the file is what moved
+    if (hash != std::string::npos && hash > 0 && !fs::exists(path, error)) { file = path.substr(0, hash); tail = path.substr(hash); }
+    auto found = finder.find(file);
+    if (found.empty() || found == file) return;
+    auto moved = found + tail;
+    if (moved.size() >= sizeof(r.path)) return;
+    std::snprintf(r.path, sizeof(r.path), "%s", moved.c_str());
+    std::lock_guard<std::mutex> guard(lock);
+    healed[r.slot % sample_slots] = {path, moved};
+}
+
+void SampleLibrary::read(const Request& asked) {
+    Request request = asked;
+    heal(request);
     if (!request.path[0]) { // an empty slot in the project now: nothing plays from it
         if (host.offer_sample(request.slot, nullptr)) {
             std::lock_guard<std::mutex> guard(lock);

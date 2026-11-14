@@ -301,6 +301,9 @@ public:
     std::string project_path;         // the file this project came from or went to; empty when new
     std::string project_folder;       // the Project page's folder, relative to the root
     bool dirty = false;               // changed since it was saved or loaded
+    unsigned samples_found = 0;       // INDIGO X DENIM: this project's samples found again elsewhere on the card
+    void find_samples();              // INDIGO X DENIM: the missing ones looked for afresh (Shift + OPEN on Project)
+    std::string save_folder() const;  // INDIGO X DENIM: where a new project goes
     void save_project_to(const std::string& path);
     void save_project();              // to its file, or a new one
     void new_project();

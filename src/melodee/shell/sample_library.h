@@ -9,6 +9,7 @@
 #include "melodee/model/looper.h"
 #include "melodee/model/sampler.h"
 #include "melodee/shell/sample_cache.h"
+#include "melodee/shell/sample_finder.h"
 #include "melodee/shell/zone_shapes.h"
 #include "surface/midi.h"
 #include <array>
@@ -128,6 +129,11 @@ public:
     // a grid where its folders have covers); kept per folder on the card as Melodee/Layouts.txt.
     void set_layout(const std::string& folder, uint8_t layout);
     uint8_t layout() const;
+    // INDIGO X DENIM, MIDI thread: the card looked over afresh for the next missing sample (Find Samples).
+    void find_again() { forget_wanted.store(true); }
+    // INDIGO X DENIM, MIDI thread: a slot whose file was found elsewhere (shell/sample_finder.h): the path the project
+    // named and the one it plays from now, once.
+    bool take_healed(unsigned slot, std::string& from, std::string& to);
     // MIDI thread: a file to hear (preview_slot), empty for none; ready()
     // counts the previews that arrived, so the MIDI thread knows when to play one.
     void preview(const std::string& path);
@@ -217,14 +223,18 @@ public:
     static std::vector<std::string> internal_tops();
 
 private:
-    struct Request { uint8_t slot = 0; char path[160] {}; };
+    struct Request { uint8_t slot = 0; char path[sizeof(SampleRef::path)] {}; };
     void scan();
     void stars_service(); // INDIGO X DENIM: stars asked for, applied and written
     std::shared_ptr<const std::vector<uint32_t>> cover_of(const std::string& folder); // a folder's cover, read once
     std::map<std::string, std::shared_ptr<const std::vector<uint32_t>>> covers; // service thread: each folder's, null for none
     void read_stars();
     void write_stars() const;
-    void read(const Request& request);
+    void read(const Request& asked);
+    void heal(Request& r); // INDIGO X DENIM: a file not where the request says, found again
+    SampleFinder finder;   // service thread
+    std::atomic<bool> forget_wanted {false};
+    std::array<std::pair<std::string, std::string>, sample_slots> healed; // under `lock`: from, to
     void make(const SampleJob& job);
     void hear(const std::string& path);
     void finish(const std::string& text, int failed = -1);

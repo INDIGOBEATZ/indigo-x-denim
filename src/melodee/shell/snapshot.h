@@ -46,6 +46,7 @@ struct Snapshot {
     bool song_playing = false;
     unsigned song_bar = 0;
     std::array<float, track_count> meters {};
+    std::array<float, sampler_pads> pad_meters {}; // INDIGO X DENIM: the track in view's pads as heard (EngineHost::pad_meter)
     // The voices of the track in view as the engine left them (engine/voice_tap.h), output frames from their stamp
     // to the frame heard now, and each voice's head where it is heard, newest first (shell/playheads.h).
     TrackTaps taps;

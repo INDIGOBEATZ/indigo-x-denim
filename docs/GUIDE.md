@@ -195,9 +195,13 @@ on **PADS** (on a track that is not a kit, on **TRACKS**), the next tap shows
 by accident.
 
 The mixer shows eight strips: the name on top (lit for the strip in hand),
-each fader a VU meter that moves as the strip plays (dark to light in its
-colour; the cap across it is the level it is set to), **M** and **S** under
-it, and **FX** where it has effects.
+each fader a VU meter that moves as the strip really plays (the engine's
+measured level of the track, or of the pad's own voices), on the same dB
+steps as the LED meters right of the screen. It rises at once, falls
+smoothly like a meter's needle, and a thin line holds the last peak for a
+moment. It goes dark to light in the strip's colour; the cap across it is
+the level it is set to. **M** and **S** sit under it, and **FX** where it
+has effects.
 
 - **B1** **PADS** / **B2** **TRACKS**: press again for the other eight.
 - A pad, the encoder or **−** / **+** pick a strip (on PADS the pad plays).
@@ -1239,6 +1243,27 @@ In the list:
 
 While a project loads, a Loading sheet shows its progress. The audio fades
 out and back in.
+
+**Where new projects go** (INDIGO X DENIM): **Settings > SCREEN > Project
+folder** picks the folder under Melodee/Projects that a new project is
+saved into (the encoder goes through the folders on the card; **Projects**
+is the top). In the list, hold **SHIFT** in any folder:
+
+- **B1** **SET DEFAULT**: this folder becomes the Project folder.
+- **B2** **NEW FOLDER**: a new folder here.
+- **B3** **SAVE HERE**: the open project saved as a file in this folder.
+
+While the list is open, saving a new project puts it in the folder in view.
+
+**Missing samples** (INDIGO X DENIM): when a project names a sample that is
+not where it was (another card, a moved folder, an expansion installed
+elsewhere, or a path too long for older versions), INDIGO X DENIM looks for
+it by itself: first the same place on the card as it is now, then the file
+by its name anywhere on the card (the one in the most similar folders
+wins). The header says how many were found; the project is then marked
+**UNSAVED** so a save keeps the new places. Samples still missing show as
+**N MISSING** on the Project page. Copy them onto the card, then press
+**SHIFT** + **B2** (**FIND SAMPLES**) to look again.
 
 ### Naming
 

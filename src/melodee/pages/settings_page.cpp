@@ -44,7 +44,7 @@ const std::array<Door, 7> doors {{
     {Icon::Pads, "PADS", {Settings::PadResponse, Settings::PadPressure, Settings::PadLights, Settings::DoubleSeq, Settings::CaptureBars,
                           Settings::CaptureQuantize}},
     {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, none, none, none}},
-    {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::StartFolder, none}}, // INDIGO X DENIM: Font, Sample folder
+    {Icon::Screen, "SCREEN", {Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::StartFolder, Settings::ProjectFolder}}, // INDIGO X DENIM: Font, Sample and Project folder
     {Icon::Speaker, "AUDIO", {Settings::SampleRate, Settings::AudioBuffer, Settings::LevelLeds, none, none, none}}, // INDIGO X DENIM: Level LEDs
     {Icon::Mic, "SAMPLING", {Settings::RecallGrabRow, Settings::RecallGap, Settings::RecallTrimEnd, Settings::TakeAutoEnd, Settings::AutoEndAfter,
                              Settings::SilenceBelow}},

@@ -88,9 +88,14 @@ void draw_tiles(Paint& p, const Snapshot& s, const ProjectStore::View& v) {
     Header h = header_of(s);
     if (v.root.empty()) h.left.push_back(pill(Icon::Card, "NO CARD", colour::amber));
     else if (s.dirty) h.left.push_back(pill(Icon::Rec, "UNSAVED", colour::amber));
+    if (s.ui.samples_missing) h.left.push_back(pill(Icon::None, juce::String(s.ui.samples_missing) + " MISSING", colour::rec));
     h.right.push_back(label(s.project.name));
     SoftKeys keys {{"SAVE", "OPEN", "NEW"}, 0, colour::text};
     keys.glyphs = {Icon::Save, Icon::Folder, Icon::Plus};
+    if (s.ui.shift) { // INDIGO X DENIM: Shift + B2 looks the card over for the project's missing samples
+        keys = SoftKeys {{"", "FIND SAMPLES", ""}, -1, colour::text};
+        keys.glyphs = {Icon::None, Icon::Folder, Icon::None};
+    }
     frame(p, s, keys, h);
     unsigned projects = 0;
     for (const auto& e : v.entries) projects += e.kind == ProjectEntry::Kind::Project;
@@ -154,6 +159,7 @@ void draw(Paint& p, const Snapshot& s) {
     Header h = header_of(s);
     juce::String where = v.root.empty() ? juce::String("NO CARD") : "SD / PROJECTS" + (s.project_folder.empty() ? juce::String() : " / " + juce::String(s.project_folder));
     h.left.push_back(pill(where));
+    if (!v.root.empty() && s.project_folder == s.ui.settings.project_folder_text()) { auto d = pill(Icon::Star, "DEFAULT"); d.spare = true; h.left.push_back(d); }
     if (v.free_bytes) h.right.push_back(pill(Icon::Card, free_text(v.free_bytes)));
     bool sheet = s.ui.sheet_open;
     unsigned count = project_rows(v.entries.size(), s.project_folder), cursor = std::min<unsigned>(s.ui.project_cursor, std::max(count, 1u) - 1);
@@ -164,6 +170,11 @@ void draw(Paint& p, const Snapshot& s) {
     else if (sheet) {
         SoftKeys keys {{"BACK", "MORE", open_one ? "SAVE" : "LOAD"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
         keys.glyphs = {Icon::None, Icon::Layers, open_one ? Icon::Save : Icon::Folder};
+        frame(p, s, keys, h);
+    } else if (s.ui.shift) { // INDIGO X DENIM: this folder the default for new projects, a folder in it, or the project saved here
+        bool is_default = s.project_folder == s.ui.settings.project_folder_text();
+        SoftKeys keys {{is_default ? "DEFAULT" : "SET DEFAULT", "NEW FOLDER", "SAVE HERE"}, is_default ? 0 : -1, colour::text};
+        keys.glyphs = {Icon::Star, Icon::Plus, Icon::Save};
         frame(p, s, keys, h);
     } else frame(p, s, {{"BACK", "", "OPEN"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}}, h);
 
@@ -348,6 +359,7 @@ void push(Context& c) {
 
 void soft(Context& c, int key) {
     if (!c.ui.project_list) { // SAVE, OPEN, NEW
+        if (c.ui.shift) { c.ui.shift_used = true; if (key == 1) c.find_samples(); return; } // INDIGO X DENIM: FIND SAMPLES
         if (key == 0) c.save_project();
         if (key == 1) open_list(c);
         if (key == 2) c.ask_new_project(); // asks first, as the MPC does; the open one is saved first if it has a file
@@ -362,6 +374,20 @@ void soft(Context& c, int key) {
         if (key == 0) { if (c.ui.sheet_more) { c.ui.sheet_more = false; c.ui.delete_armed = false; } else close_sheet(c); }
         if (key == 1 && !c.ui.sheet_more) { c.ui.sheet_more = true; c.ui.sheet_row = 0; }
         if (key == 2) act(c);
+        return;
+    }
+    if (c.ui.shift) { // INDIGO X DENIM: SET DEFAULT, NEW FOLDER, SAVE HERE
+        c.ui.shift_used = true;
+        if (key == 0) {
+            c.ui.settings.set_project_folder(c.project_folder);
+            c.change_setting(Settings::Rows, 0); // saves the settings
+            c.notice(c.project_folder.empty() ? "NEW PROJECTS: PROJECTS" : "NEW PROJECTS: " + c.project_folder);
+        }
+        if (key == 1 && c.store) { c.store->new_folder(); c.store->list(c.project_folder); }
+        if (key == 2 && c.store) { // the open project as a file in the folder in view, by its name
+            auto path = c.store->named_path_in(c.project_folder, c.project.name[0] ? std::string(c.project.name) : std::string("Project"));
+            if (!path.empty()) { c.save_project_to(path); c.store->list(c.project_folder); c.notice("SAVED HERE"); }
+        }
         return;
     }
     if (key == 2) { open_row(c); return; }

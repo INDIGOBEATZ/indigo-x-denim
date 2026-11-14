@@ -2527,6 +2527,15 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         }
         float shown = meters[t].load(std::memory_order_relaxed) * dsp::fall_per_block(0.97f, frames); // a short fall, as fast at any rate
         meters[t].store(std::max(level, shown), std::memory_order_relaxed);
+        { // every track, so a kit turned into another sound lets its pads' meters fall
+            const float fall = dsp::fall_per_block(0.97f, frames);
+            const bool kit = slot.engine == &slot.sampler;
+            for (unsigned n = 0; n < sampler_pads; ++n) {
+                float peak = kit ? slot.sampler.take_pad_peak(n) : 0.0f;
+                float was = pad_meters[t][n].load(std::memory_order_relaxed);
+                if (peak > 0 || was > 0) pad_meters[t][n].store(std::max(peak, was * fall < 1e-5f ? 0.0f : was * fall), std::memory_order_relaxed);
+            }
+        }
     }
     mix_loops(frames, solo);
     if (pdc.on) { // roadmap P4: kits' pads into Knob FX as late as the latest track; the direct mix as late as the latest return

@@ -706,8 +706,13 @@ void SamplerEngine::voice_out(Voice& v, float l, float r, float a, float left_fr
             *io[side] = x;
         }
     }
-    to_l[f] += l * a * v.left;
-    to_r[f] += r * a * v.right;
+    const float out_l = l * a * v.left, out_r = r * a * v.right;
+    to_l[f] += out_l;
+    to_r[f] += out_r;
+    if (v.pad >= 0 && v.pad <= int(sampler_pads)) { // INDIGO X DENIM: the pad's real level, for the mixer
+        float m = std::max(std::fabs(out_l), std::fabs(out_r));
+        if (m > peaks[size_t(v.pad)]) peaks[size_t(v.pad)] = m;
+    }
 }
 
 // A stretched voice: taps begin where `place` has got to and read at the

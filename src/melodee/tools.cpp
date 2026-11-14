@@ -2009,6 +2009,16 @@ const Preview previews[] {
          s.ui.page = PageId::Master; s.ui.fx_cursor[master_chain] = 1; s.playing = true;
          s.lufs_momentary = -11.8f; s.lufs_short = -13.2f; s.lufs_integrated = -13.9f;
      }},
+    {"mixercompact", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.mixer_half = 2; }},
+    {"history", [](Shell&, Snapshot& s) { // a moment after an undo: what a redo brings back above, the rest below
+         s.ui.page = PageId::Stage; s.ui.track = 3;
+         const char* lines[] {"Explode pads", "Reorder pads", "Level A03", "Copy track 2 to 5", "Delete A01"};
+         for (unsigned k = 0; k < 5; ++k) { std::snprintf(s.history[k].what.data(), s.history[k].what.size(), "%s", lines[k]); s.history[k].done = k >= 1; }
+         s.history_count = 5;
+     }},
+    {"fxpresets", [](Shell&, Snapshot& s) { // MORE on an effect: Load preset, Save preset
+         s.ui.page = PageId::Rack; s.ui.track = 2; s.ui.fx_cursor[2] = 0; s.ui.sheet_open = true; s.ui.sheet_more = true; s.ui.sheet_row = 1;
+     }},
     {"tuner", [](Shell&, Snapshot& s) { s.ui.page = PageId::Tuner; s.tuner_hz = 443.1f; s.tuner_level = 0.2f; }},
     {"sublens", [](Shell&, Snapshot& s) { // a kick and an 808 ducked under it
          s.ui.page = PageId::SubLens; s.ui.lens_a = 0; s.ui.lens_b = 1; s.playing = true;

@@ -59,6 +59,11 @@ struct Snapshot {
     float tuner_hz = 0, tuner_level = 0;
     static constexpr unsigned lens_points = 296;
     std::array<float, lens_points> lens_a {}, lens_b {};
+    // INDIGO X DENIM LAB: the undo history around now (while ui.history_at is fresh): redo's next ones above, then
+    // what an undo takes back, newest first.
+    struct HistoryLine { std::array<char, 32> what {}; bool done = true; };
+    std::array<HistoryLine, 7> history {};
+    uint8_t history_count = 0;
     // The voices of the track in view as the engine left them (engine/voice_tap.h), output frames from their stamp
     // to the frame heard now, and each voice's head where it is heard, newest first (shell/playheads.h).
     TrackTaps taps;

@@ -27,6 +27,7 @@ void draw_overlays(Paint& p, const Snapshot& s) {
     if (seq && !sheet) draw_seq_sheet(p, s);
     if (!sheet && s.ui.ask != UiState::Ask::None) draw_ask_sheet(p, s); // B1 Cancel / B3 Do it before an erase
     if (!sheet && s.ui.ask == UiState::Ask::None && !tracks && !seq) draw_fader_header(p, s);
+    if (s.history_count && !sheet) draw_history(p, s); // LAB: the undo history a moment after an undo or redo
     draw_notice(p, s); // over the fader's line: a copy in hand or what an undo did comes first
     if (s.ui.name.open()) draw_name_sheet(p, s);
     if (s.ui.exit_open) draw_exit_sheet(p, s);
@@ -61,6 +62,25 @@ void draw_shift_pads(Paint& p, const Snapshot& s) {
         auto lines = p.wrap(juce::String(job.name), style, cw - 6, 2);
         float lh = style.size + 1, ty = y + (ch - lh * lines.size()) / 2;
         for (const auto& line : lines) { p.text(line, x + 3, ty, cw - 6, lh, style, juce::Justification::centred); ty += lh; }
+    }
+}
+
+// INDIGO X DENIM LAB: the undo history a moment after Shift + Minus / Plus: what a redo would bring back, dim, above;
+// the state now marked; what an undo takes back below, newest first.
+void draw_history(Paint& p, const Snapshot& s) {
+    const float w = 190, row = 15, x = zone::width - w - zone::pad, h = row * s.history_count + 22, y = zone::header_y + zone::header_h + 4;
+    p.fill(x, y, w, h, colour::panel.withAlpha(0.96f), 6);
+    p.ring(x, y, w, h, colour::line, 6, 1);
+    p.text("HISTORY", x + 8, y + 3, w - 16, 14, caps_text(colour::mid));
+    float ry = y + 19;
+    bool marked = false;
+    for (unsigned k = 0; k < s.history_count; ++k) {
+        const auto& line = s.history[k];
+        if (line.done && !marked) { p.fill(x + 6, ry - 1, w - 12, 1, colour_of(s)); marked = true; } // now
+        juce::String what(line.what.data());
+        auto style = plain(line.done ? colour::text : colour::dim, type::small, line.done && k == 0 ? Weight::SemiBold : Weight::Regular);
+        p.text(what, x + 10, ry, w - 20, row, p.fit(what, style, w - 20, type::floor));
+        ry += row;
     }
 }
 

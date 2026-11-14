@@ -14,23 +14,66 @@
 // drawn in neutral.
 #include "melodee/engine/effect_info.h"
 #include "melodee/pages/common.h"
+#include "melodee/shell/sample_library.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/bindings.h"
 #include "melodee/ui/widgets.h"
 #include <algorithm>
+#include <vector>
+#include <fstream>
+#include <filesystem>
 
 namespace melodee {
 namespace {
 using namespace ui;
 // A device's sheet: Presets only on a plug-in that has some (its programs, PRESETS).
-enum class Action : uint8_t { Change, Presets, Bypass, Left, Right, Remove };
-using Actions = std::array<Action, 6>;
+enum class Action : uint8_t { Change, Presets, Bypass, Left, Right, Remove, SavePreset, LoadPreset }; // LAB: the last two
+using Actions = std::array<Action, 8>;
 unsigned device_actions(const UiState& ui, const EffectSlot& slot, Actions& out) {
     unsigned n = 0;
     out[n++] = Action::Change;
     if (slot.kind == plugin_effect_kind && ui.plugin_panel.entry == unsigned(slot.params[0]) && ui.plugin_panel.programs > 0) out[n++] = Action::Presets;
+    if (slot.kind != plugin_effect_kind) { out[n++] = Action::LoadPreset; out[n++] = Action::SavePreset; } // LAB: the effect's own presets
     for (Action a : {Action::Bypass, Action::Left, Action::Right, Action::Remove}) out[n++] = a;
     return n;
+}
+
+// INDIGO X DENIM LAB: an effect's own presets on the card, Melodee/FxPresets/<Effect>/<name>.txt, its parameters as
+// numbers. Save keeps the settings in hand as the next "User N"; Load steps through the effect's presets, one a press.
+std::string fx_preset_dir(const Context& c, const EffectSlot& slot) {
+    if (!c.library || c.library->card().empty()) return {};
+    return c.library->card() + "/Melodee/FxPresets/" + effect_info(EffectKind(slot.kind)).name;
+}
+void save_fx_preset(Context& c, const EffectSlot& slot) {
+    auto dir = fx_preset_dir(c, slot);
+    if (dir.empty()) { c.notice("Presets: no card"); return; }
+    std::error_code error;
+    std::filesystem::create_directories(dir, error);
+    for (unsigned k = 1; k < 1000; ++k) {
+        auto path = dir + "/User " + std::to_string(k) + ".txt";
+        if (std::filesystem::exists(path, error)) continue;
+        std::ofstream out(path);
+        for (auto v : slot.params) out << v << "\n";
+        c.notice(out ? "Saved preset User " + std::to_string(k) : std::string("Preset not saved"));
+        return;
+    }
+}
+void load_fx_preset(Context& c, unsigned chain, unsigned slot_index) {
+    const auto slot = c.project.chain(chain).slots[slot_index];
+    auto dir = fx_preset_dir(c, slot);
+    std::error_code error;
+    std::vector<std::filesystem::path> files;
+    if (!dir.empty())
+        for (const auto& e : std::filesystem::directory_iterator(dir, error))
+            if (e.path().extension() == ".txt") files.push_back(e.path());
+    if (files.empty()) { c.notice("No presets yet: Save preset"); return; }
+    std::sort(files.begin(), files.end());
+    static unsigned next = 0;
+    const auto& file = files[next++ % files.size()];
+    std::ifstream in(file);
+    int value = 0;
+    for (unsigned p = 0; p < slot.params.size() && (in >> value); ++p) c.set_effect_param(chain, slot_index, p, value);
+    c.notice("Preset " + file.stem().string());
 }
 
 juce::String bus_name(unsigned bus) { return juce::String("BUS ") + char('A' + bus % bus_count); }
@@ -166,6 +209,8 @@ void draw(Paint& p, const Snapshot& s) {
             case Action::Left: m.rows[r] = {"Move left", "", false, false, cursor == 0}; break;
             case Action::Right: m.rows[r] = {"Move right", "", false, false, cursor + 1 >= count}; break;
             case Action::Remove: m.rows[r] = {"Remove", "", false, true, false}; break;
+            case Action::SavePreset: m.rows[r] = {"Save preset", "", false, false, false}; break;
+            case Action::LoadPreset: m.rows[r] = {"Load preset", "", false, false, false}; break;
             }
         m.count = rows; m.current = s.ui.sheet_row % rows;
         p.dim_zone(zone::picture_y, zone::picture_h, 0.6f);
@@ -241,6 +286,8 @@ void push(Context& c) {
         case Action::Left: c.move_effect(n, cursor, -1); if (cursor) ui.fx_cursor[at] = uint8_t(cursor - 1); break;
         case Action::Right: c.move_effect(n, cursor, 1); if (cursor + 1 < chain.count()) ui.fx_cursor[at] = uint8_t(cursor + 1); break;
         case Action::Remove: c.set_effect(n, cursor, EffectKind::None); break;
+        case Action::SavePreset: save_fx_preset(c, chain.slots[cursor]); return;
+        case Action::LoadPreset: load_fx_preset(c, n, cursor); return; // again: the next one
         }
         ui.sheet_open = false;
         return;

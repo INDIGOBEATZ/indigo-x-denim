@@ -168,6 +168,12 @@ public:
     const Edit* next() const { return redo_.empty() ? nullptr : &redo_.back(); } // what a redo would do
     // Every edit kept, to undo and to redo (roadmap P3: which sample slots they could bring back).
     template <typename F> void each(F&& f) const { for (const auto& e : undo_) f(e); for (const auto& e : redo_) f(e); }
+    // INDIGO X DENIM LAB: the names of the edits nearest now: up to `undo_most` to undo (newest first) and
+    // `redo_most` to redo (the next first).
+    template <typename F> void nearest(unsigned undo_most, unsigned redo_most, F&& f) const {
+        for (unsigned k = 0; k < undo_most && k < undo_.size(); ++k) f(undo_[undo_.size() - 1 - k].what, true);
+        for (unsigned k = 0; k < redo_most && k < redo_.size(); ++k) f(redo_[redo_.size() - 1 - k].what, false);
+    }
     unsigned pushes = 0; // edits kept so far: a press that kept its own edit is not kept twice (shell/undo_scope.h)
 
 private:

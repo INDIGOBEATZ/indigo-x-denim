@@ -411,7 +411,7 @@ std::array<Binding, 3> pad_page_shift(const Project& project, const Track& track
         return {Binding {}, Binding {Kind::PadDecayFrom, 0, 0, 1, pad.decay_from_start ? 0 : 1}, Binding {}};
     case PageId::PadPage:
         if (!pad.used()) return {};
-        return {Binding {}, Binding {}, Binding {Kind::PadBeats, 0, 0, int(max_pad_beats), pad.beats}};
+        return {Binding {Kind::PadKeySync, 0, 0, 1, ui.key_synced ? 1 : 0}, Binding {}, Binding {Kind::PadBeats, 0, 0, int(max_pad_beats), pad.beats}}; // LAB: KEY SYNC
     case PageId::PlayPage: // Shift + K2 Pad Link (row 1), Shift + K3 the loop's seam crossfade (roadmap P3)
         if (!pad.used()) return {};
         return {Binding {Kind::PadPingTail, 0, 0, 100, pad.ping_tail}, // LAB: Sample Tail, and on row 2 its repeat

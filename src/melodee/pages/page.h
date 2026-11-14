@@ -31,7 +31,8 @@ void draw_seq_sheet(ui::Paint& p, const Snapshot& s);     // Seq held a moment: 
 void draw_repeat_keys(ui::Paint& p, const Snapshot& s);   // Note Repeat on: its rates on B1-B3
 void draw_shift_layer(ui::Paint& p, const Snapshot& s);  // Shift held: the Shift + K cards in the knob strip
 void draw_shift_pads(ui::Paint& p, const Snapshot& s);  // INDIGO X DENIM LAB: Shift held: the Shift + Pad jobs
-void draw_system_bar(ui::Paint& p, const Snapshot& s);  // INDIGO X DENIM LAB: Settings > CPU / RAM bar
+void draw_system_bar(ui::Paint& p, const Snapshot& s);
+void draw_history(ui::Paint& p, const Snapshot& s);     // INDIGO X DENIM LAB: the undo history  // INDIGO X DENIM LAB: Settings > CPU / RAM bar
 void draw_exit_sheet(ui::Paint& p, const Snapshot& s);
 void draw_loading_sheet(ui::Paint& p, const Snapshot& s); // a project loading: built, then its samples coming in
 void draw_ask_sheet(ui::Paint& p, const Snapshot& s);  // a question before an erase (shell/ask.cpp)

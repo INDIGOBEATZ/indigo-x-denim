@@ -715,6 +715,18 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
             }
             out.lens_a = keep_a; out.lens_b = keep_b;
         } else host.set_lens(-1, -1);
+        out.history_count = 0; // LAB: the undo history, while it shows
+        if (ui_.history_at && now - ui_.history_at < 2500) {
+            std::array<Snapshot::HistoryLine, 7> redo {}, undo {};
+            unsigned nr = 0, nu = 0;
+            context_.edits.nearest(4, 3, [&](const std::string& what, bool done) {
+                auto& line = done ? undo[nu++] : redo[nr++];
+                std::snprintf(line.what.data(), line.what.size(), "%s", what.c_str());
+                line.done = done;
+            });
+            for (unsigned k = nr; k-- > 0;) out.history[out.history_count++] = redo[k]; // the furthest redo on top
+            for (unsigned k = 0; k < nu; ++k) out.history[out.history_count++] = undo[k];
+        }
         const auto& loud = host.loudness();
         out.lufs_momentary = loud.momentary(); out.lufs_short = loud.short_term();
         if (page == PageId::Master) out.lufs_integrated = loud.integrated(); // its histogram summed: only where it shows

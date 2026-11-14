@@ -73,21 +73,24 @@ void draw(Paint& p, const Snapshot& s) {
     const auto& track = s.track();
     auto c = colour_of(s);
     bool pads = pads_view(s);
-    unsigned half = s.ui.mixer_half % 2;
+    // LAB: TRACKS shows all sixteen at once as its third press (narrow strips: numbers and coloured M / S, no words)
+    const bool compact = !pads && s.ui.mixer_view == 1 && s.ui.mixer_half == 2;
+    unsigned half = compact ? 0 : s.ui.mixer_half % 2;
+    const unsigned count = compact ? track_count : strips;
     Header h = header_of(s);
-    auto which = pill(pads ? "PADS " + juce::String(half ? "9-16" : "1-8") : "TRACKS " + juce::String(half ? "9-16" : "1-8"), c);
+    auto which = pill(pads ? "PADS " + juce::String(half ? "9-16" : "1-8") : compact ? juce::String("TRACKS ALL") : "TRACKS " + juce::String(half ? "9-16" : "1-8"), c);
     which.spare = true; // the soft keys' dots say it too
     h.left.push_back(which);
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"PADS", "TRACKS", "FX"}, pads ? 0 : 1, c};
     keys.dots[0] = 2; keys.dot_at[0] = uint8_t(pads ? half : 0);
-    keys.dots[1] = 2; keys.dot_at[1] = uint8_t(pads ? 0 : half);
+    keys.dots[1] = 3; keys.dot_at[1] = uint8_t(pads ? 0 : compact ? 2 : half);
     if (s.ui.shift) keys = SoftKeys {{pads ? "FLATTEN" : "SUB LENS", pads ? "EXPLODE" : "TUNER", "UNMUTE ALL"}, -1, c}; // LAB: Flatten Pad, Explode Pads to Tracks on PADS
     frame(p, s, keys, h);
 
-    std::array<Strip, strips> list {};
+    std::array<Strip, track_count> list {};
     unsigned bank = track.bank % sampler_banks;
-    for (unsigned n = 0; n < strips; ++n) {
+    for (unsigned n = 0; n < count; ++n) {
         unsigned index = half * strips + n;
         auto& st = list[n];
         if (pads) {
@@ -101,7 +104,7 @@ void draw(Paint& p, const Snapshot& s) {
             st.meter = s.pad_meters[kit]; // its voices' output as the engine measures it
         } else {
             const auto& t = s.project.tracks[index];
-            st.name = "T" + juce::String(int(index + 1)); st.colour = track_colour(index); st.used = t.used();
+            st.name = (compact ? "" : "T") + juce::String(int(index + 1)); st.colour = track_colour(index); st.used = t.used();
             st.level = t.mix.level / 127.0f; st.muted = t.mix.mute; st.soloed = t.mix.solo; st.fx = chain_fx(s.project, index); st.meter = s.meters[index];
             st.current = index == unsigned(s.ui.track % track_count);
         }
@@ -110,7 +113,7 @@ void draw(Paint& p, const Snapshot& s) {
         const bool live = s.now != 0;
         if (needles_track != s.ui.track % track_count) { for (unsigned k = 0; k < sampler_pads; ++k) needles[k] = Needle {}; needles_track = s.ui.track % track_count; }
         if (live && s.now - needles_at > 500) for (auto& n : needles) n = Needle {}; // back on the page after a while: as it is now
-        for (unsigned n = 0; n < strips; ++n) {
+        for (unsigned n = 0; n < count; ++n) {
             unsigned index = half * strips + n;
             unsigned key = pads ? bank * 16 + index : sampler_pads + index;
             auto& nd = needle(s, key, list[n].used && !list[n].muted ? list[n].meter : 0.0f, live);
@@ -123,10 +126,10 @@ void draw(Paint& p, const Snapshot& s) {
         p.text("NOT A KIT", 0, zone::picture_y + 76, zone::width, 14, caps_text(colour::dim), juce::Justification::centred);
         return;
     }
-    constexpr float x0 = zone::pad, gap = 3, w = (zone::width - 2 * zone::pad - gap * (strips - 1)) / float(strips);
+    const float x0 = zone::pad, gap = compact ? 2 : 3, w = (zone::width - 2 * zone::pad - gap * (count - 1)) / float(count);
     const float top = zone::picture_y + 2, label_h = 15, fader_top = top + label_h + 4, fader_h = 92;
     const float ms_y = fader_top + fader_h + 4, ms_h = 14, fx_y = ms_y + ms_h + 2;
-    for (unsigned n = 0; n < strips; ++n) {
+    for (unsigned n = 0; n < count; ++n) {
         const auto& st = list[n];
         float x = x0 + n * (w + gap);
         if (st.current) p.fill(x - 1, top - 1, w + 2, fx_y + 11 - top, colour::raised, 4); // the strip in hand
@@ -137,7 +140,7 @@ void draw(Paint& p, const Snapshot& s) {
         // The fader is the VU meter: a bar as tall as what the strip plays now, on the LED meters' steps (the faint
         // lines are where each LED lights), its colour from dark at the foot to light at the top as a VU meter goes
         // from green to red, and the peak held a moment as a thin light line. Muted: no bar, the cap dim.
-        float bw = w - 8, bx = x + 4;
+        float bw = compact ? w - 4 : w - 8, bx = compact ? x + 2 : x + 4;
         p.fill(bx, fader_top, bw, fader_h, colour::quiet, 3);
         for (int tick = 1; tick < 5; ++tick) p.fill(bx, fader_top + fader_h * (1 - tick / 5.0f), bw, 0.5f, colour::bg.withAlpha(0.6f));
         if (st.used && !st.muted) {
@@ -155,6 +158,13 @@ void draw(Paint& p, const Snapshot& s) {
             float cap = fader_top + fader_h * (1 - std::clamp(st.level, 0.0f, 1.0f));
             auto ink = st.muted ? colour::dim : st.current ? colour::text : colour::sec;
             p.fill(bx - 2, std::clamp(cap - 1.5f, fader_top, fader_top + fader_h - 3), bw + 4, 3, ink, 1.5f);
+        }
+        if (compact) { // M and S as two coloured bars, FX a dot
+            float mw2 = (w - 2) / 2;
+            p.fill(x, ms_y, mw2, ms_h, st.muted ? colour::rec : colour::surf, 2);
+            p.fill(x + mw2 + 2, ms_y, mw2, ms_h, st.soloed ? colour::text : colour::surf, 2);
+            if (st.fx) p.circle(x + w / 2, fx_y + 5, 2, st.colour);
+            continue;
         }
         // M and S.
         float mw = (w - 2) / 2;
@@ -188,7 +198,7 @@ void step(Context& c, int way) {
     }
     int at = std::clamp(int(c.ui.track % track_count) + way, 0, int(track_count) - 1);
     c.select_track(unsigned(at));
-    c.ui.mixer_half = uint8_t(at / int(strips));
+    if (c.ui.mixer_half != 2) c.ui.mixer_half = uint8_t(at / int(strips)); // LAB: all sixteen stay
 }
 
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
@@ -200,7 +210,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     }
     if (!down) return; // TRACKS: a pad picks its track
     c.select_track(pad % track_count);
-    c.ui.mixer_half = uint8_t(pad % 16 / strips);
+    if (c.ui.mixer_half != 2) c.ui.mixer_half = uint8_t(pad % 16 / strips);
 }
 
 void push(Context& c) { // the strip in hand muted, or not
@@ -230,7 +240,7 @@ void soft(Context& c, int key) {
         return;
     }
     if (key == 1) { // TRACKS, again the other eight
-        if (ui.mixer_view == 1) ui.mixer_half = uint8_t((ui.mixer_half + 1) % 2);
+        if (ui.mixer_view == 1) ui.mixer_half = uint8_t((ui.mixer_half + 1) % 3); // LAB: 1-8, 9-16, all sixteen
         else { ui.mixer_view = 1; ui.mixer_half = uint8_t(ui.track % track_count / strips); }
         return;
     }

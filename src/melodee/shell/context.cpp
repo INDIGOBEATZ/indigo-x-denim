@@ -641,6 +641,22 @@ void Context::apply(const Binding& b, int value) {
         break;
     case Kind::PadBeats: pad().beats = uint8_t(value); send_pad(ui.track, t.last_pad); break;
     case Kind::PadLoopXfade: pad().loop_xfade = uint8_t(std::clamp(value, 0, int(max_loop_xfade))); send_pad(ui.track, t.last_pad); break;
+    case Kind::PadKeySync: { // LAB: the pad's detected key moved to the project's (its relative when one is minor)
+        ui.key_synced = value > 0;
+        if (!library) break;
+        int key = pad().used() ? library->slot(pad().sample).key : -1;
+        if (key < 0) { notice("Key sync: no key found"); ui.key_synced = false; break; }
+        bool minor = key >= 12, project_minor = std::string(scales()[project.scale % scales().size()].name).find("inor") != std::string::npos;
+        int target = project.root % 12;
+        if (minor && !project_minor) target = (target + 9) % 12;      // the major key's relative minor
+        else if (!minor && project_minor) target = (target + 3) % 12; // the minor key's relative major
+        int shift = ((target - key % 12) % 12 + 12) % 12;
+        if (shift > 6) shift -= 12; // the nearer way
+        pad().pitch = int8_t(value > 0 ? shift : 0);
+        send_pad(ui.track, t.last_pad);
+        if (value > 0) notice("Key sync: " + std::string(shift >= 0 ? "+" : "") + std::to_string(shift) + " st");
+        break;
+    }
     case Kind::PadPingTail: pad().ping_tail = uint8_t(std::clamp(value, 0, 100)); send_pad(ui.track, t.last_pad); break; // LAB
     case Kind::PadPingRegion: pad().ping_region = uint8_t(std::clamp(value, 5, 250)); send_pad(ui.track, t.last_pad); break;
     case Kind::LayerPick: ui.pad_layer = uint8_t(unsigned(value) % pad_layers); break;
@@ -1416,6 +1432,7 @@ void Context::apply_edit(const Edit& e, bool after) {
 }
 
 void Context::undo() {
+    ui.history_at = now | 1; // LAB: the history shows a moment
     close_gesture();                        // a pot's turns just made are the step undone
     close_hold(hold.pad);                   // so is a held pad's note
     if (ui.recording) set_recording(false); // a take in progress ends, and is the edit undone
@@ -1428,6 +1445,7 @@ void Context::undo() {
 }
 
 void Context::redo() {
+    ui.history_at = now | 1; // LAB
     close_gesture();
     close_hold(hold.pad);
     if (ui.recording) return; // a take in progress would be lost under it

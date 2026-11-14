@@ -205,6 +205,8 @@ struct UiState {
     int8_t lens_a = -1, lens_b = -1;
     uint8_t lens_mode = 0, lens_window = 1;
     bool lens_freeze = false;
+    bool key_synced = false; // INDIGO X DENIM LAB: TUNE's KEY SYNC last set on (shown on its card)
+    uint32_t history_at = 0; // INDIGO X DENIM LAB: an undo or redo just now: its history shows a moment
     uint8_t song_marq = 0, marq_t0 = 0, marq_t1 = 0;
     uint16_t marq_from = 0, marq_to = 0, marq_anchor = 0;
     uint8_t song_pattern = 0;   // what Push places on empty time

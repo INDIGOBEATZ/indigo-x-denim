@@ -11,6 +11,7 @@
 // does, a thin line holding the last peak a moment. The cap across it is the level it is set to.
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
+#include "melodee/shell/explode.h"
 #include "melodee/shell/meter_lights.h"
 #include "melodee/shell/mute_mode.h"
 #include "melodee/ui/widgets.h"
@@ -81,7 +82,7 @@ void draw(Paint& p, const Snapshot& s) {
     SoftKeys keys {{"PADS", "TRACKS", "FX"}, pads ? 0 : 1, c};
     keys.dots[0] = 2; keys.dot_at[0] = uint8_t(pads ? half : 0);
     keys.dots[1] = 2; keys.dot_at[1] = uint8_t(pads ? 0 : half);
-    if (s.ui.shift) keys = SoftKeys {{"", "", "UNMUTE ALL"}, -1, c};
+    if (s.ui.shift) keys = SoftKeys {{pads ? "FLATTEN" : "", pads ? "EXPLODE" : "", "UNMUTE ALL"}, -1, c}; // LAB: Flatten Pad, Explode Pads to Tracks on PADS
     frame(p, s, keys, h);
 
     std::array<Strip, strips> list {};
@@ -207,7 +208,7 @@ void push(Context& c) { // the strip in hand muted, or not
 
 void soft(Context& c, int key) {
     auto& ui = c.ui;
-    if (ui.shift) { ui.shift_used = true; if (key == 2) unmute_all(c); return; }
+    if (ui.shift) { ui.shift_used = true; if (key == 2) unmute_all(c); if (key == 0 && ui.mixer_view == 0) c.flatten_start(); if (key == 1 && ui.mixer_view == 0) explode_pads(c); return; }
     if (key == 0) { // PADS, again the other eight
         if (ui.mixer_view == 0) ui.mixer_half = uint8_t((ui.mixer_half + 1) % 2);
         else { ui.mixer_view = 0; ui.mixer_half = uint8_t(c.track().last_pad % 16 / strips); }

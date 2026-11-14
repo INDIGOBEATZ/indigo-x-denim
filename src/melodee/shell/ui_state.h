@@ -63,6 +63,7 @@ struct UiState {
     uint8_t back_depth = 0;
     uint8_t track = 0;
     bool shift = false, shift_used = false; // Shift held; another control used during the hold
+    uint32_t shift_at = 0; // INDIGO X DENIM LAB: when Shift went down (its pads' map shows after a moment)
     bool pad_bank = false, mute = false, erase = false; // held
     bool pad_bank_used = false;  // Pad Bank held did something (a pad, -/+, the wheel): its release steps no bank
     bool erase_used = false;     // Erase held did something (a pad, a pot, the fader): its release deletes nothing
@@ -264,6 +265,12 @@ struct UiState {
     uint32_t render_stop_at = 0;         // a song past 60 s onto a pad: ms when its first 60 s are in and it stops (0 none)
     int16_t render_pad = -1, render_slot = -1;
     uint8_t render_track = 0;
+    // INDIGO X DENIM LAB: Flatten Pad: the pad played (-1: not flattening), when its key is let go, the key, and
+    // whether it lands on itself (its own effects then cleared: they are in the sound now).
+    int16_t flatten_source = -1;
+    uint32_t flatten_off_at = 0;
+    uint8_t flatten_key = 0;
+    bool flatten_in_place = false;
     uint8_t rendering = 0;               // 0 none, 1 Resample, 2 the song's mixdown, 3 the song onto a pad (roadmap P3)
     bool render_resume = false;          // Resample stopped what was playing: Play it again afterwards
     bool song_export = false;            // Song, B1: Cancel, Audio mixdown, New pattern

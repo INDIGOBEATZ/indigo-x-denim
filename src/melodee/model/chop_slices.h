@@ -16,7 +16,7 @@ inline const char* chop_mode_name(ChopMode m) {
     static const char* names[] {"Threshold", "Regions", "Beats", "Manual"};
     return names[unsigned(m) % unsigned(ChopMode::Count)];
 }
-constexpr unsigned max_slices = 64;
+constexpr unsigned max_slices = 128; // INDIGO X DENIM LAB: a slice for every pad of a kit (eight banks of 16)
 constexpr unsigned manual_slices = 16;   // the MPC's: "up to 16 slices per sample"
 constexpr uint32_t min_slice = 882;      // 20 ms: no slice shorter
 

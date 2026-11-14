@@ -246,6 +246,12 @@ inline void SamplerEngine::glide(Voice& v) {
 void SamplerEngine::loop_setup(Voice& v, const PadSound& sound) {
     v.loop = sound.loop && v.pad < int(sampler_pads);
     v.loop_at = std::clamp(uint32_t(std::llround(sound.loop_point() * v.scale)), v.start, v.end - 2);
+    // INDIGO X DENIM LAB: Sample Tail (a forward one shot only)
+    v.in_ping = v.ping_back = false; v.ping_left = 0;
+    v.ping_frames = !v.loop && !v.reverse && sound.ping_tail ? uint32_t(dsp::sample_rate() * sound.ping_tail / 10.0f) : 0;
+    v.ping_region = v.ping_frames ? std::min<uint32_t>(uint32_t(dsp::model_rate * v.scale * sound.ping_region / 1000.0), (v.end - v.start) / 2) : 0;
+    if (v.ping_region < 8) v.ping_frames = 0;
+    if (v.ping_frames) v.edge_out = false; // its end turns round, not off
     v.edge_in = !v.loop && v.start > 0;              // the file's own start and end need no fade
     v.edge_out = !v.loop && v.end < v.total;
     v.xfade_kind = 0; v.xfade = 0;
@@ -538,9 +544,9 @@ void SamplerEngine::release_zones(int pad, int semitones) {
     }
 }
 
-void SamplerEngine::audition(uint16_t sample, uint32_t from, uint32_t to, int velocity) {
+void SamplerEngine::audition(uint16_t sample, uint32_t from, uint32_t to, int velocity, uint8_t level) {
     PadSound sound;
-    sound.sample = sample; sound.start = from; sound.end = to;
+    sound.sample = sample; sound.start = from; sound.end = to; sound.level = level;
     for (auto& v : voices) if (v.pad == int(sampler_pads)) v.choked = true; // one audition at a time
     if (sample == no_sample) return; // only that: the audition stops
     start(free_voice(), sound, int(sampler_pads), velocity);
@@ -603,6 +609,7 @@ void SamplerEngine::spawn(Voice& v) {
 // the fades of a one shot that decays from the end; a loop has no end.
 float SamplerEngine::frames_left(const Voice& v, double at, double speed) const {
     if (v.loop || (!v.tail && !v.filter_tail)) return 1e9f;
+    if (v.ping_frames) return v.in_ping ? float(v.ping_left) : 1e9f; // LAB: Sample Tail: the decay at the tail's end, not the sample's
     double distance = v.reverse ? at - v.start : (v.end - 1) - at;
     return float(std::max(0.0, distance) / std::max(speed, 1e-6));
 }
@@ -974,7 +981,16 @@ void SamplerEngine::render_stereo(float* left, float* right, unsigned frames) {
             if (v.loop) {
                 if (v.reverse) while (v.position < v.loop_at) { v.position += span; v.wrapped = v.turned = true; }
                 else while (v.position >= v.end) { v.position -= span; v.wrapped = v.turned = true; }
-            } else if (v.reverse ? v.position < v.start : v.position >= v.end - 1) { v.pad = -1; break; }
+            } else if (v.reverse ? v.position < v.start : v.position >= v.end - 1) {
+                if (v.reverse || !v.ping_frames) { v.pad = -1; break; }
+                if (!v.in_ping) { v.in_ping = true; v.ping_left = v.ping_frames; } // LAB: Sample Tail, back from the end
+                v.ping_back = true;
+                v.position = std::max(double(v.start), 2.0 * double(v.end - 1) - v.position);
+            }
+            if (v.in_ping && v.ping_back && v.position < double(v.end - v.ping_region)) { // and forward again
+                v.ping_back = false;
+                v.position = std::min(double(v.end - 1), 2.0 * double(v.end - v.ping_region) - v.position);
+            }
             unsigned i = unsigned(v.position);
             float frac = float(v.position - i);
             unsigned j = i + 1 < v.end ? i + 1 : v.loop ? v.loop_at : v.end - 1;
@@ -984,8 +1000,12 @@ void SamplerEngine::render_stereo(float* left, float* right, unsigned frames) {
             if (v.choked) { v.fade -= edge_step; if (v.fade <= 0) { v.pad = -1; break; } } // a quick fade, not a click
             float sl = l[i] + (l[j] - l[i]) * frac, sr = r[i] + (r[j] - r[i]) * frac;
             if (v.xfade_kind) seam(v, l, r, v.position, sl, sr);
+            if (v.in_ping) { // LAB: the tail fades out over its time
+                if (!v.ping_left) { v.pad = -1; break; }
+                a *= float(v.ping_left--) / float(v.ping_frames);
+            }
             voice_out(v, sl, sr, a, frames_left(v, v.position, v.step), to_l, to_r, f);
-            v.position += v.reverse ? -v.step : v.step;
+            v.position += v.reverse || (v.in_ping && v.ping_back) ? -v.step : v.step;
             if (!v.env.active()) { v.pad = -1; break; }
         }
     }

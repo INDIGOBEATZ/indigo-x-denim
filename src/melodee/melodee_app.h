@@ -62,6 +62,7 @@ private:
         std::atomic<float> plugins_load {0};
         std::atomic<bool> card {false};
         std::atomic<uint64_t> card_free {0}, card_total {0};
+        std::atomic<uint8_t> ram_used {0}; // INDIGO X DENIM LAB: percent of the memory in use (/proc/meminfo)
     } machine;
     std::vector<CpuTimes> cpu_before; // service thread: the last reading of each core
     uint32_t machine_at = 0, card_at = 0; // service thread: when they were read

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/shell.h"
+#include "melodee/ui/spectrum.h"
 #include "melodee/shell/p4_status.h"
 #include "melodee/plugin/plugin_rack.h"
 #include "melodee/shell/looper_jobs.h"
@@ -186,7 +187,7 @@ void Shell::button(Button b, bool pressed) {
 
 void Shell::press(Button b, bool pressed) {
     auto& ui = ui_;
-    if (b == Button::Shift) { ui.shift = pressed; if (pressed) ui.shift_used = false; return; }
+    if (b == Button::Shift) { ui.shift = pressed; if (pressed) { ui.shift_used = false; ui.shift_at = context_.now; } return; }
     if (b == Button::Play && !pressed && ui.fill) context_.fill(false); // Fill lasts while Play is held
     if (b == Button::Sample && !pressed) { sample_button(context_, false); return; } // always heard, so Sample is never left held
     if (pressed && ask_button(context_, b)) return; // a question open (shell/ask.cpp): B1 Cancel, B3 Do it
@@ -649,6 +650,22 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
     }
     for (unsigned t = 0; t < track_count; ++t) out.meters[t] = host.meter(t);
     for (unsigned n = 0; n < sampler_pads; ++n) out.pad_meters[n] = host.pad_meter(ui_.track % track_count, n);
+    { // INDIGO X DENIM LAB: the spectrum behind the EQ, the master's loudness
+        static ui::Spectrum<Snapshot::spectrum_bands> track_spectrum, master_spectrum;
+        static uint32_t spectrum_at = 0;
+        const auto page = ui_.page;
+        out.spectrum_live = page == PageId::Rack || page == PageId::Bus || page == PageId::Master || page == PageId::PadFx;
+        if (out.spectrum_live) {
+            float dt = spectrum_at ? std::clamp((now - spectrum_at) / 1000.0f, 0.0f, 0.2f) : 0.0f;
+            bool master = page == PageId::Master || page == PageId::Bus;
+            out.spectrum = master ? master_spectrum.update(host.master_scope(), dsp::sample_rate(), dt)
+                                  : track_spectrum.update(host.track_scope(), dsp::sample_rate(), dt);
+            spectrum_at = now;
+        } else spectrum_at = 0;
+        const auto& loud = host.loudness();
+        out.lufs_momentary = loud.momentary(); out.lufs_short = loud.short_term();
+        if (page == PageId::Master) out.lufs_integrated = loud.integrated(); // its histogram summed: only where it shows
+    }
     // The voices of the track in view, placed where they are heard: the device frame heard now (the audio clock,
     // at the device's own rate, less what the PCM holds queued) against the frame the taps stand at.
     host.watch_taps(int(ui_.track % track_count));

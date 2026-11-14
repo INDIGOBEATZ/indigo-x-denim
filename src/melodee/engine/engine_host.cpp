@@ -668,6 +668,12 @@ void EngineHost::apply(const Command& c) {
         render_out.cue();
         bounce_song = c.value == 1;
         bounce_ticks = bounce_song ? 0 : std::max<uint32_t>(c.position, 1);
+        bounce_pad_left = 0;
+        if (c.value == 2) { // INDIGO X DENIM LAB: Flatten Pad: from now, `position` 44.1 kHz frames, the transport stopped
+            bounce_song = false;
+            bounce_pad_left = std::max<uint64_t>(1, uint64_t(c.position) * unsigned(std::lround(dsp::sample_rate())) / unsigned(dsp::model_rate));
+            render_out.begin(block_at);
+        }
         break;
     case Type::PadNote:
         if (slot.engine == &slot.sampler) {
@@ -732,6 +738,7 @@ void EngineHost::apply(const Command& c) {
         if (slot.engine == &slot.sampler) {
             EngineCall call;
             call.op = EngineCall::Op::Audition; call.a = c.pad.sample; call.b = int32_t(c.pad.start); call.c = int32_t(c.pad.end); call.d = c.value;
+            call.x = c.pad.level; // INDIGO X DENIM LAB: the preview's volume
             if (!keep_call(slot, call)) make_call(c.track % track_count, slot, call);
         }
         break;
@@ -951,7 +958,7 @@ void EngineHost::make_call(unsigned t, Slot& slot, const EngineCall& c) {
     case Op::Pressure: e->set_pressure(c.a, c.x); break;
     case Op::Mod: e->set_mod(unsigned(c.a), ModRoute {uint8_t(c.b), uint8_t(c.c), int8_t(c.d)}); break;
     case Op::PlayPad: if (e == &slot.sampler) slot.sampler.play_pad(unsigned(c.a), c.b, c.c, c.d); break;
-    case Op::Audition: if (e == &slot.sampler) slot.sampler.audition(uint16_t(c.a), uint32_t(c.b), uint32_t(c.c), c.d); break;
+    case Op::Audition: if (e == &slot.sampler) slot.sampler.audition(uint16_t(c.a), uint32_t(c.b), uint32_t(c.c), c.d, uint8_t(std::clamp(c.x, 0.0f, 127.0f))); break;
     case Op::MovePad: slot.sampler.move_pad(unsigned(c.a), PadParam(c.b), c.c); break;
     case Op::RestorePad: slot.sampler.restore_pad(unsigned(c.a), PadParam(c.b)); break;
     case Op::RestorePads: slot.sampler.restore_pads(); break;
@@ -2468,6 +2475,8 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         if (parallel && waiting_count > 1) workers.run(waiting_count, keyed_job, whole ? second_jobs + (knob_ringing || knob_heard) >= 2 : true);
         else for (unsigned i = 0; i < waiting_count; ++i) keyed_job(i);
     }
+    const int scoped = tap_track.load(std::memory_order_relaxed); // INDIGO X DENIM LAB: the track in view, for the spectrum
+    bool scope_fed = false;
     for (unsigned t = 0; t < track_count; ++t) {
         auto& slot = slots[t];
         float level = 0;
@@ -2525,6 +2534,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
                     }
             }
         }
+        if (int(t) == scoped && level > 0) { track_ring.push(slot.left, slot.right, frames); scope_fed = true; }
         float shown = meters[t].load(std::memory_order_relaxed) * dsp::fall_per_block(0.97f, frames); // a short fall, as fast at any rate
         meters[t].store(std::max(level, shown), std::memory_order_relaxed);
         { // every track, so a kit turned into another sound lets its pads' meters fall
@@ -2637,6 +2647,10 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     recall_ring.write(record_l, record_r, frames);
     keep_sources(input, usb, frames);
     take_stems(frames); // roadmap P4: the stems by the same bounds, before the bounce moves on
+    if (bounce_pad_left && render_out.running()) { // INDIGO X DENIM LAB: a flattened pad ends on its frame
+        if (bounce_pad_left <= frames) { render_out.finish(unsigned(bounce_pad_left)); bounce_pad_left = 0; }
+        else bounce_pad_left -= frames;
+    }
     render_out.process(master_l, master_r, frames);
     // Monitor: the source heard with the mix (never the mix itself, heard already), eased in and out.
     monitor_now.aim(monitor_on.load(std::memory_order_relaxed) && source_now.load(std::memory_order_relaxed) != unsigned(InputSource::Resample)
@@ -2649,6 +2663,14 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     if (park_fading && stems)
         for (unsigned t = 0; t < track_count; ++t)
             for (unsigned f = 0; f < frames; ++f) stems[size_t(t) * block + f] *= park_gain.at(f);
+    // INDIGO X DENIM LAB: the master's loudness and spectrum (before the click and the volume), and the track's
+    // spectrum fed silence when it made none.
+    if (loudness_rate != dsp::sample_rate()) { loudness_meter.prepare(dsp::sample_rate()); loudness_rate = dsp::sample_rate(); }
+    if (running && !loudness_was_running) loudness_meter.restart_integrated(); // a new take
+    loudness_was_running = running;
+    loudness_meter.process(master_l, master_r, frames);
+    master_ring.push(master_l, master_r, frames);
+    if (!scope_fed && scoped >= 0) track_ring.push(nullptr, nullptr, frames);
     float peak = 0, out_l = 0, out_r = 0;
     for (unsigned f = 0; f < frames; ++f) {
         if (click_wait) --click_wait;

@@ -1990,6 +1990,29 @@ const Preview previews[] {
          s.ui.settings.set_start_folder("card:Samples/Expansions/BOOM BAP SOUL");
      }},
     {"browsersetstart", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "browserstarred", 1, 0); s.ui.shift = true; }},
+    // INDIGO X DENIM LAB: the SXL-inspired pages
+    {"shiftpadmap", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.track = 3; s.ui.shift = true; s.ui.shift_at = s.now - 2000; }},
+    {"systembar", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Stage; s.ui.track = 3; s.ui.settings.system_bar = true;
+         s.machine.cores = 4; s.machine.core_load = {32, 18, 41, 22}; s.machine.render_load = 0.27f; s.machine.ram_used = 46;
+     }},
+    {"settingsaudiolab", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::FlattenTail; }},
+    {"mixerflatten", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixerpads", 0, 0); s.ui.shift = true; s.ui.shift_used = true; }},
+    {"eqspectrum", [](Shell&, Snapshot& s) { // track 3's EQ with the music's spectrum behind its curve
+         s.ui.page = PageId::Rack; s.ui.track = 2; s.ui.fx_cursor[2] = 2; s.playing = true; s.spectrum_live = true;
+         for (unsigned b = 0; b < Snapshot::spectrum_bands; ++b) {
+             float u = b / float(Snapshot::spectrum_bands);
+             s.spectrum[b] = -18 - 40 * u + 8 * std::sin(u * 19) + (u < 0.15f ? 10 : 0);
+         }
+     }},
+    {"masterloudness", [](Shell&, Snapshot& s) { // the master's limiter, LUFS under it
+         s.ui.page = PageId::Master; s.ui.fx_cursor[master_chain] = 1; s.playing = true;
+         s.lufs_momentary = -11.8f; s.lufs_short = -13.2f; s.lufs_integrated = -13.9f;
+     }},
+    {"playtail", [](Shell&, Snapshot& s) { // PLAY with Shift: Sample Tail on K1
+         s.ui.page = PageId::PlayPage; s.ui.track = 3; s.sample = break_sample(); s.playing = true; s.ui.shift = true;
+         auto& t = s.project.tracks[3]; t.last_pad = 3; t.pads[3].ping_tail = 15;
+     }},
     {"settingsprojectfolder", [](Shell&, Snapshot& s) { // Settings > SCREEN > Project folder: where new projects go
          s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 2; s.ui.settings_cursor = Settings::ProjectFolder;
          s.ui.settings_editing = true; s.ui.settings.set_project_folder("Beats/2026");

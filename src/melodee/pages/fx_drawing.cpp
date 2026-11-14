@@ -218,6 +218,42 @@ Icon family_icon(Family f) {
     }
 }
 
+// INDIGO X DENIM LAB: the signal's spectrum behind a Tone effect's curve (as Jsen Surreal's SXL has it on its EQ): log
+// frequency left to right, -90 .. 0 dB, filled faintly in the track's colour with a brighter top line.
+void draw_spectrum(Paint& p, const std::array<float, Snapshot::spectrum_bands>& bands, float x, float y, float w, float h, juce::Colour c) {
+    juce::Path fill, line;
+    const unsigned n = Snapshot::spectrum_bands;
+    auto at = [&](unsigned b) { return y + h - h * (std::clamp(bands[b], -90.0f, 0.0f) + 90.0f) / 90.0f; };
+    fill.startNewSubPath(x, y + h);
+    for (unsigned b = 0; b < n; ++b) {
+        float bx = x + w * (b + 0.5f) / n, by = at(b);
+        fill.lineTo(bx, by);
+        if (!b) line.startNewSubPath(bx, by); else line.lineTo(bx, by);
+    }
+    fill.lineTo(x + w, y + h);
+    fill.closeSubPath();
+    p.g.setColour(c.withAlpha(0.16f));
+    p.g.fillPath(fill);
+    p.g.setColour(c.withAlpha(0.45f));
+    p.g.strokePath(line, juce::PathStrokeType(1.0f));
+}
+
+// INDIGO X DENIM LAB: the master's loudness under its dynamics (the limiter's place), as SXL puts LUFS beside its limiter.
+void draw_loudness(Paint& p, const Snapshot& s, float x, float y, float w) {
+    auto lufs = [](float v) { return std::isfinite(v) && v > -70 ? juce::String(v, 1) : juce::String("-"); };
+    const std::pair<const char*, float> parts[] {{"M", s.lufs_momentary}, {"S", s.lufs_short}, {"I", s.lufs_integrated}};
+    float cx = x;
+    float tw = p.text("LUFS", cx, y, 34, 13, caps_text(colour::mid));
+    cx += tw + 6;
+    for (const auto& [name, value] : parts) {
+        float nw = p.text(name, cx, y, 12, 13, caps_text(colour::dim));
+        auto ink = std::isfinite(value) && value > -9 ? colour::amber : colour::text;
+        float vw = p.text(lufs(value), cx + nw + 3, y, 42, 13, plain(ink, type::small, Weight::Medium));
+        cx += nw + vw + 12;
+        if (cx > x + w - 20) break;
+    }
+}
+
 void effect_drawing(Paint& p, const EffectSlot& slot, float x, float y, float w, float h, juce::Colour c) {
     const auto& info = effect_info(EffectKind(slot.kind));
     if (slot.bypass) c = colour::dim;
@@ -283,7 +319,13 @@ void fx_in_hand(Paint& p, const Snapshot& s, const Chain& chain, unsigned cursor
     p.text(family, x + nw + 8, y + 5, fw, 15, fam, juce::Justification::centred);
     if (slot.bypass) draw_glyph(p, Glyph::LedOff, x + nw + 8 + fw + 6, y + 12.5f, colour::mid);
     float dy = y + 30, dh = bottom - dy;
-    if (!plugin) { effect_drawing(p, slot, x, dy, w, dh, c); return; }
+    if (!plugin) {
+        if (s.spectrum_live && info.family == Family::Tone && !slot.bypass) draw_spectrum(p, s.spectrum, x, dy, w, dh, c); // LAB
+        bool loud = s.ui.page == PageId::Master && info.family == Family::Dynamics; // LAB: the master's loudness
+        effect_drawing(p, slot, x, dy, w, loud ? dh - 15 : dh, c);
+        if (loud) draw_loudness(p, s, x, bottom - 13, w);
+        return;
+    }
     // A plug-in draws nothing of its own here: its state, and which row of its parameters the cards hold.
     const auto& panel = s.ui.plugin_panel;
     bool ours = panel.entry == unsigned(slot.params[0]);

@@ -387,6 +387,8 @@ public:
     // Renders of the mix (parity phase 6, shell/render.cpp): Resample (Shift + Pad 11, then a pad) and the song's mixdown.
     void resample();                                      // Shift + Pad 11: wait for the pad (again: not)
     void resample_pad(unsigned kit);                      // the pad: the pattern rendered onto it
+    void flatten_start();                                 // INDIGO X DENIM LAB: Flatten Pad: the pad in hand, then a target pad
+    void flatten_to(unsigned target);                     // INDIGO X DENIM LAB: the pad in hand played and rendered onto `target`
     void resample_song(unsigned kit);                     // roadmap P3: Resample on Song, the song rendered onto the pad
     void mixdown(const std::string& name);                // Song's export, Audio mixdown, after the Name sheet
     void render_tick(uint32_t at);                        // a render ended: transport back as it was

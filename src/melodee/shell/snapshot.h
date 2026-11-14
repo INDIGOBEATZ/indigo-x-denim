@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
+#include <cmath>
 #include "melodee/engine/looper.h"
 #include "melodee/model/project.h"
 #include "melodee/shell/comp_trail.h"
@@ -47,6 +48,12 @@ struct Snapshot {
     unsigned song_bar = 0;
     std::array<float, track_count> meters {};
     std::array<float, sampler_pads> pad_meters {}; // INDIGO X DENIM: the track in view's pads as heard (EngineHost::pad_meter)
+    // INDIGO X DENIM LAB: the EQ's spectrum (ui/spectrum.h), dB per band from 20 Hz to 20 kHz, while an effects page is
+    // open (the master's on Master and Bus, else the track in view's); and the master's loudness, LUFS (-inf: none yet).
+    static constexpr unsigned spectrum_bands = 48;
+    std::array<float, spectrum_bands> spectrum {};
+    bool spectrum_live = false;
+    float lufs_momentary = -INFINITY, lufs_short = -INFINITY, lufs_integrated = -INFINITY;
     // The voices of the track in view as the engine left them (engine/voice_tap.h), output frames from their stamp
     // to the frame heard now, and each voice's head where it is heard, newest first (shell/playheads.h).
     TrackTaps taps;
@@ -113,6 +120,7 @@ struct Snapshot {
         float plugins_load = 0;              // their share of the audio time
         std::array<float, track_count> track_load {}; // each track's share of a block (roadmap P2), as render_load
         unsigned pdc_frames = 0;             // roadmap P4: what plug-in delay compensation holds everything back by
+        uint8_t ram_used = 0;                // INDIGO X DENIM LAB: percent of the memory in use (0: not read)
     } machine;
     std::array<float, modulator_count> mod_values {}; // roadmap P4: each modulator's value now (EngineHost::modulator_value)
     const Track& track() const { return project.tracks[ui.track % track_count]; }

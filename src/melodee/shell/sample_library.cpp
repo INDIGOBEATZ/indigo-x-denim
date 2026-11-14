@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/key_detect.h"
 #include "melodee/shell/sf2_file.h"
 #include "melodee/shell/chop.h"
 #include "melodee/shell/mpc_program.h"
@@ -816,6 +817,7 @@ void SampleLibrary::read(const Request& asked) {
         loaded.frames = data->frames;
         make_overview(*data, loaded.overview);
         loaded.hit_count = find_hits(*data, loaded.hits);
+        loaded.key = int8_t(detect_key(data->left.data(), data->right.empty() ? nullptr : data->right.data(), data->frames, float(dsp::model_rate))); // LAB
         if (!offer(request.slot, data.get())) { loaded.error = "busy, try again"; }
         else { held = data.get(); owned.push_back(std::move(data)); loaded.ready = true; }
     }

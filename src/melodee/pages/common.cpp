@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/pages/common.h"
+#include "melodee/shell/key_detect.h"
 #include "melodee/shell/midi_ports.h"
 #include "melodee/engine/punch.h"
 #include "melodee/engine/arp.h"
@@ -45,7 +46,7 @@ ui::Header header_of(const Snapshot& s) {
     if (s.ui.rendering) {
         unsigned seconds = s.render_frames / 44100;
         char clock[32];
-        std::snprintf(clock, sizeof(clock), "%s %u:%02u", s.ui.rendering == 2 ? "MIXDOWN" : "RESAMPLE", seconds / 60, seconds % 60);
+        std::snprintf(clock, sizeof(clock), "%s %u:%02u", s.ui.rendering == 2 ? "MIXDOWN" : s.ui.rendering == 4 ? "FLATTEN" : "RESAMPLE", seconds / 60, seconds % 60);
         h.left.push_back(ui::chip(clock, ui::colour::rec));
     } else if (s.ui.resample_pick) h.left.push_back(ui::chip(s.ui.resample_song ? "SONG: TAP A PAD" : "RESAMPLE: TAP A PAD", ui::colour::rec));
     // INDIGO X DENIM: ALL (Shift + MUTE) on a kit, on the pages whose knobs it widens: a short chip, left out first
@@ -369,7 +370,15 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         break;
     }
     case Kind::BusReturn: c.label = "RETURN"; c.value = juce::String(b.value); c.unit = "%"; break;
-    case Kind::PadPitch: c.label = "PITCH"; c.value = juce::String(b.value); c.unit = "st"; c.bipolar = true; break;
+    case Kind::PadPitch: {
+        c.label = "PITCH"; c.value = juce::String(b.value); c.unit = "st"; c.bipolar = true;
+        // INDIGO X DENIM LAB: the sample's key (detected as it loads) and where the pitch takes it, "Am+2 Bm"
+        if (s.sample.key >= 0 && s.sample.ready) {
+            int to = (s.sample.key % 12 + b.value % 12 + 24) % 12 + (s.sample.key >= 12 ? 12 : 0);
+            c.label = juce::String::fromUTF8("PITCH \xc2\xb7 ") + juce::String(key_name(to)); // the key it plays in now
+        }
+        break;
+    }
     case Kind::PadLevel: c.label = "VOLUME"; c.value = decibels(b.value); c.unit = b.value > 0 ? "dB" : ""; break;
     case Kind::PadPan:
         c.label = "PAN"; c.bipolar = true;
@@ -422,7 +431,18 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         else { c.value = juce::String(int(warp)); c.unit = "%"; }
         break;
     }
-    case Kind::PadBeats: c.label = "# BEATS"; c.value = b.value ? juce::String(b.value) : juce::String("Auto"); break;
+    case Kind::PadBeats: {
+        c.label = "# BEATS"; c.value = b.value ? juce::String(b.value) : juce::String("Auto");
+        // INDIGO X DENIM LAB: the region's tempo from its length and the beats in it (Seq warps it to the project's)
+        const auto& t = s.track();
+        if (b.value && t.engine == EngineKind::Sampler && s.sample.frames) {
+            const auto& pad = t.pads[t.last_pad % sampler_pads];
+            uint32_t end = pad.end ? pad.end : s.sample.frames;
+            double seconds = end > pad.start ? (end - pad.start) / 44100.0 : 0;
+            if (seconds > 0) { c.unit = juce::String(b.value * 60.0 / seconds, 1) + " BPM"; }
+        }
+        break;
+    }
     case Kind::LayerPick: { // roadmap P3: the layer in hand, empty ones said so
         const auto& pad = track.pads[track.last_pad % sampler_pads];
         c.label = "LAYER"; c.value = juce::String(b.value + 1);
@@ -433,6 +453,8 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::ZonePick: c.label = "ZONE"; c.value = juce::String(b.value + 1); c.unit = "/ " + juce::String(b.max + 1); break; // round 3
     case Kind::ZoneTune: c.label = "TUNE"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.unit = "ct"; c.bipolar = true; break;
     case Kind::ZoneLevel: c.label = "LEVEL"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value / 10.0, 1); c.unit = "dB"; c.bipolar = true; break;
+    case Kind::PadPingTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;
+    case Kind::PadPingRegion: c.label = "REPEAT"; c.value = juce::String(b.value); c.unit = "ms"; break;
     case Kind::PadLoopXfade: c.label = "XFADE"; c.value = b.value ? juce::String(b.value) : juce::String("Off"); c.unit = b.value ? "ms" : ""; break;
     case Kind::LayerHigh: c.label = "VEL HIGH"; c.value = juce::String(b.value); break;
     case Kind::LayerPitch: c.label = "TUNE"; c.value = juce::String(b.value); c.unit = "st"; c.bipolar = true; break;

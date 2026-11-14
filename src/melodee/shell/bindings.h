@@ -86,6 +86,7 @@ struct Binding {
         // trim's tune (cents) and level (tenths of a dB) on the last pad (model/sampler.h ZoneTrim).
         ZonePick, ZoneTune, ZoneLevel,
         PadLoopXfade, // roadmap P3, PLAY's Shift + K3: the last pad's loop seam crossfade, ms (0 none)
+        PadPingTail, PadPingRegion, // INDIGO X DENIM LAB, PLAY's Shift + K1 / row 2 Shift + K2: Sample Tail, tenths of a second / ms
         FxKey,        // roadmap P4, a Compressor's or Gate's third row: what keys it (model/project.h fx_key_*), id as FxParam's
         // Roadmap P4, the MOD page (model/modulators.h): the modulator in hand, its kind, an LFO's shape, clock and rate
         // (free: 0..100; on the clock: a division), a follower's source (tracks, buses) and rise and fall, the target in

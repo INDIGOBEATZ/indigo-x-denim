@@ -61,6 +61,7 @@ struct SampleFile {
 struct LoadedSample {
     std::string name, path, error;
     uint32_t frames = 0;
+    int8_t key = -1; // INDIGO X DENIM LAB: its musical key (shell/key_detect.h), -1 unknown
     Overview overview {};
     std::array<Hit, max_hits> hits {};
     unsigned hit_count = 0;

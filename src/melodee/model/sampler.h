@@ -109,6 +109,9 @@ struct PadSound {
     LayerPlay layer_play = LayerPlay::Velocity;
     // Roadmap P3: a loop's seam crossfaded over this many milliseconds (0 none), the same time at any rate (PXFD).
     uint8_t loop_xfade = 0;
+    // INDIGO X DENIM LAB: Sample Tail (as Jsen Surreal's SXL has it): a one shot played past its end ping-pongs over its
+    // last `ping_region` milliseconds and fades over `ping_tail` tenths of a second (0: no tail). The file's PTAL section.
+    uint8_t ping_tail = 0, ping_region = 40;
     uint32_t loop_point() const { return loop_lock ? start : loop_start; }
     bool used() const { return sample != no_sample; }
     bool warped() const { return warp == warp_seq || warp >= warp_min; }

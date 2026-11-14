@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
+#include "melodee/engine/listen.h"
 #include "melodee/engine/arp.h"
 #include "melodee/engine/command.h"
 #include "melodee/engine/compensation.h"
@@ -216,6 +217,11 @@ public:
     float meter(unsigned track) const { return meters[track % track_count].load(std::memory_order_relaxed); }
     // INDIGO X DENIM: a kit's pad's level as heard (its voices' output, before the track's fader), falling as the
     // track meters do.
+    // INDIGO X DENIM LAB: what the screen listens to (engine/listen.h): the master before the volume and the track in
+    // view (watch_taps) after its effects, for the EQ's spectrum; and the master's loudness (LUFS).
+    const ScopeRing& master_scope() const { return master_ring; }
+    const ScopeRing& track_scope() const { return track_ring; }
+    const Loudness& loudness() const { return loudness_meter; }
     float pad_meter(unsigned track, unsigned pad) const { return pad_meters[track % track_count][pad % sampler_pads].load(std::memory_order_relaxed); }
     // The voices of the track the screen watches (engine/voice_tap.h), as the last block left them; false while a
     // write was under way each time it looked. watch_taps(-1): none taken.
@@ -802,6 +808,11 @@ private:
     std::atomic<unsigned> bar_now {0};
     std::array<std::atomic<float>, track_count> meters {};
     std::array<std::array<std::atomic<float>, sampler_pads>, track_count> pad_meters {};
+    ScopeRing master_ring, track_ring;   // INDIGO X DENIM LAB
+    Loudness loudness_meter;
+    float loudness_rate = 0;
+    bool loudness_was_running = false;
+    uint64_t bounce_pad_left = 0; // INDIGO X DENIM LAB: Flatten Pad's frames still to take (0: not flattening)
     std::atomic<int> tap_track {-1};
     TapBoard tap_board;
     std::atomic<float> output_peak {0};

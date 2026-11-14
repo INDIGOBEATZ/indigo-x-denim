@@ -10,6 +10,7 @@
 #include "melodee/shell/note_repeat.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/seq_layer.h"
+#include "melodee/shell/shift_pad_jobs.h"
 #include "melodee/ui/widgets.h"
 #include <cstring>
 
@@ -29,9 +30,64 @@ void draw_overlays(Paint& p, const Snapshot& s) {
     draw_notice(p, s); // over the fader's line: a copy in hand or what an undo did comes first
     if (s.ui.name.open()) draw_name_sheet(p, s);
     if (s.ui.exit_open) draw_exit_sheet(p, s);
-    else if (s.ui.shift && !s.ui.shift_used && !s.ui.name.open()) draw_shift_layer(p, s);
+    else if (s.ui.shift && !s.ui.shift_used && !s.ui.name.open()) {
+        draw_shift_layer(p, s);
+        // INDIGO X DENIM LAB: Shift held a moment with nothing else touched: what Shift + each pad does, as the pads sit
+        if (!sheet && !tracks && !seq && s.ui.ask == UiState::Ask::None && s.ui.settings.shift_map_delay && s.now - s.ui.shift_at >= s.ui.settings.shift_map_ms()) draw_shift_pads(p, s);
+    }
     if (!sheet && !tracks && !seq && repeat_keys(s.project, s.ui)) draw_repeat_keys(p, s);
     draw_place_bar(p, s); // over everything: where the music is stays in view
+    if (s.ui.settings.system_bar && !s.ui.loading) draw_system_bar(p, s);
+}
+
+// INDIGO X DENIM LAB: the Shift + Pad jobs as a 4 x 4 grid laid out as the pads are (13-16 on top, 1-4 at the foot),
+// over the page's middle: a toggle that is on lit in the track's colour, a job faint, one not built yet dim.
+void draw_shift_pads(Paint& p, const Snapshot& s) {
+    const float top = zone::header_y + zone::header_h + 2, bottom = zone::knobs_y - 2;
+    const float x0 = zone::pad, w = zone::width - 2 * zone::pad, gap = 3;
+    const float cw = (w - 3 * gap) / 4, ch = (bottom - top - 3 * gap) / 4;
+    p.fill(0, top - 2, zone::width, bottom - top + 4, colour::bg.withAlpha(0.94f));
+    auto accent = colour_of(s);
+    for (unsigned pad = 0; pad < 16; ++pad) {
+        unsigned col = pad % 4, row = 3 - pad / 4; // pad 1 bottom left
+        float x = x0 + col * (cw + gap), y = top + row * (ch + gap);
+        const auto& job = shift_pad_job(pad);
+        unsigned level = shift_pad_level(s.ui, pad);
+        bool on = shift_pad_on(s.ui, pad);
+        p.fill(x, y, cw, ch, on ? accent.withAlpha(0.28f) : colour::raised, 4);
+        if (on) p.ring(x, y, cw, ch, accent, 4, 1);
+        p.text(juce::String(pad + 1), x + 4, y + 2, 20, 10, caps_text(on ? accent : colour::mid, 8));
+        auto ink = level == 0 ? colour::dim : on ? colour::text : colour::sec;
+        juce::String name(job.name);
+        p.text(name, x + 3, y + 10, cw - 6, ch - 12, p.fit(name, plain(ink, 11, Weight::Medium), cw - 6, type::floor), juce::Justification::centred);
+    }
+}
+
+// INDIGO X DENIM LAB: Settings > AUDIO > CPU / RAM bar: a thin strip along the screen's foot, the cores' average, the
+// audio blocks' share of their time and the memory in use, each a word, a number and a short bar going amber then red.
+void draw_system_bar(Paint& p, const Snapshot& s) {
+    const auto& m = s.machine;
+    unsigned cpu = 0;
+    for (unsigned c = 0; c < m.cores && c < m.core_load.size(); ++c) cpu += m.core_load[c];
+    if (m.cores) cpu /= m.cores;
+    const std::pair<const char*, int> parts[] {{"CPU", int(cpu)}, {"DSP", int(std::lround(m.render_load * 100))}, {"RAM", int(m.ram_used)}};
+    const float h = 11, y = zone::height - h;
+    p.fill(0, y, zone::width, h, colour::bg.withAlpha(0.88f));
+    p.fill(0, y, zone::width, 0.5f, colour::quiet);
+    float x = 6, part_w = (zone::width - 12) / 3.0f;
+    for (const auto& [name, value] : parts) {
+        int v = std::clamp(value, 0, 100);
+        auto ink = v >= 85 ? colour::rec : v >= 65 ? colour::amber : colour::sec;
+        float tw = p.text(name, x, y + 1, 26, h - 1, caps_text(colour::mid));
+        juce::String number = m.cores || name[0] == 'D' ? juce::String(v) + "%" : juce::String("-");
+        float nw = p.text(number, x + tw + 3, y + 1, 30, h - 1, plain(ink, 9, Weight::Medium));
+        float bx = x + tw + nw + 7, bw = part_w - (bx - x) - 8;
+        if (bw > 6) {
+            p.fill(bx, y + 4.5f, bw, 2, colour::quiet, 1);
+            p.fill(bx, y + 4.5f, bw * v / 100.0f, 2, ink, 1);
+        }
+        x += part_w;
+    }
 }
 
 // Note Repeat on: B1-B3 are its rate, 1/8, 1/16, 1/32, and with Shift held their triplets; B1 and B3 again 1/4 and

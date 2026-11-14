@@ -74,7 +74,7 @@ struct Command {
         TrackLoad,      // track_pack: one whole track (sound, kit, patterns with their motion); handed back like Reload's
         Monitor,        // value: the input source heard with the mix (not the mix itself)
         LoopMonitor,    // value: Monitor (Input Config's): when a loop on a hardware input of its own hears it
-        BounceArm,      // the next Play renders: value 0 the patterns for `position` ticks, 1 the song to its end and its tail
+        BounceArm,      // the next Play renders: value 0 the patterns for `position` ticks, 1 the song to its end and its tail; 2 (LAB) Flatten Pad: from now, `position` 44.1 kHz frames
         // Knob FX (parity phase 7): index 0 the effect (value = EffectKind, its initial values with it), 1 a parameter
         // (pattern = which, value), 2 the state (value: 1 heard now, 2 Rec Input FX on the input), 3 the tracks (position: a bit
         // a track), 4 a kit's pads (track, pattern = 0..3 a quarter of its 128 pads, position: a bit a pad).

@@ -402,6 +402,7 @@ void Context::browser_tick() {
     if (!here || !ui.preview || ui.files_cursor >= files.size() || files[ui.files_cursor].path != library->previewed()) return;
     Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(ui.audition_velocity)};
     a.pad.sample = uint16_t(preview_slot); a.pad.start = 0; a.pad.end = 0;
+    a.pad.level = uint8_t(std::min(127, ui.settings.preview_level * 100 / 100)); // INDIGO X DENIM LAB: Settings > Preview volume
     send(a);
     previewing = ui.track;
 }

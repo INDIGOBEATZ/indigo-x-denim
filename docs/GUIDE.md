@@ -1213,6 +1213,42 @@ push to edit it, and press **−** / **+** to change it.
 - **MIDI out**: pads, patterns, the arpeggiator, MIDI clock, MTC and the CV
   clock.
 
+## INDIGO X DENIM LAB extras
+
+LAB adds features inspired by Jsen Surreal's SXL build for the MPC Sample
+(his videos describe them; this is our own implementation).
+
+- **Shift pad map**: hold **SHIFT** a moment and a 4 x 4 grid shows what
+  **SHIFT** + each pad does, laid out as the pads are. Press a pad to do it.
+  Settings > KNOBS > **Shift pad map** sets the delay (Off, at once, 0.65 s
+  to 3 s).
+- **Preview volume**: Settings > AUDIO > **Preview volume** (0-120 %) for
+  the sample browser's preview.
+- **CPU / RAM bar**: Settings > AUDIO > **CPU / RAM bar** shows the cores'
+  load, the audio engine's share (DSP) and the memory in use along the
+  screen's foot.
+- **Chop** cuts up to **128** slices (a slice for every pad of a kit).
+- **# BEATS** on the Pad page shows the region's tempo in BPM.
+- **Key detection**: a sample of 2 s or longer gets its key detected as it
+  loads; the **PITCH** card shows the key it plays in (e.g. PITCH · Am).
+- **EQ spectrum**: Tone effects (EQ, Filter and the rest) draw the live
+  spectrum behind their curve: the track's on a track's chain, the master's
+  on Master and Bus.
+- **LUFS**: the master's dynamics (Compressor, Limiter) show the loudness:
+  momentary, short-term and integrated (integrated starts over at Play).
+- **Flatten Pad**: on the mixer's **PADS**, **SHIFT** + **B1** (**FLATTEN**),
+  then tap the pad that gets the result. The pad in hand is played once and
+  rendered with everything it goes through (its own effects, the track's,
+  Knob FX, the master) plus Settings > AUDIO > **Flatten tail**. Onto itself
+  it is flattened in place: its own effects come off, being in the sound now.
+- **Explode Pads to Tracks**: on the mixer's **PADS**, **SHIFT** + **B2**
+  (**EXPLODE**): every used pad of the kit moves to an empty track of its
+  own (on its pad 1), with its effects and its notes from every pattern.
+  What finds no empty track stays on the kit.
+- **Sample Tail**: on the **PLAY** page, **SHIFT** + **K1** (**TAIL**) lets a
+  one shot ping-pong over its last moments and fade out over that time;
+  row 2's **SHIFT** + **K2** (**REPEAT**) sets how much of the end repeats.
+
 ## Projects and files
 
 ### The Project page

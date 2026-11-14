@@ -23,6 +23,7 @@
 #include "melodee/shell/context.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/smf_jobs.h"
+#include <cmath>
 #include <cstdio>
 
 namespace melodee {
@@ -67,8 +68,64 @@ void Context::resample_song(unsigned kit) {
     notice(pad_text(cut ? "Song 60 s to" : "Song to", kit));
 }
 
+// INDIGO X DENIM LAB: Flatten Pad (as Jsen Surreal's SXL has it): the pad in hand played once, alone, through all it
+// goes through (its own effects, the track's, Knob FX, the master's) and on for Settings > Flatten tail, rendered onto
+// the pad tapped next. Onto itself it is flattened in place: its own effects then come off, being in the sound now, and
+// its tune, envelope and filter start afresh. In real time like Resample, through the engine heard; at most 60 s.
+void Context::flatten_start() {
+    auto& t = track();
+    unsigned kit = t.last_pad % sampler_pads;
+    if (ui.rendering) { notice("Rendering already"); return; }
+    if (t.engine != EngineKind::Sampler || !t.pads[kit].used()) { notice("Flatten: pick a pad"); return; }
+    if (refuse_instrument("Flatten")) return;
+    ui.flatten_source = int16_t(kit);
+    ui.resample_pick = true;
+    ui.resample_song = false;
+    notice(pad_text("Flatten", kit) + ": tap a pad");
+}
+
+void Context::flatten_to(unsigned target) {
+    auto& t = track();
+    unsigned kit = unsigned(ui.flatten_source) % sampler_pads;
+    ui.flatten_source = -1;
+    if (!library || t.engine != EngineKind::Sampler || !t.pads[kit].used()) return;
+    if (host_recording()) { notice("Flatten: a take runs"); return; }
+    target %= sampler_pads;
+    const auto& pad = t.pads[kit];
+    uint32_t frames = project.samples[pad.sample % sample_slots].frames;
+    uint32_t end = pad.end ? std::min(pad.end, frames) : frames;
+    double region = end > pad.start ? double(end - pad.start) : 44100.0;
+    double rate = std::pow(2.0, (pad.pitch + pad.fine / 100.0) / 12.0); // a pad tuned up plays shorter
+    double held = region / std::max(0.05, rate);
+    if (pad.loop) held = std::max(held, 44100.0 * 2); // a loop plays on: two seconds of it
+    double tail = 44100.0 * ui.settings.flatten_tail / 10.0 + 44100.0 * pad.release / 100.0 * 2;
+    auto length = uint32_t(std::min<double>(held + tail, TakeRecorder::max_frames));
+    int slot = hold_file("FLAT", ui.track, int(target), 1);
+    if (slot < 0) { notice("Flatten: samples full"); return; }
+    SampleLibrary::Render job;
+    job.slot = uint8_t(slot);
+    job.frames = length + 1;
+    if (!library->render(job)) { drop_file(slot); notice("Flatten: busy"); return; }
+    ui.render_resume = false;
+    if (ui.recording) set_recording(false);
+    ui.rec_armed = false;
+    send({Type::Stop});
+    Command arm {Type::BounceArm, 0, 0, 0, 2};
+    arm.position = length;
+    send(arm);
+    ui.flatten_key = uint8_t(sampler_first_note + kit);
+    send({Type::NoteOn, ui.track, 0, ui.flatten_key, 127});
+    ui.flatten_off_at = (now + uint32_t(held * 1000 / 44100)) | 1;
+    ui.flatten_in_place = target == kit;
+    played_song = false;
+    ui.rendering = 4; ui.render_pad = int16_t(target); ui.render_slot = int16_t(slot); ui.render_track = ui.track;
+    render_started = false; render_since = now;
+    notice(pad_text("Flatten to", target));
+}
+
 void Context::resample_pad(unsigned kit) {
     ui.resample_pick = false;
+    if (ui.flatten_source >= 0) { flatten_to(kit); return; } // INDIGO X DENIM LAB
     if (!library || track().engine != EngineKind::Sampler) return;
     if (host_recording()) { notice("Resample: a take runs"); return; }
     kit %= sampler_pads;
@@ -148,6 +205,10 @@ void Context::mixdown(const std::string& name) {
 // what was playing play on.
 void Context::render_tick(uint32_t at) {
     if (!ui.rendering) return;
+    if (ui.rendering == 4 && ui.flatten_off_at && int32_t(at - ui.flatten_off_at) >= 0) { // the flattened pad's key let go
+        ui.flatten_off_at = 0;
+        send({Type::NoteOff, ui.render_track, 0, ui.flatten_key, 0});
+    }
     // A song onto a pad past 60 s: its first 60 s are in; the rest is not wanted (roadmap P3).
     if (ui.rendering == 3 && ui.render_stop_at && int32_t(at - ui.render_stop_at) >= 0) { ui.render_stop_at = 0; if (host.playing()) send({Type::Stop}); }
     auto state = host.bounce().state();
@@ -156,6 +217,16 @@ void Context::render_tick(uint32_t at) {
     if (ui.rendering == 1 && !ui.render_resume && (state == Bounce::State::Done) && host.playing()) send({Type::Stop});
     if (state != Bounce::State::Idle || (!render_started && at - render_since < 2000)) return;
     if (ui.rendering == 1 && !ui.render_resume && host.playing()) send({Type::Stop});
+    if (ui.rendering == 4 && ui.flatten_in_place && ui.render_pad >= 0) { // in place: its effects are in the sound now
+        unsigned n = pad_chain(ui.render_track % track_count, unsigned(ui.render_pad) % sampler_pads);
+        auto& chain = project.chain(n);
+        auto size = chain.size;
+        chain = Chain {};
+        chain.size = size;
+        sync_chain(n);
+        dirty = true;
+    }
+    if (ui.rendering == 4 && ui.flatten_off_at) { send({Type::NoteOff, ui.render_track, 0, ui.flatten_key, 0}); ui.flatten_off_at = 0; }
     ui.rendering = 0;
     render_started = false;
 }

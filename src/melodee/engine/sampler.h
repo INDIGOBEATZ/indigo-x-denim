@@ -77,7 +77,7 @@ public:
     void set_pad_mutes(const std::array<uint64_t, (sampler_pads + 63) / 64>& bits);
     bool pad_muted(unsigned pad) const { return pad < sampler_pads && ((muted[pad / 64] >> (pad % 64)) & 1); }
     // A region of a sample on no pad, for Chop's audition (plays one shot).
-    void audition(uint16_t sample, uint32_t start, uint32_t end, int velocity);
+    void audition(uint16_t sample, uint32_t start, uint32_t end, int velocity, uint8_t level = 100); // level: 100 unity
     // A sample is about to change: whatever plays it stops now.
     void sample_gone(uint16_t sample);
     // A kit pad shifted by `semitones`, its filter at `cutoff` (0..100; -1 its
@@ -158,6 +158,10 @@ private:
         // Loop: after the end (or, reversed, the loop point) it goes on from the loop point (or the end).
         bool loop = false;
         uint32_t loop_at = 0;
+        // INDIGO X DENIM LAB: Sample Tail past a one shot's end: the frames it ping-pongs over (in what it reads), how
+        // long it fades (output frames) and how much is left, and which way it reads now.
+        uint32_t ping_region = 0, ping_frames = 0, ping_left = 0;
+        bool in_ping = false, ping_back = false;
         // Roadmap P3, a kit pad's loop seam crossfaded over `xfade` frames of what it reads: 1 with what lies before
         // the loop point (reversed: past the end), at the seam's near side; 2 after the turn, with what follows the
         // end (reversed: before the loop point); 3, with neither in the file, a dip either side. `turned` once it has

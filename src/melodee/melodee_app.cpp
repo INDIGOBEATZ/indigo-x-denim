@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -326,6 +327,7 @@ void MelodeeApp::draw(juce::Graphics& g) {
         m.stream_late = host.streams().underruns();
         m.plugins = machine.plugins.load(std::memory_order_relaxed);
         m.plugins_load = machine.plugins_load.load(std::memory_order_relaxed);
+        m.ram_used = machine.ram_used.load(std::memory_order_relaxed);
     }
     ui::use_palette(frame->ui.settings.palette); // INDIGO X DENIM: the palette chosen in Settings
     ui::use_font(frame->ui.settings.font); // and the typeface, chosen apart
@@ -360,6 +362,17 @@ void MelodeeApp::read_machine(Hardware& hardware) {
         auto use = plugins.usage();
         machine.plugins.store(uint8_t(std::min(255u, use.loaded)), std::memory_order_relaxed);
         machine.plugins_load.store(use.load, std::memory_order_relaxed);
+        // INDIGO X DENIM LAB: the memory in use, for the CPU / RAM bar
+        if (FILE* f = std::fopen("/proc/meminfo", "r")) {
+            char line[128];
+            unsigned long total = 0, available = 0;
+            while (std::fgets(line, sizeof(line), f)) {
+                std::sscanf(line, "MemTotal: %lu kB", &total);
+                std::sscanf(line, "MemAvailable: %lu kB", &available);
+            }
+            std::fclose(f);
+            if (total && available <= total) machine.ram_used.store(uint8_t(std::max(1L, std::lround(100.0 * double(total - available) / double(total)))), std::memory_order_relaxed);
+        }
     }
     if (hardware.card.status().state != CardShareState::Home) { machine.card.store(false, std::memory_order_relaxed); card_at = 0; return; }
     if (card_at && now - card_at < 5000) return;

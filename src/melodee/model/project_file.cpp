@@ -628,6 +628,18 @@ std::vector<uint8_t> save_project(const Project& project, const PatternBank& pat
         for (auto bits : tr.pad_mutes) { w.u32(uint32_t(bits)); w.u32(uint32_t(bits >> 32)); }
         w.end(at);
     }
+    for (unsigned t = 0; t < track_count; ++t) { // INDIGO X DENIM LAB: Sample Tail, the pads that have one
+        const auto& tr = project.tracks[t];
+        unsigned with = 0;
+        for (const auto& pad : tr.pads) with += pad.used() && pad.ping_tail;
+        if (!with) continue;
+        at = w.begin("PTAL");
+        w.u8(t); w.u8(std::min(with, 255u));
+        unsigned written = 0;
+        for (unsigned k = 0; k < sampler_pads && written < 255; ++k)
+            if (tr.pads[k].used() && tr.pads[k].ping_tail) { w.u8(k); w.u8(tr.pads[k].ping_tail); w.u8(tr.pads[k].ping_region); ++written; }
+        w.end(at);
+    }
     for (unsigned n = 0; n < sample_slots; ++n) { // a sample's chop (roadmap P3): its region, type, amount and slices
         const auto& c = project.chops[n];
         if (!c.used() || !project.samples[n].used()) continue;
@@ -709,6 +721,15 @@ std::string load_project(const std::vector<uint8_t>& data, Project& target, Patt
             pad4[t] = true;
             unsigned used = r.u8();
             for (unsigned k = 0; k < used && r.ok; ++k) read_pad4(r, project->tracks[t].pads.data(), sampler_pads);
+        } else if (name == "PTAL") { // INDIGO X DENIM LAB: Sample Tail
+            unsigned t = r.u8(), count = r.u8();
+            for (unsigned k = 0; k < count && r.ok; ++k) {
+                unsigned pad = r.u8(), tail = r.u8(), region = r.u8();
+                if (t < track_count && pad < sampler_pads) {
+                    project->tracks[t].pads[pad].ping_tail = uint8_t(std::min(tail, 100u));
+                    project->tracks[t].pads[pad].ping_region = uint8_t(std::clamp(region, 5u, 250u));
+                }
+            }
         } else if (name == "CHOP") { // a sample's chop (roadmap P3); without it Chop cuts afresh
             unsigned n = r.u8();
             SampleChop c;

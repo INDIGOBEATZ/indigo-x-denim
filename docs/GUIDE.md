@@ -1334,6 +1334,47 @@ note is saved as a WAV file in Samples/Autosampled/<name>/, together with an .sf
 that maps them across the keys. **B3** again stops early and keeps what was already sampled.
 
 
+### Chop (v0.6.7)
+
+- A bank's pads play its own slices: on bank B, pad 1 is slice 17. Erase + pad works the same way.
+- Manual: pad 1 plays the region and every new pad you tap cuts it. Tapping the pad of a slice that is already cut
+  ends the take and plays that slice, so the pads never get stuck. At 16 slices the take ends by itself.
+- **TO PADS (B3)** first asks which bank the slices start on, then fills free pads from there. Every slice goes into
+  **mute group 3**, and all slices share the tempo of the whole region, so Warp plays them as one break.
+- TO PADS leaves the pattern empty. Settings > KNOBS > **Chop to pads: Pads + notes** also writes the notes.
+
+### Warp
+
+Turning Warp on (Seq) works out the tempo of that pad only, from its file name ("92 BPM"), else from the region it
+was chopped from, else from its length. Other pads keep theirs.
+
+### SEQ opens STEPS or ROLL
+
+Settings > PADS > **SEQ opens**: Last used (as before), STEPS or ROLL.
+
+### FADER: rows and lists
+
+- On ARRANGE the FADER sets how many lanes you see (1-16), and so does K2.
+- On a kit's Roll the FADER sets how many pad rows you see (1-16).
+- In the browser the FADER scrolls through the list.
+
+### COPY: swap pads, also between tracks
+
+Shift + Erase starts copying a pad. Pick the pad, then press **B2 (SWAP)** if the two pads should trade places.
+To copy or swap onto another kit, hold Pad Bank and tap that track's pad before you pick the destination pad.
+B1 stops copying.
+
+### Knob FX bypass on B3
+
+While Knob FX's bar shows on another page, **B3 is BYPASS** (lit while bypassed). Settings > KNOBS >
+**Knob FX on B3: Page's own** gives B3 back to the page.
+
+### USB outputs
+
+Over USB-C the MPC Sample is an 18-channel interface: 1-2 the main mix, 3-18 the sixteen tracks, each on its own
+channel, so a DAW records them all at once. Settings > AUDIO > **USB outputs: T1-12 + buses** puts tracks 1-12 on
+3-14 and bus A-D (submixes) on 15-18.
+
 ### ARRANGE (as MPC 3.10's Arrange mode)
 
 Open it from Song with **Shift + B1**, or press **Shift + Pad 12** again while on Song (once more goes back

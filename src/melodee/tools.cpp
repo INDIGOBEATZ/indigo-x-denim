@@ -2009,6 +2009,25 @@ const Preview previews[] {
          s.ui.page = PageId::Master; s.ui.fx_cursor[master_chain] = 1; s.playing = true;
          s.lufs_momentary = -11.8f; s.lufs_short = -13.2f; s.lufs_integrated = -13.9f;
      }},
+    {"masterref", [](Shell&, Snapshot& s) { // LAB: Reference A/B, B heard, its level matched
+         s.ui.page = PageId::Master; s.ui.fx_cursor[master_chain] = 1; s.playing = true;
+         s.lufs_momentary = -9.6f; s.lufs_short = -10.1f; s.lufs_integrated = -13.9f;
+         s.ref_loaded = true; s.ref_on = true; s.ref_lufs = -9.2f; s.ref_gain_db = -4.7f; s.ref_seconds = 42; s.ref_length = 201;
+         std::snprintf(s.ref_name.data(), s.ref_name.size(), "%s", "Ready Or Not");
+     }},
+    {"masterrefshift", [](Shell&, Snapshot& s) { // LAB: Shift on Master: MATCH, LOAD REF
+         s.ui.page = PageId::Master; s.ui.fx_cursor[master_chain] = 1; s.ui.shift = true;
+         s.ref_loaded = true; std::snprintf(s.ref_name.data(), s.ref_name.size(), "%s", "Ready Or Not");
+     }},
+    {"settingsshortcuts", [](Shell&, Snapshot& s) { // LAB: Settings > SHORTCUTS, Pad 5 set to Tuner, editing
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 7; s.ui.shortcut_cursor = 4; s.ui.settings_editing = true;
+         s.ui.settings.shortcuts[4] = 3; s.ui.settings.shortcuts[2] = 6; s.ui.settings.shortcuts[6] = 8;
+     }},
+    {"settingsdoors8", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_door = 7; }},
+    {"shiftcustom", [](Shell&, Snapshot& s) { // LAB: the Shift map with three custom shortcuts, in amber
+         s.ui.page = PageId::Stage; s.ui.track = 3; s.ui.shift = true; s.ui.shift_at = s.now - 2000;
+         s.ui.settings.shortcuts[4] = 3; s.ui.settings.shortcuts[2] = 6; s.ui.settings.shortcuts[6] = 8;
+     }},
     {"mixercompact", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.mixer_half = 2; }},
     {"history", [](Shell&, Snapshot& s) { // a moment after an undo: what a redo brings back above, the rest below
          s.ui.page = PageId::Stage; s.ui.track = 3;

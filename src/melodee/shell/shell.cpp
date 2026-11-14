@@ -26,6 +26,7 @@
 #include "melodee/shell/sample_mode.h"
 #include "melodee/shell/seq_layer.h"
 #include "melodee/shell/shift_pads.h"
+#include "melodee/shell/shortcuts.h"
 #include "surface/controls.h"
 #include <algorithm>
 #include <filesystem>
@@ -512,7 +513,7 @@ void Shell::hit(unsigned pad, uint8_t velocity, bool down) {
     case PadContext::LoopNow: ui_.shift_used = true; loop_grid_pad(context_, pad, true); return; // the loop grid: at once
     case PadContext::Shift: // the printed Shift + pad jobs, on every page but the browser (its next empty pad)
         ui_.shift_used = true;
-        if (!samples_shift_pad(context_)) shift_pad(context_, pad);
+        if (!samples_shift_pad(context_) && !run_shortcut(context_, pad)) shift_pad(context_, pad); // LAB: a custom shortcut first
         return;
     case PadContext::ResamplePick: context_.resample_pad(kit); return; // Resample (Shift + Pad 11): this pad gets the render
     case PadContext::PadErase: // stopped, the pad empty; playing or recording, its notes out of the pattern
@@ -730,6 +731,16 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
         const auto& loud = host.loudness();
         out.lufs_momentary = loud.momentary(); out.lufs_short = loud.short_term();
         if (page == PageId::Master) out.lufs_integrated = loud.integrated(); // its histogram summed: only where it shows
+    }
+    out.ref_loaded = host.ref_loaded.load(std::memory_order_relaxed); // LAB: Reference A/B
+    out.ref_on = out.ref_loaded && host.ref_on.load(std::memory_order_relaxed);
+    if (out.ref_loaded && ui_.page == PageId::Master) {
+        out.ref_seconds = host.ref_seconds.load(std::memory_order_relaxed); out.ref_length = host.ref_length.load(std::memory_order_relaxed);
+        out.ref_gain_db = float(20 * std::log10(std::max(1e-4f, host.ref_gain.load(std::memory_order_relaxed))));
+        if (library_) {
+            out.ref_lufs = library_->reference_lufs();
+            std::snprintf(out.ref_name.data(), out.ref_name.size(), "%s", library_->referenced().c_str());
+        }
     }
     // The voices of the track in view, placed where they are heard: the device frame heard now (the audio clock,
     // at the device's own rate, less what the PCM holds queued) against the frame the taps stand at.

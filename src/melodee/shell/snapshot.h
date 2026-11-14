@@ -57,6 +57,11 @@ struct Snapshot {
     // INDIGO X DENIM LAB: the tuner's pitch of the input (Hz, 0 none) and its level; Sub Lens's two tracks under 150 Hz,
     // oldest first, each point the window's slice of it.
     float tuner_hz = 0, tuner_level = 0;
+    // INDIGO X DENIM LAB: Reference A/B: its song (name, how long, where it is), whether it is heard, its loudness.
+    bool ref_loaded = false, ref_on = false;
+    uint32_t ref_seconds = 0, ref_length = 0;
+    float ref_lufs = -INFINITY, ref_gain_db = 0;
+    std::array<char, 40> ref_name {};
     static constexpr unsigned lens_points = 296;
     std::array<float, lens_points> lens_a {}, lens_b {};
     // INDIGO X DENIM LAB: the undo history around now (while ui.history_at is fresh): redo's next ones above, then

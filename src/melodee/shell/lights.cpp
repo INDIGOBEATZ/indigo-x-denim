@@ -70,6 +70,11 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         ui_.files_count = uint16_t(std::min<size_t>(library_->files().size(), 0xffff));
         if (ui_.page == PageId::Chop && !ui_.slices.count) context_.rechop();
     }
+    if (library_ && library_->references() != context_.reference_seen) { // LAB: Reference A/B's song came in (or not)
+        context_.reference_seen = library_->references();
+        std::string name = library_->referenced();
+        context_.notice(!name.empty() && name[0] == '!' ? "Reference: " + name.substr(1) : "Reference in: B3 A/B");
+    }
     context_.files_landed();  // Trim Sample, Extract, Save Sample, takes, Recall, Resample: done on the service thread
     context_.record_tick(now); // Input Config's route and monitor, settings kept, renders followed
     context_.browser_tick();  // the browser's listings and previews

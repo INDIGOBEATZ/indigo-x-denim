@@ -25,6 +25,9 @@
 #include "melodee/engine/effect_info.h"
 #include "melodee/engine/punch.h"
 #include "melodee/pages/common.h"
+#include "melodee/shell/project_store.h"
+#include "melodee/shell/shift_pad_jobs.h"
+#include "melodee/shell/shortcuts.h"
 #include "melodee/pages/pages.h"
 #include "melodee/ui/widgets.h"
 #include <algorithm>
@@ -40,7 +43,7 @@ using namespace ui;
 
 struct Door { Icon icon; const char* name; std::array<int8_t, 6> rows; };
 constexpr int8_t none = -1;
-const std::array<Door, 7> doors {{
+const std::array<Door, 8> doors {{
     {Icon::Pads, "PADS", {Settings::PadResponse, Settings::PadPressure, Settings::PadLights, Settings::DoubleSeq, Settings::CaptureBars,
                           Settings::CaptureQuantize}},
     {Icon::Knob, "KNOBS", {Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover, Settings::ShiftMapDelay, Settings::ChopNotes, Settings::PreviewTempo}},
@@ -50,8 +53,39 @@ const std::array<Door, 7> doors {{
                              Settings::SilenceBelow}},
     {Icon::Din, "MIDI", {none, none, none, none, none, none}},  // MIDI Config's own page
     {Icon::Info, "ABOUT", {none, none, none, none, none, none}}, // the About page
+    {Icon::Pads, "SHORTCUTS", {none, none, none, none, none, none}}, // INDIGO X DENIM LAB: Shift + pad, each its own job
 }};
-constexpr unsigned audio_door = 3, midi_door = 5, about_door = 6;
+constexpr unsigned audio_door = 3, midi_door = 5, about_door = 6, shortcuts_door = 7;
+bool in_shortcuts(const UiState& ui) { return ui.settings_in && ui.settings_door % doors.size() == shortcuts_door; }
+
+// LAB: SHORTCUTS: the sixteen Shift + pad jobs, each as printed or one of shell/shortcuts.h's; six rows in view.
+void shortcuts_draw(Paint& p, const Snapshot& s) {
+    Header h = header_of(s);
+    h.left.push_back(chip(Icon::Pads, "SHORTCUTS", colour::text));
+    h.right.push_back(pill("SHIFT + PAD"));
+    frame(p, s, {{"BACK", "", "PRINTED"}, -1, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}, h);
+    float x = zone::pad, w = zone::width - 2 * zone::pad;
+    unsigned cursor = s.ui.shortcut_cursor % 16, first = std::min(cursor >= 3 ? cursor - 2 : 0u, 10u);
+    for (unsigned k = 0; k < 6; ++k) {
+        unsigned pad = first + k;
+        float y = zone::picture_y + 1 + k * (list_row_h + list_row_gap);
+        bool here = pad == cursor, editing = here && s.ui.settings_editing;
+        unsigned id = s.ui.settings.shortcuts[pad] % shortcut_count;
+        if (here) { p.fill(x, y, w, list_row_h, colour::raised, 3); p.fill(x, y, 2.5f, list_row_h, colour::text, 1); }
+        p.text("PAD " + juce::String(pad + 1), x + 10, y, 64, list_row_h, plain(here ? colour::text : colour::sec, type::list, here ? Weight::Medium : Weight::Regular));
+        juce::String value = id ? juce::String(shortcut_name(id)) : juce::String(shift_pad_job(pad).name);
+        auto style = plain(id ? colour::amber : here ? colour::text : colour::mid, type::body, Weight::Medium);
+        float vw = p.width(value, style), vx = x + w - 9 - vw;
+        if (editing) { p.fill(vx - 6, y + 3, vw + 12, list_row_h - 6, colour::surf, 3); p.ring(vx - 6, y + 3, vw + 12, list_row_h - 6, colour::text, 3, 1); }
+        p.text(value, vx, y, vw + 1, list_row_h, style);
+    }
+    page_dots(p, zone::width - 3, zone::picture_y + 70, 16, int(cursor), colour::text, true);
+}
+void shortcut_step(Context& c, int way) {
+    auto& v = c.ui.settings.shortcuts[c.ui.shortcut_cursor % 16];
+    v = uint8_t((int(v) + way + int(shortcut_count)) % int(shortcut_count));
+    if (c.store) c.store->save_settings(c.ui.settings.text());
+}
 void trouble(Paint& p, float right, float cy, unsigned count);
 unsigned door_rows(const Door& d) { unsigned n = 0; while (n < d.rows.size() && d.rows[n] >= 0) ++n; return n; }
 const Door& door_of(const UiState& ui) { return doors[ui.settings_door % doors.size()]; }
@@ -131,7 +165,8 @@ void rows_draw(Paint& p, const Snapshot& s) {
 }
 
 void settings_draw(Paint& p, const Snapshot& s) {
-    if (s.ui.settings_in && door_rows(door_of(s.ui))) rows_draw(p, s);
+    if (in_shortcuts(s.ui)) shortcuts_draw(p, s);
+    else if (s.ui.settings_in && door_rows(door_of(s.ui))) rows_draw(p, s);
     else doors_draw(p, s);
 }
 
@@ -142,12 +177,18 @@ void open_door(Context& c) {
     if (n == midi_door) { ui.midi_editing = false; c.open(PageId::MidiConfig); return; }
     if (n == about_door) { ui.about_view = 0; c.open(PageId::About); return; }
     ui.settings_in = true;
+    if (n == shortcuts_door) { ui.shortcut_cursor = 0; return; }
     ui.settings_cursor = uint8_t(doors[n].rows[0]);
 }
 
 void settings_wheel(Context& c, int delta) {
     auto& ui = c.ui;
     if (!ui.settings_in) { ui.settings_door = uint8_t(std::clamp(int(ui.settings_door % doors.size()) + delta, 0, int(doors.size()) - 1)); return; }
+    if (in_shortcuts(ui)) {
+        if (ui.settings_editing) shortcut_step(c, delta > 0 ? 1 : -1);
+        else ui.shortcut_cursor = uint8_t(std::clamp(int(ui.shortcut_cursor % 16) + delta, 0, 15));
+        return;
+    }
     if (ui.settings_editing) { c.change_setting(ui.settings_cursor, delta > 0 ? 1 : -1); return; }
     const auto& d = door_of(ui);
     unsigned at = unsigned(std::clamp(int(place_of(ui)) + delta, 0, int(door_rows(d)) - 1));
@@ -159,10 +200,12 @@ void settings_push(Context& c) {
 }
 void settings_nudge(Context& c, int way) {
     if (!c.ui.settings_in) { settings_wheel(c, way); return; }
+    if (in_shortcuts(c.ui)) { shortcut_step(c, way); return; }
     c.change_setting(c.ui.settings_cursor, way);
 }
 void settings_soft(Context& c, int key) {
     auto& ui = c.ui;
+    if (in_shortcuts(ui) && key == 2) { ui.settings.shortcuts[ui.shortcut_cursor % 16] = 0; if (c.store) c.store->save_settings(ui.settings.text()); return; } // LAB: back as printed
     if (ui.settings_in) { if (key == 0) { ui.settings_in = false; ui.settings_editing = false; } return; }
     if (key == 0) c.back();
     if (key == 2) open_door(c);

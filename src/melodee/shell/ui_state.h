@@ -212,6 +212,8 @@ struct UiState {
     // INDIGO X DENIM LAB: Song's ERASE wizard (Erase on empty time or with the marquee up): its row, which bars
     // (0 marquee, 1 loop, 2 cursor to the end, 3 whole song), which lanes (0 this track, 1 the marquee's, 2 all) and
     // what (0 clips, 1 muted clips, 2 markers, 3 everything).
+    uint8_t shortcut_cursor = 0; // INDIGO X DENIM LAB: Settings > SHORTCUTS: the pad in hand
+    bool ref_pick = false; // INDIGO X DENIM LAB: Samples' Push picks Reference A/B's song
     bool song_wipe = false;
     uint8_t wipe_row = 0, wipe_range = 3, wipe_lanes = 0, wipe_what = 0;
     uint8_t song_marq = 0, marq_t0 = 0, marq_t1 = 0;

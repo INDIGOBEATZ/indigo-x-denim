@@ -222,6 +222,11 @@ public:
     const ScopeRing& master_scope() const { return master_ring; }
     const ScopeRing& track_scope() const { return track_ring; }
     const Loudness& loudness() const { return loudness_meter; }
+    // INDIGO X DENIM LAB, any thread: Reference A/B: heard instead of the mix (ref_on), its level, whether one is in,
+    // how far it has played and how long it is (seconds).
+    std::atomic<bool> ref_on {false}, ref_loaded {false};
+    std::atomic<float> ref_gain {1.0f};
+    std::atomic<uint32_t> ref_seconds {0}, ref_length {0};
     // INDIGO X DENIM LAB: the input as it is recorded (the tuner), and two tracks after their effects (Sub Lens, A and
     // B; -1 none), each fed silence while it makes none.
     const ScopeRing& input_scope() const { return input_ring; }
@@ -820,6 +825,12 @@ private:
     Loudness loudness_meter;
     float loudness_rate = 0;
     bool loudness_was_running = false;
+    // INDIGO X DENIM LAB: Reference A/B: a finished song heard instead of the mix (ref_on), from its start as the
+    // transport starts, at ref_gain; ref_sample handed over as an offer to reference_slot.
+    const SampleData* ref_sample = nullptr;
+    uint64_t ref_pos = 0;
+    Ease ref_mix;
+    bool ref_was_running = false;
     uint64_t bounce_pad_left = 0; // INDIGO X DENIM LAB: Flatten Pad's frames still to take (0: not flattening)
     std::atomic<int> tap_track {-1};
     TapBoard tap_board;

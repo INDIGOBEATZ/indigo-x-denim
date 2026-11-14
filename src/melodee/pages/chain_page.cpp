@@ -166,6 +166,15 @@ void draw(Paint& p, const Snapshot& s) {
     } else {
         ends(bus_name(bus), "MASTER", "");
         h.right.push_back(label("MASTER", colour::mid));
+        // LAB: Reference A/B on B3 (A your mix, B the reference); Shift: B2 match its level, B3 pick its song.
+        if (s.ui.shift) { keys.labels = {"", s.ref_loaded ? "MATCH" : "", "LOAD REF"}; keys.glyphs = {}; keys.after = {}; keys.active = -1; }
+        else keys.labels[2] = s.ref_loaded ? (s.ref_on ? "B: REF" : "A: MIX") : "";
+        if (s.ref_loaded) {
+            juce::String name = juce::String::fromUTF8(s.ref_name.data());
+            if (name.startsWith("!")) name = "REF FAILED";
+            h.left.push_back(pill((s.ref_on ? "B " : "A ") + name.toUpperCase().substring(0, 14), s.ref_on ? colour::amber : colour::text));
+            if (s.ref_on && std::isfinite(s.ref_lufs)) h.left.push_back(pill(juce::String(s.ref_lufs + s.ref_gain_db, 1) + " LUFS"));
+        }
     }
     if (s.ui.sheet_open && cursor < count) { // the device's sheet: BACK, MORE, BYPASS; on the list BACK, -, DO IT
         keys = s.ui.sheet_more ? SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}}
@@ -314,6 +323,11 @@ void soft(Context& c, int key) {
     PageId before = ui.page == PageId::PadFx ? PageId::PadFx : ui.page == PageId::Rack ? (kit ? PageId::PadFx : PageId::Rack)
                   : ui.page == PageId::Bus ? PageId::Sends : PageId::Bus;
     PageId after = ui.page == PageId::PadFx ? PageId::Rack : ui.page == PageId::Rack ? PageId::Sends : PageId::Master;
+    if (ui.page == PageId::Master && key == 2) { // LAB: Reference A/B
+        if (ui.shift) { ui.shift_used = true; c.reference_pick(); } else c.reference_toggle();
+        return;
+    }
+    if (ui.page == PageId::Master && key == 1 && ui.shift) { ui.shift_used = true; c.reference_match(); return; }
     if (key == 0 && before != ui.page) c.open(before);
     if (key == 2 && after != ui.page) c.open(after);
 }

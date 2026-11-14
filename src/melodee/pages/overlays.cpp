@@ -11,6 +11,7 @@
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/seq_layer.h"
 #include "melodee/shell/shift_pad_jobs.h"
+#include "melodee/shell/shortcuts.h"
 #include "melodee/ui/widgets.h"
 #include <cstring>
 
@@ -53,13 +54,14 @@ void draw_shift_pads(Paint& p, const Snapshot& s) {
         unsigned col = pad % 4, row = 3 - pad / 4; // pad 1 bottom left
         float x = x0 + col * (cw + gap), y = top + row * (ch + gap);
         const auto& job = shift_pad_job(pad);
-        unsigned level = shift_pad_level(s.ui, pad);
-        bool on = shift_pad_on(s.ui, pad);
+        unsigned custom = s.ui.settings.shortcuts[pad] % shortcut_count; // LAB: a custom shortcut, in amber
+        unsigned level = custom ? 1 : shift_pad_level(s.ui, pad);
+        bool on = !custom && shift_pad_on(s.ui, pad);
         p.fill(x, y, cw, ch, on ? accent.withAlpha(0.28f) : colour::raised, 4);
         if (on) p.ring(x, y, cw, ch, accent, 4, 1);
-        auto ink = level == 0 ? colour::dim : on ? colour::text : colour::sec;
+        auto ink = custom ? colour::amber : level == 0 ? colour::dim : on ? colour::text : colour::sec;
         auto style = plain(ink, type::floor, Weight::Medium);
-        auto lines = p.wrap(juce::String(job.name), style, cw - 6, 2);
+        auto lines = p.wrap(juce::String(custom ? shortcut_name(custom) : job.name), style, cw - 6, 2);
         float lh = style.size + 1, ty = y + (ch - lh * lines.size()) / 2;
         for (const auto& line : lines) { p.text(line, x + 3, ty, cw - 6, lh, style, juce::Justification::centred); ty += lh; }
     }

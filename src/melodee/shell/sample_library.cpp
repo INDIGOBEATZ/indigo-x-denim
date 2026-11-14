@@ -6,6 +6,7 @@
 #include "melodee/shell/chop.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/sample_decode.h"
+#include "melodee/engine/listen.h"
 #include <juce_graphics/juce_graphics.h>
 #include "drivers/mixer.h"
 #include "drivers/platform.h"
@@ -256,6 +257,19 @@ void SampleLibrary::browse_up() {
     std::lock_guard<std::mutex> guard(lock);
     wanted.pending = true; wanted.up = true;
 }
+void SampleLibrary::reference(const std::string& path) {
+    std::lock_guard<std::mutex> guard(lock);
+    ref_wanted = path; ref_pending = true;
+}
+float SampleLibrary::reference_lufs() const {
+    std::lock_guard<std::mutex> guard(lock);
+    return ref_lufs;
+}
+std::string SampleLibrary::referenced() const {
+    std::lock_guard<std::mutex> guard(lock);
+    return ref_name;
+}
+
 void SampleLibrary::preview(const std::string& path) {
     std::lock_guard<std::mutex> guard(lock);
     preview_wanted = path; preview_pending = true;
@@ -393,6 +407,34 @@ void SampleLibrary::service(Hardware& hardware) {
         bool pending = false;
         { std::lock_guard<std::mutex> guard(lock); std::swap(pending, preview_pending); heard = preview_wanted; }
         if (pending && !heard.empty()) hear(heard);
+        // LAB: Reference A/B's song: its 44.1 kHz frames only (no copy at the device's rate: the engine reads
+        // between them), up to six minutes.
+        std::string ref;
+        bool ref_now = false;
+        { std::lock_guard<std::mutex> guard(lock); std::swap(ref_now, ref_pending); ref = ref_wanted; }
+        if (ref_now && !ref.empty()) {
+            auto data = std::make_unique<SampleData>();
+            std::string error = read_audio(ref, *data, 360, nullptr, 0);
+            float lufs = -INFINITY;
+            if (error.empty() && data->frames) { // its loudness, so A/B can match it to the mix
+                auto meter = std::make_unique<Loudness>();
+                meter->prepare(dsp::model_rate);
+                const float* r = data->right.empty() ? data->left.data() : data->right.data();
+                for (uint32_t at = 0; at < data->frames; at += 4096)
+                    meter->process(data->left.data() + at, r + at, std::min<uint32_t>(4096, data->frames - at));
+                lufs = meter->integrated();
+            }
+            if (error.empty() && data->frames && host.offer_sample(reference_slot, data.get())) {
+                owned.push_back(std::move(data));
+                std::lock_guard<std::mutex> guard(lock);
+                ref_name = fs::path(ref).stem().string();
+                ref_lufs = lufs;
+            } else {
+                std::lock_guard<std::mutex> guard(lock);
+                ref_name = "!" + (error.empty() ? std::string("No sound") : error);
+            }
+            ref_count.fetch_add(1, std::memory_order_release);
+        }
     }
     // The card's Samples folder: $MELODEE_SAMPLES, else the first card's, looked for every few seconds. A card
     // without one is still a card: what Melodee writes makes the folder, and browsing starts at the card's top.

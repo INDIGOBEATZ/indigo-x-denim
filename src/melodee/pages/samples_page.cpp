@@ -108,6 +108,7 @@ void draw(Paint& p, const Snapshot& s) {
     auto drive_chip = drive == Drive::Favourites ? chip(Icon::Star, "FAVS", c) : chip(drive_name(drive), c);
     drive_chip.spare = true; // a long folder name keeps its room: B2 names the other drive
     h.left.push_back(drive_chip);
+    if (s.ui.ref_pick) h.left.push_back(pill("PICK REFERENCE", colour::amber)); // LAB
     h.left.push_back(pill(folder_title(s) + juce::String::fromUTF8(" \xc2\xb7 ") + juce::String(s.files.size()), c));
     h.right.push_back(tag_of(s, s.ui.track));
     juce::String other = drive_name(Drive((unsigned(drive) + 1) % unsigned(Drive::Count)));
@@ -180,6 +181,7 @@ void push(Context& c) {
     if (c.ui.files_cursor >= files.size()) return;
     const auto& file = files[c.ui.files_cursor];
     if (file.folder) c.library->browse(Drive(c.ui.files_drive), file.path);
+    else if (c.ui.ref_pick) { if (!file.bank && !file.kit && !file.expansion && !file.midi) c.reference_load(file.path); } // LAB: Reference A/B's song
     else if (file.bank) c.load_bank_file(file.path, file.name);
     else if (file.kit) c.load_kit_file(file.path, file.name);
     else if (file.expansion) c.library->install(file.path);

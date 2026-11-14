@@ -2247,6 +2247,14 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     // preview, played as soon as it is in) must find the new one, not be cut by it.
     Offer offer;
     while (offers.pop(offer)) {
+        if (offer.slot == reference_slot) { // LAB: Reference A/B's song
+            const SampleData* old = ref_sample;
+            ref_sample = offer.sample; ref_pos = 0;
+            ref_loaded.store(ref_sample != nullptr, std::memory_order_relaxed);
+            ref_length.store(ref_sample ? uint32_t(ref_sample->frames / dsp::model_rate) : 0, std::memory_order_relaxed);
+            if (old && !retired.push(old)) ref_sample = old;
+            continue;
+        }
         if (offer.slot > preview_slot) continue;
         for (auto& slot : slots) slot.sampler.sample_gone(offer.slot); // nothing may play the old one past here
         const SampleData* old = samples[offer.slot];
@@ -2669,6 +2677,42 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     if (park_fading && stems)
         for (unsigned t = 0; t < track_count; ++t)
             for (unsigned f = 0; f < frames; ++f) stems[size_t(t) * block + f] *= park_gain.at(f);
+    // INDIGO X DENIM LAB: Reference A/B: the reference song instead of the mix, eased across (after a bounce took the
+    // mix, before the meters: the loudness and spectrum read what is heard). It starts from its top as the transport
+    // starts and runs while it runs.
+    if (running && !ref_was_running) ref_pos = 0;
+    ref_was_running = running;
+    ref_mix.aim(ref_on.load(std::memory_order_relaxed) && ref_sample ? 1.0f : 0.0f, frames, snap_mix);
+    if (ref_sample && !ref_mix.silent()) {
+        const auto* r = ref_sample;
+        const float rate = dsp::sample_rate(), gain = ref_gain.load(std::memory_order_relaxed);
+        const bool own = r->plays_at(rate);
+        const double step = own ? 1.0 : double(dsp::model_rate) / rate;
+        const uint32_t length = own ? r->play_frames : r->frames;
+        for (unsigned f = 0; f < frames; ++f) {
+            float g = ref_mix.at(f), rl = 0, rr = 0;
+            if (running) {
+                if (own) {
+                    uint64_t at = ref_pos + f;
+                    if (at < length) { rl = r->play_left[at]; rr = r->play_right.empty() ? rl : r->play_right[at]; }
+                } else { // its 44.1 kHz frames, read between (linear: a reference, not a sound to keep)
+                    double where = double(ref_pos + f) * step;
+                    uint64_t at = uint64_t(where);
+                    if (at + 1 < length) {
+                        float k = float(where - double(at));
+                        rl = r->left[at] + (r->left[at + 1] - r->left[at]) * k;
+                        rr = r->right.empty() ? rl : r->right[at] + (r->right[at + 1] - r->right[at]) * k;
+                    }
+                }
+            }
+            master_l[f] = master_l[f] * (1 - g) + rl * gain * g;
+            master_r[f] = master_r[f] * (1 - g) + rr * gain * g;
+        }
+    }
+    if (running && ref_sample) {
+        ref_pos += frames;
+        ref_seconds.store(uint32_t(double(ref_pos) / dsp::sample_rate()), std::memory_order_relaxed);
+    }
     // INDIGO X DENIM LAB: the master's loudness and spectrum (before the click and the volume), and the track's
     // spectrum fed silence when it made none.
     if (loudness_rate != dsp::sample_rate()) { loudness_meter.prepare(dsp::sample_rate()); loudness_rate = dsp::sample_rate(); }

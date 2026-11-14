@@ -138,6 +138,12 @@ public:
     // INDIGO X DENIM, MIDI thread: a slot whose file was found elsewhere (shell/sample_finder.h): the path the project
     // named and the one it plays from now, once.
     bool take_healed(unsigned slot, std::string& from, std::string& to);
+    // INDIGO X DENIM LAB, MIDI thread: a finished song to compare the mix with (Reference A/B; reference_slot), read
+    // on the service thread (at most six minutes); referenced() its name once in, ref_failed() what went wrong.
+    void reference(const std::string& path);
+    std::string referenced() const;
+    float reference_lufs() const; // its integrated loudness, read as it came in (-inf: silence)
+    unsigned references() const { return ref_count.load(std::memory_order_acquire); }
     // MIDI thread: a file to hear (preview_slot), empty for none; ready()
     // counts the previews that arrived, so the MIDI thread knows when to play one.
     void preview(const std::string& path);
@@ -328,6 +334,8 @@ private:
     // Under `lock`: what the MIDI thread asked of the browser.
     struct Wanted { bool pending = false, up = false; Drive drive = Drive::Card; std::string folder; } wanted;
     std::string preview_wanted, preview_heard; // under `lock`
+    std::string ref_wanted, ref_name; bool ref_pending = false; float ref_lufs = -INFINITY; // LAB, under `lock`
+    std::atomic<unsigned> ref_count {0};
     // INDIGO X DENIM: the favourites (path, name) in the order starred, the service thread's own; the stars asked for,
     // under `lock`.
     std::vector<std::pair<std::string, std::string>> stars, stars_wanted;

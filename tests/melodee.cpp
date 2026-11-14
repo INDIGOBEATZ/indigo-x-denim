@@ -6791,7 +6791,7 @@ static void song_buttons() {
     UiState ui; ui.page = PageId::Song; ui.track = 2;
     auto job = [&](B b) { return button_has_job(*project, ui, b, false, false); };
     ui.song_cursor = 0; // empty time
-    CHECK(!job(B::Chop) && !job(B::Erase) && !job(B::NoteRepeat) && job(B::Loop));
+    CHECK(!job(B::Chop) && job(B::Erase) && !job(B::NoteRepeat) && job(B::Loop)); // LAB: Erase on empty time opens the ERASE wizard
     ui.song_cursor = 4; // the clip's first bar: nothing to split off
     CHECK(!job(B::Chop) && job(B::Erase) && !job(B::NoteRepeat));
     ui.song_cursor = 6;

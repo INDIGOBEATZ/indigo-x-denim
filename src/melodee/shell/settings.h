@@ -66,6 +66,9 @@ struct Settings {
     bool system_bar = false;
     uint8_t flatten_tail = 10;    // INDIGO X DENIM LAB: Flatten Pad's tail after the sound, tenths of a second (0..100)
     bool preview_tempo = false;   // INDIGO X DENIM LAB: the browser's preview at the project's tempo, its own read from its name ("92 BPM")
+    // INDIGO X DENIM LAB: Settings > SHORTCUTS: what each Shift + pad does instead of the printed job (0: as printed;
+    // shell/shortcuts.h names the rest).
+    std::array<uint8_t, 16> shortcuts {};
     bool chop_notes = true;       // INDIGO X DENIM LAB: Chop's TO PADS also writes the slices as notes, played in order (SXL's Extract with events)
     uint8_t shift_map_delay = 2;  // INDIGO X DENIM LAB: the Shift pads' map after Shift is held: 0 off, 1 at once, 2 0.65 s, 3 1 s, 4 2 s, 5 3 s
     uint32_t shift_map_ms() const { static const uint32_t ms[] {0, 0, 650, 1000, 2000, 3000}; return ms[shift_map_delay % 6]; }
@@ -246,7 +249,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
-            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nlevel_leds=" << int(level_leds) << "\npreview_level=" << int(preview_level) << "\nsystem_bar=" << int(system_bar) << "\nflatten_tail=" << int(flatten_tail) << "\nshift_map_delay=" << int(shift_map_delay) << "\nchop_notes=" << int(chop_notes) << "\npreview_tempo=" << int(preview_tempo) << "\nstart_folder=" << start_folder_text() << "\nproject_folder=" << project_folder_text() << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
+            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nlevel_leds=" << int(level_leds) << "\npreview_level=" << int(preview_level) << "\nsystem_bar=" << int(system_bar) << "\nflatten_tail=" << int(flatten_tail) << "\nshift_map_delay=" << int(shift_map_delay) << "\nchop_notes=" << int(chop_notes) << "\nshortcuts=" << shortcuts_text() << "\npreview_tempo=" << int(preview_tempo) << "\nstart_folder=" << start_folder_text() << "\nproject_folder=" << project_folder_text() << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nthreshold=" << int(input.threshold)
@@ -266,6 +269,16 @@ struct Settings {
             out << '\n';
         }
         return out.str();
+    }
+    std::string shortcuts_text() const {
+        std::string out;
+        for (unsigned n = 0; n < shortcuts.size(); ++n) out += (n ? "," : "") + std::to_string(int(shortcuts[n]));
+        return out;
+    }
+    void read_shortcuts(const std::string& text) {
+        std::istringstream in(text);
+        std::string part;
+        for (unsigned n = 0; n < shortcuts.size() && std::getline(in, part, ','); ++n) shortcuts[n] = uint8_t(std::clamp(std::atoi(part.c_str()), 0, 63));
     }
     void read(const std::string& text) {
         std::istringstream in(text);
@@ -301,6 +314,7 @@ struct Settings {
             else if (key == "flatten_tail") flatten_tail = uint8_t(std::clamp(value, 0, 100));
             else if (key == "preview_tempo") preview_tempo = value != 0;
             else if (key == "chop_notes") chop_notes = value != 0;
+            else if (key == "shortcuts") read_shortcuts(line.substr(eq + 1));
             else if (key == "shift_map_delay") shift_map_delay = uint8_t(std::clamp(value, 0, 5));
             else if (key == "level_leds") level_leds = value == 1 ? 1 : 0; // 2 and 3 (the bank lights, taken out): on
             else if (key == "start_folder") set_start_folder(line.substr(eq + 1));

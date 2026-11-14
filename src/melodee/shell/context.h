@@ -305,6 +305,13 @@ public:
     void find_samples();              // INDIGO X DENIM: the missing ones looked for afresh (Shift + OPEN on Project)
     std::string save_folder() const;  // INDIGO X DENIM: where a new project goes
     // INDIGO X DENIM LAB: Song's marquee copy: the clips, their bars from the copy's start and lanes from its first lane.
+    // INDIGO X DENIM LAB, Reference A/B (Master: B3 A/B, Shift + B3 the browser to pick its song, Shift + B2 its
+    // level matched to the mix's loudness). shell/reference.cpp.
+    void reference_pick();
+    void reference_load(const std::string& path);
+    void reference_toggle();
+    void reference_match();
+    unsigned reference_seen = 0;
     std::vector<Event> note_board; // LAB: Roll's copied notes, ticks from the first
     std::vector<Clip> song_board;
     uint16_t song_board_bars = 0;

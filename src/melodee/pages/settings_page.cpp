@@ -62,7 +62,7 @@ bool in_shortcuts(const UiState& ui) { return ui.settings_in && ui.settings_door
 void shortcuts_draw(Paint& p, const Snapshot& s) {
     Header h = header_of(s);
     h.left.push_back(chip(Icon::Pads, "SHORTCUTS", colour::text));
-    h.right.push_back(pill("SHIFT + PAD"));
+    h.right.push_back(pill("PAD " + juce::String(s.ui.shortcut_cursor % 16 + 1) + " / 16"));
     frame(p, s, {{"BACK", "", "PRINTED"}, -1, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}, h);
     float x = zone::pad, w = zone::width - 2 * zone::pad;
     unsigned cursor = s.ui.shortcut_cursor % 16, first = std::min(cursor >= 3 ? cursor - 2 : 0u, 10u);
@@ -79,7 +79,6 @@ void shortcuts_draw(Paint& p, const Snapshot& s) {
         if (editing) { p.fill(vx - 6, y + 3, vw + 12, list_row_h - 6, colour::surf, 3); p.ring(vx - 6, y + 3, vw + 12, list_row_h - 6, colour::text, 3, 1); }
         p.text(value, vx, y, vw + 1, list_row_h, style);
     }
-    page_dots(p, zone::width - 3, zone::picture_y + 70, 16, int(cursor), colour::text, true);
 }
 void shortcut_step(Context& c, int way) {
     auto& v = c.ui.settings.shortcuts[c.ui.shortcut_cursor % 16];

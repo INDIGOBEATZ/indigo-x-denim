@@ -137,7 +137,7 @@ def main():
     files = collect(Path(arguments.binary), arguments.version, commit)
     for name, data in files.items():
         scan(name, data)
-    output = ROOT / "dist" / f"INDIGO-X-DENIM-MPC-Sample-{arguments.version}.zip"
+    output = ROOT / "dist" / f"INDIGO-X-DENIM-LAB-MPC-Sample-{arguments.version}.zip"
     write_zip(files, output, int(git("log", "-1", "--format=%ct")))
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_name(output.name + ".sha256").write_text(f"{digest}  {output.name}\n")

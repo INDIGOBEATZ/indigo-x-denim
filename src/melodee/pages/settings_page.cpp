@@ -239,7 +239,8 @@ void credits_draw(Paint& p) {
     float x = zone::pad + 6, w = zone::width - 2 * zone::pad - 12, y = zone::picture_y + 4;
     // INDIGO X DENIM: its name, INDIGO in the brand's magenta, and where it comes from (Melodee, by Kerem Kilic).
     float iw = p.text("INDIGO", x, y, w, 30, plain(colour::brand_gradient ? colour::brand_b : colour::text, 26, Weight::Bold));
-    p.text(" X DENIM", x + iw, y, w - iw, 30, plain(colour::text, 26, Weight::Bold));
+    float dw = p.text(" X DENIM", x + iw, y, w - iw, 30, plain(colour::text, 26, Weight::Bold));
+    p.text(" LAB", x + iw + dw, y, w - iw - dw, 30, plain(colour::brand_b, 26, Weight::Bold)); // INDIGO X DENIM LAB: the line to try things on
     juce::String version = juce::String("Version ") + MELODEE_VERSION;
     p.text(version, x, y + 30, w, 14, p.fit(version, plain(colour::sec, type::small), w, type::floor));
     unsigned effects = effect_count(); // as the effect picker counts them: not None, not the plug-in slot

@@ -1,3 +1,6 @@
+> **INDIGO X DENIM LAB** — this `lab` branch is the line for trying things out. The original INDIGO X DENIM
+> continues on `main` (its v0.5.4 is kept as the branch `original-v0.5.4`). LAB builds land on `builds-lab`.
+
 <h1 align="center"><img src="docs/images/melodee-wordmark.png" alt="Melodee" width="404"></h1>
 
 <p align="center">A 16-track groovebox for the Akai MPC Sample</p>

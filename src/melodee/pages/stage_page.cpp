@@ -414,9 +414,18 @@ void chord_picture(Paint& p, const Snapshot& s) {
 // drawn (pages/fx_drawing.cpp, as FX Select draws it). An empty chain: Push and a plus.
 void fx_picture(Paint& p, const Snapshot& s) {
     const auto& t = s.track();
-    unsigned slot = s.ui.fx_cursor[UiState::cursor_of(s.ui.track)];
-    fx_strip(p, t.fx, std::min<unsigned>(slot, t.fx.count()), colour_of(s), top + 6);
-    fx_in_hand(p, s, t.fx, t.fx.count() ? std::min<unsigned>(slot, t.fx.count() - 1) : 0, colour_of(s), top + 54, bottom - 4);
+    // LAB: on a kit's PAD FX, the last pad's chain; else the track's.
+    const bool pad = stage_page_now(s.ui, t).kind == StageKind::PadFx && t.engine == EngineKind::Sampler;
+    const unsigned chain = pad ? pad_chain(s.ui.track % track_count, t.last_pad % sampler_pads) : s.ui.track % track_count;
+    const auto& fx = s.project.chain(chain);
+    unsigned slot = s.ui.fx_cursor[UiState::cursor_of(chain)];
+    fx_strip(p, fx, std::min<unsigned>(slot, fx.count()), colour_of(s), top + 6);
+    if (slot >= fx.count()) { // the "+" in hand: Push picks an effect (LAB)
+        juce::String hint = fx.count() >= fx.size ? juce::String("CHAIN FULL") : juce::String("PUSH: ADD AN EFFECT");
+        p.text(hint, px, top + 70, pw, 16, caps_text(colour::mid), juce::Justification::centred);
+        return;
+    }
+    fx_in_hand(p, s, fx, fx.count() ? std::min<unsigned>(slot, fx.count() - 1) : 0, colour_of(s), top + 54, bottom - 4);
 }
 
 juce::String seconds(uint32_t frames) {
@@ -850,6 +859,8 @@ void draw(Paint& p, const Snapshot& s) {
         if (page.kind == StageKind::Cloud) h.left.push_back(cloud_pill(s));
         if (page.kind == StageKind::Follow) h.left.push_back(follow_pill(s));
         if (page.kind == StageKind::Layers) h.left.push_back(layers_pill(s));
+    } else if (page.kind == StageKind::PadFx) { // LAB: the pad whose effects these are
+        h.left.push_back(kit_pill(s));
     } else if (page.kind == StageKind::Arp || page.kind == StageKind::Chord) { // on or off, as the LED on the MPC would say
         bool on = page.kind == StageKind::Arp ? t.arp : t.chord;
         h.left.push_back(pill(on ? Icon::Check : Icon::None, on ? "ON" : "OFF", on ? c : colour::mid));
@@ -938,16 +949,34 @@ void push(Context& c) {
     const auto& page = stage_page_now(c.ui, t);
     if (!t.used()) { stage_go(c.ui, unsigned(stage_focus(c.ui, t)), 0); c.stage_new(); return; } // the door of the pot touched last
     if (page.kind == StageKind::Preset) { c.stage_tick(UINT32_MAX); c.open(PageId::Sounds); return; }
-    if (page.kind == StageKind::Fx && !t.fx.count()) { // nothing yet: the picker on the track's chain, to add the first
-        c.ui.fx_loop = -1;
-        c.open(PageId::Rack);
-        c.ui.fx_cursor[UiState::cursor_of(c.ui.track)] = 0;
-        c.ui.picker_open = true; c.ui.picker_items = false; c.ui.picker_replaces = false;
+    if (page.kind == StageKind::Fx) { // the next effect of the track's chain, then "+": the picker to add one (LAB)
+        auto& slot = c.ui.fx_cursor[UiState::cursor_of(c.ui.track)];
+        if (slot >= t.fx.count()) {
+            if (t.fx.count() >= t.fx.size) { c.notice("Chain full"); slot = 0; return; }
+            c.ui.fx_loop = -1;
+            c.open(PageId::Rack);
+            c.ui.fx_cursor[UiState::cursor_of(c.ui.track)] = uint8_t(t.fx.count());
+            c.ui.picker_open = true; c.ui.picker_items = false; c.ui.picker_replaces = false;
+            c.ui.picker_from_stage = true; // chosen or cancelled: back here
+            return;
+        }
+        slot = uint8_t(slot + 1);
         return;
     }
-    if (page.kind == StageKind::Fx && t.fx.count()) { // the next effect of the chain
-        auto& slot = c.ui.fx_cursor[UiState::cursor_of(c.ui.track)];
-        slot = uint8_t((slot + 1) % t.fx.count());
+    if (page.kind == StageKind::PadFx && t.engine == EngineKind::Sampler) { // LAB: the next effect, then "+" (add one)
+        if (!t.pads[t.last_pad % sampler_pads].used()) { c.notice("Empty pad"); return; }
+        unsigned chain = pad_chain(c.ui.track % track_count, t.last_pad % sampler_pads);
+        const auto& fx = c.project.chain(chain);
+        auto& slot = c.ui.fx_cursor[UiState::cursor_of(chain)];
+        if (slot >= fx.count()) { // on "+": the picker, on this pad's chain
+            if (fx.count() >= fx.size) { c.notice("Pad chain full"); slot = 0; return; }
+            c.open(PageId::PadFx);
+            c.ui.fx_cursor[UiState::cursor_of(chain)] = uint8_t(fx.count());
+            c.ui.picker_open = true; c.ui.picker_items = false; c.ui.picker_replaces = false;
+            c.ui.picker_from_stage = true; // chosen or cancelled: back to PAD FX here
+            return;
+        }
+        slot = uint8_t(slot + 1); // up to count: the "+"
         return;
     }
     if (t.engine == EngineKind::Plugin) { c.open(PageId::Edit); return; } // its own values, without Sample to Keys first

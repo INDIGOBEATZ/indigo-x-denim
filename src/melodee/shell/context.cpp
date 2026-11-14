@@ -231,6 +231,7 @@ void Context::open(PageId page) {
     ui.song_wipe = false; // LAB
     ui.ref_pick = false;  // LAB: reference_pick() sets it after opening Samples
     ui.chop_bank_sheet = false;
+    ui.picker_from_stage = false; // LAB: Stage's PAD FX sets it after opening PAD FX
     if (ui.page == PageId::Sounds && page != PageId::Sounds) audition(-1);
     if (page != ui.page) {
         push_back_stack(ui, page);

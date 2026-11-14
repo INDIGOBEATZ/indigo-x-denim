@@ -499,6 +499,14 @@ std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui,
         if (slot >= track.fx.count()) return {};
         return effect_row(t * 64 + slot * 8, track.fx.slots[slot], shift_row ? 1 : 0);
     }
+    case SK::PadFx: { // LAB: the last pad's chain, as PAD FX's page has it (its row; Shift: the second)
+        if (track.engine != EngineKind::Sampler) return {};
+        unsigned chain = pad_chain(t, track.last_pad % sampler_pads), slot = ui.fx_cursor[UiState::cursor_of(chain)];
+        const auto& c = project.chain(chain);
+        if (slot >= c.count()) return {};
+        if (c.slots[slot].kind == plugin_effect_kind) return shift_row ? std::array<Binding, 3> {} : plugin_cards(ui, unsigned(c.slots[slot].params[0]));
+        return effect_row(chain * 64 + slot * 8, c.slots[slot], shift_row ? 1 : 0);
+    }
     case SK::NewSynth: case SK::NewKit: case SK::NewMidi: { // an empty track's three doors: K1 the engine, K2 the source, K3 the port
         if (shift_row) return {};
         std::array<EngineKind, size_t(EngineKind::Count)> engines {};

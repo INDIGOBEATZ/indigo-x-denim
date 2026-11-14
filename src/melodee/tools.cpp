@@ -652,8 +652,19 @@ const Preview previews[] {
     {"stagechord", [](Shell&, Snapshot& s) { on_stage(s, 0, 1, 1); s.playing = true; auto& t = s.project.tracks[0]; t.chord = true; t.chord_type = 1; s.ui.chord_pad = 1; }},
     {"stagefx", [](Shell&, Snapshot& s) { on_stage(s, 2, 2, 0); s.playing = true; s.ui.fx_cursor[2] = 1; }},
     {"stagefxempty", [](Shell&, Snapshot& s) { on_stage(s, 0, 2, 0); s.playing = true; }},
-    {"stagekitlayers", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); s.playing = true; layered_pad(s, LayerPlay::Velocity); }},
-    {"stagekitlayersshift", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); layered_pad(s, LayerPlay::Random); s.ui.shift = true; }},
+    {"stagekitlayers", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 2); s.sample = break_sample(); s.playing = true; layered_pad(s, LayerPlay::Velocity); }},
+    {"stagekitlayersshift", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 2); s.sample = break_sample(); layered_pad(s, LayerPlay::Random); s.ui.shift = true; }},
+    {"stagekitpadfx", [](Shell&, Snapshot& s) { // LAB: B1's second page: the last pad's effects, its echo in hand
+         on_stage(s, 3, 0, 1); s.sample = break_sample(); s.playing = true;
+         auto& chain = s.project.chain(pad_chain(3, s.project.tracks[3].last_pad % sampler_pads));
+         chain.slots[0].kind = uint8_t(EffectKind::Eq); chain.slots[1].kind = uint8_t(EffectKind::Echo);
+         s.ui.fx_cursor[UiState::cursor_of(pad_chain(3, s.project.tracks[3].last_pad % sampler_pads))] = 1;
+     }},
+    {"stagekitpadfxadd", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); }}, // LAB: no effects yet: Push adds one
+    {"stagekittrackfx", [](Shell&, Snapshot& s) { // LAB: B3's fourth: the kit's own chain
+         on_stage(s, 3, 2, 3); s.sample = break_sample(); s.playing = true;
+         s.project.tracks[3].fx.slots[0].kind = uint8_t(EffectKind::Tape); s.ui.fx_cursor[3] = 0;
+     }},
     {"stagekitmix", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 2); s.sample = break_sample(); s.playing = true; s.project.tracks[3].pads[8].pan = 12; }},
     {"stagekitampenv", [](Shell&, Snapshot& s) {
          on_stage(s, 3, 0, 3); s.sample = break_sample(); s.playing = true;
@@ -661,18 +672,18 @@ const Preview previews[] {
      }},
     {"stagekittune", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 0); s.sample = break_sample(); s.playing = true; s.project.tracks[3].pads[8].pitch = -2; }},
     {"stagekitplay", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 1); s.sample = break_sample(); s.playing = true; s.project.tracks[3].pads[8].group = 2; }},
-    {"stagekitfollow", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 2); s.sample = break_sample(); s.playing = true; s.project.tracks[3].params[sampler::Follow] = 1; }},
-    {"stagekitcloud", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 3); s.sample = break_sample(); s.playing = true; s.project.tracks[3].params[sampler::Cloud] = 1; }},
-    {"stagekitcloudoff", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 3); s.sample = break_sample(); s.playing = true; }},
+    {"stagekitfollow", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 3); s.sample = break_sample(); s.playing = true; s.project.tracks[3].params[sampler::Follow] = 1; }},
+    {"stagekitcloud", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 4); s.sample = break_sample(); s.playing = true; s.project.tracks[3].params[sampler::Cloud] = 1; }},
+    {"stagekitcloudoff", [](Shell&, Snapshot& s) { on_stage(s, 3, 1, 4); s.sample = break_sample(); s.playing = true; }},
     {"stagecloudplaying", [](Shell&, Snapshot& s) { // CLOUD while A09 is held: its grains, the bars they cover lit, where they are
-         on_stage(s, 3, 1, 3); s.sample = break_sample(); s.playing = true;
+         on_stage(s, 3, 1, 4); s.sample = break_sample(); s.playing = true;
          auto& t = s.project.tracks[3]; t.params[sampler::Cloud] = 1; t.params[sampler::Position] = 38;
          auto& pad = t.pads[8]; pad.start = 0; pad.end = 0; // the whole break
          uint32_t end = pad.end ? pad.end : s.sample.frames;
          cloud_heard(s, pad.start + (end - pad.start) * 0.38);
      }},
     {"stagecloudscan", [](Shell&, Snapshot& s) { // Scan moving: the cloud has travelled on from K1's line, the label with it
-         on_stage(s, 3, 1, 3); s.sample = break_sample(); s.playing = true;
+         on_stage(s, 3, 1, 4); s.sample = break_sample(); s.playing = true;
          auto& t = s.project.tracks[3]; t.params[sampler::Cloud] = 1; t.params[sampler::Position] = 20; t.params[sampler::Scan] = 75;
          auto& pad = t.pads[8]; pad.start = 0; pad.end = 0; // the whole break
          uint32_t end = pad.end ? pad.end : s.sample.frames;

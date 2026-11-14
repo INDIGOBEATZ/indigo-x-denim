@@ -70,6 +70,7 @@ enum class StageKind : uint8_t {
     Trim, PadMix, AmpEnv, Tune, Play, Filter, FiltEnv, // a kit: the last pad's Sample Mode values
     Follow, Cloud, KitFilter,                          // a kit: Melodee's own kit-wide pages
     Layers,                                            // a kit: the last pad's four layers (roadmap P3)
+    PadFx,                                             // INDIGO X DENIM LAB: a kit: the last pad's own effects (its chain), as Fx
     NewSynth, NewKit, NewMidi,                         // an empty track: what it becomes (Push)
 };
 // What the picture over the knobs draws.

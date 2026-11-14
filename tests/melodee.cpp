@@ -4875,7 +4875,7 @@ void stage() {
         const auto& g = stage_groups(EngineKind(k));
         const auto& info = engine_info(EngineKind(k));
         for (const auto& group : g.groups) {
-            CHECK(group.count >= 1 && group.count <= (EngineKind(k) == EngineKind::Sampler && &group == &g.groups[0] ? 5 : 4));
+            CHECK(group.count >= 1 && group.count <= (EngineKind(k) == EngineKind::Sampler && &group != &g.groups[2] ? 5 : 4)); // LAB: a kit's B1 and B2 five
             for (unsigned n = 0; n < group.count; ++n) {
                 const auto& page = group.pages[n];
                 CHECK(page.key && std::strlen(page.key) > 0);
@@ -4885,7 +4885,8 @@ void stage() {
         }
     }
     CHECK(stage_groups(EngineKind::Plugin).groups[0].pages[0].kind == StageKind::Mix);
-    CHECK(stage_groups(EngineKind::Sampler).groups[0].pages[0].kind == StageKind::Trim && stage_groups(EngineKind::Sampler).groups[1].count == 4);
+    CHECK(stage_groups(EngineKind::Sampler).groups[0].pages[0].kind == StageKind::Trim && stage_groups(EngineKind::Sampler).groups[1].count == 5
+          && stage_groups(EngineKind::Sampler).groups[0].pages[1].kind == StageKind::PadFx && stage_groups(EngineKind::Sampler).groups[2].pages[3].kind == StageKind::Fx);
     CHECK(stage_groups(EngineKind::None).groups[2].pages[0].kind == StageKind::NewMidi);
 
     auto project = std::make_unique<Project>();
@@ -4944,7 +4945,12 @@ void stage() {
     stage_go(ui, 0, 0);
     CHECK(cards(false)[0].kind == K::PadStart && cards(false)[1].kind == K::PadEnd && cards(false)[2].kind == K::PadLoopPoint);
     CHECK(cards(true)[0].kind == K::TrimZoom);
-    stage_go(ui, 0, 1); // LAYERS (roadmap P3): the layer in hand, its velocities; Shift + K1 how a hit picks
+    stage_go(ui, 0, 1); // LAB: PAD FX: the last pad's chain; nothing without effects, with one its first row
+    CHECK(key() == "PAD FX" && !cards(false)[0].bound());
+    project->chain(pad_chain(1, 5)).slots[0].kind = uint8_t(EffectKind::Echo);
+    CHECK(cards(false)[0].kind == K::FxParam && cards(false)[0].id == int(pad_chain(1, 5) * 64));
+    project->chain(pad_chain(1, 5)).slots[0] = EffectSlot {};
+    stage_go(ui, 1, 2); // LAYERS (roadmap P3), now B2's third: the layer in hand, its velocities; Shift + K1 how a hit picks
     CHECK(key() == "LAYERS" && cards(false)[0].kind == K::LayerPick && cards(false)[1].kind == K::LayerLow && cards(true)[0].kind == K::LayerPlayMode);
     stage_go(ui, 0, 2);
     CHECK(cards(false)[0].kind == K::PadLevel && cards(false)[1].kind == K::Param && cards(false)[1].id == sampler::Level && cards(false)[2].kind == K::PadPan);
@@ -4958,8 +4964,8 @@ void stage() {
     CHECK(cards(false)[2].kind == K::PadFilterType);
     stage_go(ui, 2, 1);
     CHECK(cards(false)[2].kind == K::PadFAmount);
-    // Melodee's own kit pages join Akai's groups: B2 TUNE -> PLAY -> FOLLOW -> CLOUD, B3 ... -> KIT FILT.
-    stage_go(ui, 1, 1);
+    // Melodee's own kit pages join Akai's groups: B2 TUNE -> PLAY -> LAYERS -> FOLLOW -> CLOUD, B3 ... -> KIT FILT -> TRACK FX.
+    stage_go(ui, 1, 2);
     stage_press(ui, kit, 1); CHECK(key() == "FOLLOW" && cards(false)[0].id == sampler::Follow && cards(false)[1].id == sampler::FollowHow);
     stage_press(ui, kit, 1); CHECK(key() == "CLOUD" && cards(false)[0].id == sampler::Position && cards(false)[2].id == sampler::Density);
     CHECK(cards(true)[0].id == sampler::Scan && cards(true)[2].id == sampler::Cloud);

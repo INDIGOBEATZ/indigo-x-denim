@@ -245,6 +245,7 @@ void add_from_picker(Context& c) {
     c.set_effect(n, cursor, list[c.ui.picker_item]);
     c.ui.fx_row[at] = 0;
     c.ui.picker_open = false;
+    if (c.ui.picker_from_stage) c.open(PageId::Stage); // LAB: back to Stage's PAD FX, the new effect in hand
 }
 
 void wheel(Context& c, int delta) {
@@ -308,7 +309,10 @@ void push(Context& c) {
 void soft(Context& c, int key) {
     auto& ui = c.ui;
     if (ui.picker_open) {
-        if (key == 0) { if (ui.picker_items) ui.picker_items = false; else ui.picker_open = false; }
+        if (key == 0) {
+            if (ui.picker_items) ui.picker_items = false;
+            else { ui.picker_open = false; if (ui.picker_from_stage) c.open(PageId::Stage); } // LAB: back where it came from
+        }
         if (key == 2) { if (ui.picker_items) add_from_picker(c); else { ui.picker_items = true; ui.picker_item = 0; } }
         return;
     }

@@ -1334,6 +1334,18 @@ note is saved as a WAV file in Samples/Autosampled/<name>/, together with an .sf
 that maps them across the keys. **B3** again stops early and keeps what was already sampled.
 
 
+### Effects on the Sample page (v0.6.9)
+
+On a kit's Stage (the Sample page), **B1** now cycles TRIM, **PAD FX**, MIX, AMP ENV, SENDS. LAYERS moved to B2:
+TUNE, PLAY, LAYERS, FOLLOW, CLOUD.
+
+- **PAD FX** shows the last pad's own effects. K1-K3 set the effect in hand (Shift: its second row).
+- **Push** moves to the next effect, and after the last one to **+**. Push on **+** opens FX Select for this pad.
+  Once you have chosen (or with BACK) you return here, with the new effect in hand.
+- **B3** now ends with **TRACK FX**, the kit's own chain, which works the same way. On a synth's FX page Push also
+  reaches **+** to add an effect.
+- Hit another pad and PAD FX shows that pad's effects.
+
 ### Chop (v0.6.7)
 
 - A bank's pads play its own slices: on bank B, pad 1 is slice 17. Erase + pad works the same way.

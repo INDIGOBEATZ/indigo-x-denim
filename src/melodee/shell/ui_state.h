@@ -238,6 +238,7 @@ struct UiState {
     bool memo_on = false; uint32_t memo_at = 0; // INDIGO X DENIM LAB: a voice memo recording, since when (ms)
     bool steps_b1 = false, steps_b1_used = false, bar_copied = false; // INDIGO X DENIM LAB: STEPS (B1) held on Steps: pads 1-16 jump to that bar
     uint8_t mixer_bus = 0; // INDIGO X DENIM LAB: the mixer's BUSES: the strip in hand, bus A-D or 4 the main out
+    bool picker_from_stage = false; // INDIGO X DENIM LAB: FX Select opened from Stage's PAD FX: done or cancelled, back there
     bool ref_pick = false; // INDIGO X DENIM LAB: Samples' Push picks Reference A/B's song
     bool song_wipe = false;
     uint8_t wipe_row = 0, wipe_range = 3, wipe_lanes = 0, wipe_what = 0;

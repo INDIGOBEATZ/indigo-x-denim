@@ -107,9 +107,10 @@ const StageGroups& stage_groups(EngineKind kind) {
     // A kit: the MPC's Sample Mode pages in Akai's order, on the last pad hit; Melodee's own join
     // the group they belong with, as on the sampler pages: Follow and Cloud B2's, Kit filter B3's.
     static const StageGroups kit {{{
-        {{{{"TRIM", K::Trim, P::Wave}, {"LAYERS", K::Layers, P::Wave}, {"MIX", K::PadMix, P::Wave}, {"AMP ENV", K::AmpEnv, P::Wave}, stage_sends}}, 5},
-        {{{{"TUNE", K::Tune, P::Wave}, {"PLAY", K::Play, P::Wave}, {"FOLLOW", K::Follow, P::Wave}, {"CLOUD", K::Cloud, P::Wave}}}, 4},
-        {{{{"FILTER", K::Filter, P::Wave}, {"FILT ENV", K::FiltEnv, P::Wave}, {"KIT FILT", K::KitFilter, P::Wave}}}, 3},
+        // INDIGO X DENIM LAB: PAD FX after TRIM (the pad's own effects, quick to reach); LAYERS moved to B2's cycle.
+        {{{{"TRIM", K::Trim, P::Wave}, {"PAD FX", K::PadFx, P::Fx}, {"MIX", K::PadMix, P::Wave}, {"AMP ENV", K::AmpEnv, P::Wave}, stage_sends}}, 5},
+        {{{{"TUNE", K::Tune, P::Wave}, {"PLAY", K::Play, P::Wave}, {"LAYERS", K::Layers, P::Wave}, {"FOLLOW", K::Follow, P::Wave}, {"CLOUD", K::Cloud, P::Wave}}}, 5},
+        {{{{"FILTER", K::Filter, P::Wave}, {"FILT ENV", K::FiltEnv, P::Wave}, {"KIT FILT", K::KitFilter, P::Wave}, {"TRACK FX", K::Fx, P::Fx}}}, 4}, // LAB: TRACK FX, the kit's own chain
     }}};
     // MIDI: where the notes go, bank and program; three controllers; the arp.
     using namespace midi_track;

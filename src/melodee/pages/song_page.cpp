@@ -108,7 +108,7 @@ void draw(Paint& p, const Snapshot& s) {
     h.left.push_back(pill("BAR " + juce::String(cursor + 1) + juce::String::fromUTF8(" \xc2\xb7 ") + clock_of(song, cursor, s.project.tempo, s.project.bar_ticks())));
     if (zoom == song_zooms[0]) h.left.push_back(pill("SNAP 1 BAR"));
     // Following MIDI clock or MTC in, its chip takes the loop's room (the ruler's brace still shows the loop).
-    else if (song.looping() && !s.following) h.left.push_back(pill("LOOP " + juce::String(song.loop_start + 1) + dash() + juce::String(song.loop_end), colour::text));
+    else if (song.looping() && !s.following && !s.ui.song_marq) h.left.push_back(pill("LOOP " + juce::String(song.loop_start + 1) + dash() + juce::String(song.loop_end), colour::text));
     h.right.push_back(tag_of(s, s.ui.track));
     if (s.ui.song_marq) { // LAB
         static const char* modes[] {"", "MRQ", "TRK", "ARR"};
@@ -220,7 +220,7 @@ void draw(Paint& p, const Snapshot& s) {
     }
     // Lanes: six tracks in view (five under the tempo lane), the selected one among them; LAB: or all sixteen, thin.
     float lane_room = lane_h;
-    if (s.ui.song_all) { shown = track_count; lane_room = std::floor((lanes * (lane_h + lane_gap) - (tempo_lane ? strip_h + 2 : 0)) / track_count) - lane_gap; }
+    if (s.ui.song_all) { shown = track_count; lane_room = std::max(4.0f, std::floor((zone::knobs_y - 26 - tracks_top) / track_count) - lane_gap); }
     lh_now = lane_room;
     unsigned first = s.ui.song_all ? 0 : std::min<unsigned>(s.ui.track >= 2 ? s.ui.track - 2 : 0, track_count - shown);
     for (unsigned row = 0; row < shown; ++row) {

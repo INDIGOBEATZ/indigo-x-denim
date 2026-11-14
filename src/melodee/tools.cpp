@@ -2020,7 +2020,7 @@ const Preview previews[] {
      }},
     {"songall", [](Shell& shell, Snapshot& s) { // Song with all sixteen lanes and a marquee over bars 3-6 of lanes 1-3
          preview_as(shell, s, "song", 1, 0);
-         s.ui.song_all = true; s.ui.song_marq = 1; s.ui.marq_from = 2; s.ui.marq_to = 6; s.ui.marq_t0 = 0; s.ui.marq_t1 = 2;
+         s.ui.song_all = true; s.ui.song_marq = 1; s.ui.marq_from = 24; s.ui.marq_to = 28; s.ui.marq_t0 = 0; s.ui.marq_t1 = 2;
      }},
     {"mixerlab", [](Shell& shell, Snapshot& s) { preview_as(shell, s, "mixertracks", 1, 0); s.ui.shift = true; s.ui.shift_used = true; }},
     {"playtail", [](Shell&, Snapshot& s) { // PLAY with Shift: Sample Tail on K1

@@ -51,7 +51,7 @@ void Context::reference_match() {
 
 namespace melodee {
 
-// INDIGO X DENIM LAB: a voice memo: up to five minutes of the input, in stereo. The buffer is made here (the
+// INDIGO X DENIM LAB: a voice memo: up to three minutes of the input, in stereo. The buffer is made here (the
 // MIDI thread), filled by the audio thread, and handed to the service thread to write a moment after it stopped, so
 // the audio thread is surely done with it.
 void Context::voice_memo() {
@@ -60,7 +60,7 @@ void Context::voice_memo() {
     if (ui.auto_running) { notice("Autosampler running"); return; }
     if (!library) { notice("Memo: no card"); return; }
     unsigned rate = unsigned(dsp::sample_rate());
-    if (!memo_begin(size_t(rate) * 300)) return;
+    if (!memo_begin(size_t(rate) * 180)) return; // three minutes (stereo floats: about 70 MB at 48 kHz)
     ui.memo_on = true; ui.memo_at = now;
     notice("Memo: recording");
 }
@@ -109,7 +109,7 @@ void Context::autosample_start() {
     if (ui.auto_running) return;
     if (ui.memo_on || memo_stopped_at) { notice("Memo still recording"); return; }
     const auto& t = track();
-    if (t.engine == EngineKind::Sampler || !t.used()) { notice("Autosampler: pick a keys or MIDI track"); return; }
+    if (t.engine == EngineKind::Sampler || !t.used()) { notice("Pick a keys or MIDI track"); return; }
     if (!library) { notice("Autosampler: no card"); return; }
     AutoPlan plan;
     plan.name = "Auto " + std::string(engine_info(t.engine).name);
@@ -118,7 +118,7 @@ void Context::autosample_start() {
     plan.hold_ms = uint32_t(ui.auto_hold) * 100; plan.slot_ms = plan.hold_ms + uint32_t(ui.auto_tail) * 100 + 200;
     plan.velocity = ui.auto_velocity;
     uint32_t total_ms = plan.first_ms + uint32_t(plan.notes.size()) * plan.slot_ms + 500;
-    if (total_ms > 600000) { notice("Autosampler: over 10 minutes"); return; }
+    if (total_ms > 240000) { notice("Over 4 min: fewer notes"); return; }
     if (!memo_begin(size_t(uint64_t(total_ms) * unsigned(dsp::sample_rate()) / 1000))) return;
     auto_plan = std::move(plan);
     memo_for_auto = true;

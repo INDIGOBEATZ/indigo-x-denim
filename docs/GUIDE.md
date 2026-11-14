@@ -1323,11 +1323,11 @@ the project's key.
 
 Set it up as a shortcut. Press it once to start recording the input (as set in Input Config)
 and again to stop. The header shows MEMO and the time. The memo is saved as
-Samples/Voice Memos/Memo N.wav (up to five minutes).
+Samples/Voice Memos/Memo N.wav (up to three minutes).
 
 ### Autosampler
 
-Open it through a shortcut and select a keys track, or a MIDI track that drives an external
+Open it through a shortcut and select a keys track (one run lasts at most four minutes), or a MIDI track that drives an external
 synth whose sound comes back through the input. Set the lowest and highest note, the interval
 between notes, the hold time, the tail and the velocity, then press **B3** (**START**). Each
 note is saved as a WAV file in Samples/Autosampled/<name>/, together with an .sfz instrument

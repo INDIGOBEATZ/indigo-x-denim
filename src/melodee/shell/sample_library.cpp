@@ -594,6 +594,46 @@ static void fade_edges(SampleData& data, unsigned rate, bool in, bool out) {
     }
 }
 
+// INDIGO X DENIM LAB: Process (as SXL's sample processing functions): a fade over the whole region, the region
+// backwards, the loudest point to 0 dBFS, or the silence (under -60 dBFS) at either end taken off.
+static void process_region(SampleData& data, SampleJob::Process process) {
+    const uint32_t n = data.frames;
+    if (!n) return;
+    using P = SampleJob::Process;
+    switch (process) {
+    case P::FadeIn: case P::FadeOut:
+        for (uint32_t k = 0; k < n; ++k) {
+            float g = float(k) / float(std::max<uint32_t>(1, n - 1));
+            g = process == P::FadeIn ? g : 1 - g;
+            data.left[k] *= g; data.right[k] *= g;
+        }
+        break;
+    case P::Reverse:
+        std::reverse(data.left.begin(), data.left.begin() + n);
+        std::reverse(data.right.begin(), data.right.begin() + n);
+        break;
+    case P::Normalize: {
+        float peak = 0;
+        for (uint32_t k = 0; k < n; ++k) peak = std::max({peak, std::fabs(data.left[k]), std::fabs(data.right[k])});
+        if (peak > 1e-6f) { float g = 0.999f / peak; for (uint32_t k = 0; k < n; ++k) { data.left[k] *= g; data.right[k] *= g; } }
+        break;
+    }
+    case P::TrimSilence: {
+        const float floor = 0.001f; // -60 dBFS
+        uint32_t a = 0, b = n;
+        while (a < n && std::fabs(data.left[a]) < floor && std::fabs(data.right[a]) < floor) ++a;
+        while (b > a + 1 && std::fabs(data.left[b - 1]) < floor && std::fabs(data.right[b - 1]) < floor) --b;
+        if (b - a >= 2 && (a > 0 || b < n)) {
+            data.left = std::vector<float>(data.left.begin() + a, data.left.begin() + b);
+            data.right = std::vector<float>(data.right.begin() + a, data.right.begin() + b);
+            data.frames = b - a;
+        }
+        break;
+    }
+    default: break;
+    }
+}
+
 void SampleLibrary::make(const SampleJob& job) {
     const char* what = job.kind == SampleJob::Kind::Save ? "Save Sample" : "Sample";
     const SampleData* source = job.source < sample_slots ? data_of[job.source] : nullptr; // only this thread writes it
@@ -617,6 +657,7 @@ void SampleLibrary::make(const SampleJob& job) {
     data->left.assign(l + first, l + end);
     data->right.assign(r + first, r + end);
     if (job.edges) fade_edges(*data, rate, first > 0, end < all);
+    process_region(*data, job.process); // INDIGO X DENIM LAB
     as_written(*data); // what plays is what the file holds
     std::string root;
     { std::lock_guard<std::mutex> guard(lock); root = known.root; }

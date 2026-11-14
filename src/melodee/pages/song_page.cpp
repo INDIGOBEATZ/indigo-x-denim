@@ -380,8 +380,10 @@ void marquee_copy(Context& c) {
 void marquee_delete(Context& c) {
     unsigned t0, t1;
     marquee_lanes(c.ui, t0, t1);
+    Edit edit = c.begin_edit("Marquee delete", c.ui.track, -1, true); // one undo
     for (unsigned t = t0; t <= t1; ++t) c.project.song.cut(t, c.ui.marq_from, c.ui.marq_to);
     c.sync_song();
+    c.commit_edit(std::move(edit));
     c.notice("Deleted bars " + std::to_string(c.ui.marq_from + 1) + "-" + std::to_string(c.ui.marq_to));
 }
 
@@ -389,6 +391,7 @@ void marquee_paste(Context& c) {
     if (c.song_board.empty()) { c.notice("Nothing copied"); return; }
     unsigned at = c.ui.song_cursor, lane = c.ui.track;
     unsigned placed = 0;
+    Edit edit = c.begin_edit("Marquee paste", c.ui.track, -1, true);
     for (auto clip : c.song_board) {
         unsigned t = lane + clip.track;
         if (t >= track_count || at + clip.bar + clip.bars > song_bars) continue;
@@ -396,6 +399,7 @@ void marquee_paste(Context& c) {
         if (c.project.song.place(clip)) ++placed;
     }
     c.sync_song();
+    c.commit_edit(std::move(edit));
     // The pasted bars, selected and in view (as MPC 3.10 scrolls to what it pasted).
     c.ui.song_marq = c.ui.song_marq ? c.ui.song_marq : 1;
     c.ui.marq_from = uint16_t(at); c.ui.marq_to = uint16_t(std::min<unsigned>(at + c.song_board_bars, song_bars));
@@ -406,8 +410,10 @@ void marquee_paste(Context& c) {
 
 void marquee_loop(Context& c) { // whole bars, as MPC 3.10's Loop to Marquee Selection
     auto& song = c.project.song;
+    Edit edit = c.begin_edit("Loop to marquee", c.ui.track, -1, true);
     song.loop_start = c.ui.marq_from; song.loop_end = c.ui.marq_to;
     c.sync_song();
+    c.commit_edit(std::move(edit));
     c.notice("Loop bars " + std::to_string(c.ui.marq_from + 1) + "-" + std::to_string(c.ui.marq_to));
 }
 

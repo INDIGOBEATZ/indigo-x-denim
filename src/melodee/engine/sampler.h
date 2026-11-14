@@ -77,7 +77,7 @@ public:
     void set_pad_mutes(const std::array<uint64_t, (sampler_pads + 63) / 64>& bits);
     bool pad_muted(unsigned pad) const { return pad < sampler_pads && ((muted[pad / 64] >> (pad % 64)) & 1); }
     // A region of a sample on no pad, for Chop's audition (plays one shot).
-    void audition(uint16_t sample, uint32_t start, uint32_t end, int velocity, uint8_t level = 100); // level: 100 unity
+    void audition(uint16_t sample, uint32_t start, uint32_t end, int velocity, uint8_t level = 100, uint16_t own_tempo = 0); // level: 100 unity; LAB: own_tempo (tenths of a BPM): warped to the project's
     // A sample is about to change: whatever plays it stops now.
     void sample_gone(uint16_t sample);
     // A kit pad shifted by `semitones`, its filter at `cutoff` (0..100; -1 its

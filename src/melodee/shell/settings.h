@@ -36,7 +36,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Font, LevelLeds, StartFolder, ProjectFolder, PreviewLevel, SystemBar, FlattenTail, ShiftMapDelay, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Font, LevelLeds, StartFolder, ProjectFolder, PreviewLevel, SystemBar, FlattenTail, ShiftMapDelay, ChopNotes, PreviewTempo, Rows };
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
@@ -65,6 +65,8 @@ struct Settings {
     uint8_t preview_level = 80;
     bool system_bar = false;
     uint8_t flatten_tail = 10;    // INDIGO X DENIM LAB: Flatten Pad's tail after the sound, tenths of a second (0..100)
+    bool preview_tempo = false;   // INDIGO X DENIM LAB: the browser's preview at the project's tempo, its own read from its name ("92 BPM")
+    bool chop_notes = true;       // INDIGO X DENIM LAB: Chop's TO PADS also writes the slices as notes, played in order (SXL's Extract with events)
     uint8_t shift_map_delay = 2;  // INDIGO X DENIM LAB: the Shift pads' map after Shift is held: 0 off, 1 at once, 2 0.65 s, 3 1 s, 4 2 s, 5 3 s
     uint32_t shift_map_ms() const { static const uint32_t ms[] {0, 0, 650, 1000, 2000, 3000}; return ms[shift_map_delay % 6]; }
     std::array<char, 160> start_folder {};
@@ -118,7 +120,7 @@ struct Settings {
     static const char* row_name(unsigned row) {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Screen", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
-                                    "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Font", "Level LEDs", "Sample folder", "Project folder", "Preview volume", "CPU / RAM bar", "Flatten tail", "Shift pad map"};
+                                    "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Font", "Level LEDs", "Sample folder", "Project folder", "Preview volume", "CPU / RAM bar", "Flatten tail", "Shift pad map", "Chop to pads", "Preview tempo"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
@@ -131,6 +133,8 @@ struct Settings {
         case PreviewLevel: return std::to_string(preview_level) + " %";
         case SystemBar: return system_bar ? "On" : "Off";
         case FlattenTail: { char t[16]; std::snprintf(t, sizeof(t), "%.1f s", flatten_tail / 10.0); return t; }
+        case PreviewTempo: return preview_tempo ? "Project" : "Own";
+        case ChopNotes: return chop_notes ? "Pads + notes" : "Pads only";
         case ShiftMapDelay: { static const char* d[] {"Off", "At once", "0.65 s", "1 s", "2 s", "3 s"}; return d[shift_map_delay % 6]; }
         case StartFolder: {
             auto path = start_folder_text();
@@ -178,6 +182,8 @@ struct Settings {
         case PreviewLevel: preview_level = uint8_t(std::clamp(int(preview_level) + way * 10, 0, 120)); break;
         case SystemBar: system_bar = !system_bar; break;
         case FlattenTail: flatten_tail = uint8_t(std::clamp(int(flatten_tail) + way * 5, 0, 100)); break;
+        case ChopNotes: chop_notes = !chop_notes; break;
+        case PreviewTempo: preview_tempo = !preview_tempo; break;
         case ShiftMapDelay: shift_map_delay = uint8_t(std::clamp(int(shift_map_delay) + way, 0, 5)); break;
         case StartFolder: start_folder.fill(0); break; // back to the browser's own start
         case ProjectFolder: project_folder.fill(0); break; // back to Melodee/Projects itself
@@ -240,7 +246,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
-            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nlevel_leds=" << int(level_leds) << "\npreview_level=" << int(preview_level) << "\nsystem_bar=" << int(system_bar) << "\nflatten_tail=" << int(flatten_tail) << "\nshift_map_delay=" << int(shift_map_delay) << "\nstart_folder=" << start_folder_text() << "\nproject_folder=" << project_folder_text() << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
+            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nlevel_leds=" << int(level_leds) << "\npreview_level=" << int(preview_level) << "\nsystem_bar=" << int(system_bar) << "\nflatten_tail=" << int(flatten_tail) << "\nshift_map_delay=" << int(shift_map_delay) << "\nchop_notes=" << int(chop_notes) << "\npreview_tempo=" << int(preview_tempo) << "\nstart_folder=" << start_folder_text() << "\nproject_folder=" << project_folder_text() << "\nroll_follow=" << int(roll_follow) << "\nroll_scale=" << int(roll_scale)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nthreshold=" << int(input.threshold)
@@ -293,6 +299,8 @@ struct Settings {
             else if (key == "preview_level") preview_level = uint8_t(std::clamp(value, 0, 120));
             else if (key == "system_bar") system_bar = value != 0;
             else if (key == "flatten_tail") flatten_tail = uint8_t(std::clamp(value, 0, 100));
+            else if (key == "preview_tempo") preview_tempo = value != 0;
+            else if (key == "chop_notes") chop_notes = value != 0;
             else if (key == "shift_map_delay") shift_map_delay = uint8_t(std::clamp(value, 0, 5));
             else if (key == "level_leds") level_leds = value == 1 ? 1 : 0; // 2 and 3 (the bank lights, taken out): on
             else if (key == "start_folder") set_start_folder(line.substr(eq + 1));

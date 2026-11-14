@@ -205,6 +205,7 @@ struct UiState {
     int8_t lens_a = -1, lens_b = -1;
     uint8_t lens_mode = 0, lens_window = 1;
     bool lens_freeze = false;
+    bool process_open = false; uint8_t process_row = 0; // INDIGO X DENIM LAB: Trim's PROCESS sheet
     bool key_synced = false; // INDIGO X DENIM LAB: TUNE's KEY SYNC last set on (shown on its card)
     uint32_t history_at = 0; // INDIGO X DENIM LAB: an undo or redo just now: its history shows a moment
     uint8_t song_marq = 0, marq_t0 = 0, marq_t1 = 0;

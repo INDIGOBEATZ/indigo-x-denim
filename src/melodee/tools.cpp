@@ -2019,6 +2019,11 @@ const Preview previews[] {
     {"fxpresets", [](Shell&, Snapshot& s) { // MORE on an effect: Load preset, Save preset
          s.ui.page = PageId::Rack; s.ui.track = 2; s.ui.fx_cursor[2] = 0; s.ui.sheet_open = true; s.ui.sheet_more = true; s.ui.sheet_row = 1;
      }},
+    {"process", [](Shell&, Snapshot& s) { // Trim's Shift + B3: PROCESS into a new file
+         on_stage(s, 3, 0, 0); s.playing = true; s.sample = break_sample();
+         s.ui.process_open = true; s.ui.process_row = 2;
+     }},
+    {"settingsknobslab", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::ChopNotes; }},
     {"tuner", [](Shell&, Snapshot& s) { s.ui.page = PageId::Tuner; s.tuner_hz = 443.1f; s.tuner_level = 0.2f; }},
     {"sublens", [](Shell&, Snapshot& s) { // a kick and an 808 ducked under it
          s.ui.page = PageId::SubLens; s.ui.lens_a = 0; s.ui.lens_b = 1; s.playing = true;

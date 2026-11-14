@@ -737,7 +737,8 @@ void EngineHost::apply(const Command& c) {
     case Type::Audition:
         if (slot.engine == &slot.sampler) {
             EngineCall call;
-            call.op = EngineCall::Op::Audition; call.a = c.pad.sample; call.b = int32_t(c.pad.start); call.c = int32_t(c.pad.end); call.d = c.value;
+            call.op = EngineCall::Op::Audition; call.a = c.pad.sample; call.b = int32_t(c.pad.start); call.c = int32_t(c.pad.end);
+            call.d = (c.value & 0xff) | int32_t(c.pad.own_tempo) << 8; // LAB: its tempo above the velocity
             call.x = c.pad.level; // INDIGO X DENIM LAB: the preview's volume
             if (!keep_call(slot, call)) make_call(c.track % track_count, slot, call);
         }
@@ -958,7 +959,7 @@ void EngineHost::make_call(unsigned t, Slot& slot, const EngineCall& c) {
     case Op::Pressure: e->set_pressure(c.a, c.x); break;
     case Op::Mod: e->set_mod(unsigned(c.a), ModRoute {uint8_t(c.b), uint8_t(c.c), int8_t(c.d)}); break;
     case Op::PlayPad: if (e == &slot.sampler) slot.sampler.play_pad(unsigned(c.a), c.b, c.c, c.d); break;
-    case Op::Audition: if (e == &slot.sampler) slot.sampler.audition(uint16_t(c.a), uint32_t(c.b), uint32_t(c.c), c.d, uint8_t(std::clamp(c.x, 0.0f, 127.0f))); break;
+    case Op::Audition: if (e == &slot.sampler) slot.sampler.audition(uint16_t(c.a), uint32_t(c.b), uint32_t(c.c), c.d & 0xff, uint8_t(std::clamp(c.x, 0.0f, 127.0f)), uint16_t(c.d >> 8)); break;
     case Op::MovePad: slot.sampler.move_pad(unsigned(c.a), PadParam(c.b), c.c); break;
     case Op::RestorePad: slot.sampler.restore_pad(unsigned(c.a), PadParam(c.b)); break;
     case Op::RestorePads: slot.sampler.restore_pads(); break;

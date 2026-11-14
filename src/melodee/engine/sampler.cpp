@@ -544,9 +544,10 @@ void SamplerEngine::release_zones(int pad, int semitones) {
     }
 }
 
-void SamplerEngine::audition(uint16_t sample, uint32_t from, uint32_t to, int velocity, uint8_t level) {
+void SamplerEngine::audition(uint16_t sample, uint32_t from, uint32_t to, int velocity, uint8_t level, uint16_t own_tempo) {
     PadSound sound;
     sound.sample = sample; sound.start = from; sound.end = to; sound.level = level;
+    if (own_tempo) { sound.warp = warp_seq; sound.own_tempo = own_tempo; } // LAB: the preview at the project's tempo
     for (auto& v : voices) if (v.pad == int(sampler_pads)) v.choked = true; // one audition at a time
     if (sample == no_sample) return; // only that: the audition stops
     start(free_voice(), sound, int(sampler_pads), velocity);

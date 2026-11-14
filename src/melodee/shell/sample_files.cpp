@@ -26,8 +26,10 @@
 #include <filesystem>
 #include <cstring>
 #include <algorithm>
+#include <cctype>
 
 namespace melodee {
+unsigned bpm_in_name(const std::string& path); // LAB: below
 namespace {
 constexpr const char* writing = "(writing)"; // a slot's path while its file is made
 
@@ -111,6 +113,32 @@ void Context::trim_sample() {
     }
     pending_files[free] = {int16_t(slot), ui.track, int16_t(kit), true, pad};
     notice(pad_text("Trimming", kit));
+}
+
+// INDIGO X DENIM LAB: Process: the last pad's region, processed, as a new file in Samples/Edits that the pad then plays
+// (one undo, as Trim Sample).
+void Context::process_sample(unsigned op) {
+    static const char* names[] {"", "-Fade In", "-Fade Out", "-Reversed", "-Normalized", "-Trimmed"};
+    if (op < 1 || op > 5) return;
+    auto& t = track();
+    unsigned kit = t.last_pad % sampler_pads;
+    const auto& pad = t.pads[kit];
+    if (t.engine != EngineKind::Sampler || !pad.used()) { notice("Process: no sample"); return; }
+    if (refuse_instrument("Process")) return;
+    if (!library) return;
+    const auto& ref = project.samples[pad.sample % sample_slots];
+    uint32_t frames = ref.frames, end = pad.end && pad.end < frames ? pad.end : frames;
+    if (!frames) { notice("Process: still loading"); return; }
+    unsigned free = 0;
+    while (free < pending_files.size() && pending_files[free].slot >= 0) ++free;
+    std::string name = derived(ref, names[op]);
+    int slot = free < pending_files.size() ? hold_slot(project, name) : -1;
+    if (slot < 0) { notice("Process: busy"); return; }
+    SampleJob j = job(SampleJob::Kind::Derive, pad.sample, slot, pad.start, end, name, edits_folder);
+    j.process = SampleJob::Process(op);
+    if (!library->write(j)) { project.samples[size_t(slot)] = SampleRef {}; notice("Process: busy"); return; }
+    pending_files[free] = {int16_t(slot), ui.track, int16_t(kit), true, pad};
+    notice(std::string("Processing") + names[op]);
 }
 
 void Context::extract_slice() {
@@ -378,6 +406,20 @@ void Context::preview_cursor() {
     library->preview(path);
 }
 
+// INDIGO X DENIM LAB: a file's tempo as its name says it ("Loop 92 BPM", "drums_120bpm", "Break-87BPM"), 0 when it does not.
+unsigned bpm_in_name(const std::string& path) {
+    std::string name = std::filesystem::path(path).stem().string();
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    for (size_t at = name.find("bpm"); at != std::string::npos; at = name.find("bpm", at + 3)) {
+        size_t end = at;
+        while (end > 0 && (name[end - 1] == ' ' || name[end - 1] == '_' || name[end - 1] == '-')) --end;
+        size_t start = end;
+        while (start > 0 && std::isdigit(static_cast<unsigned char>(name[start - 1]))) --start;
+        if (end - start >= 2 && end - start <= 3) { unsigned bpm = unsigned(std::stoul(name.substr(start, end - start))); if (bpm >= 50 && bpm <= 250) return bpm; }
+    }
+    return 0;
+}
+
 void Context::browser_tick() {
     if (!library) return;
     bool here = ui.page == PageId::Samples && track().engine == EngineKind::Sampler;
@@ -403,6 +445,7 @@ void Context::browser_tick() {
     Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(ui.audition_velocity)};
     a.pad.sample = uint16_t(preview_slot); a.pad.start = 0; a.pad.end = 0;
     a.pad.level = uint8_t(std::min(127, ui.settings.preview_level * 100 / 100)); // INDIGO X DENIM LAB: Settings > Preview volume
+    if (ui.settings.preview_tempo) a.pad.own_tempo = uint16_t(bpm_in_name(library->previewed()) * 10); // LAB: at the project's tempo
     send(a);
     previewing = ui.track;
 }

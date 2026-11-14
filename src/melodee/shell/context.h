@@ -390,6 +390,7 @@ public:
     // Renders of the mix (parity phase 6, shell/render.cpp): Resample (Shift + Pad 11, then a pad) and the song's mixdown.
     void resample();                                      // Shift + Pad 11: wait for the pad (again: not)
     void resample_pad(unsigned kit);                      // the pad: the pattern rendered onto it
+    void process_sample(unsigned op);                     // INDIGO X DENIM LAB: Process on Trim (1 fade in .. 5 trim silence), a new file on the pad
     void flatten_start();                                 // INDIGO X DENIM LAB: Flatten Pad: the pad in hand, then a target pad
     void flatten_to(unsigned target);                     // INDIGO X DENIM LAB: the pad in hand played and rendered onto `target`
     void resample_song(unsigned kit);                     // roadmap P3: Resample on Song, the song rendered onto the pad

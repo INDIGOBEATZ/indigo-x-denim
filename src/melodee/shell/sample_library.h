@@ -94,6 +94,9 @@ struct SampleJob {
     uint8_t target = 0;   // Derive: the slot the new file goes into
     uint32_t from = 0, to = 0; // frames; to 0: the end
     bool edges = false;   // Extract: 2 ms fades where the slice was cut inside the source (shell/chop.h)
+    // INDIGO X DENIM LAB: what Process does to the region on its way into the new file (Process on Trim, Shift + B3).
+    enum class Process : uint8_t { None, FadeIn, FadeOut, Reverse, Normalize, TrimSilence };
+    Process process = Process::None;
     char name[40] {};     // the file's name, without .wav; a free one is found
     char folder[16] {};   // under the card's Samples ("" itself)
 };

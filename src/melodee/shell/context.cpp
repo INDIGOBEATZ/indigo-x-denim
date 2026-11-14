@@ -211,6 +211,7 @@ void Context::reload_tick() {
 }
 
 void Context::open(PageId page) {
+    ui.process_open = false; // LAB: a sheet of the page left goes with it
     // A PLUGIN track's sounds are the plug-ins on the card (Sample Select, or Sounds from anywhere).
     if (page == PageId::Sounds && track().engine == EngineKind::Plugin && plugins) { open_plugin_picker(UiState::PluginTarget::Instrument); return; }
     if (page == PageId::Trim) { // Trim lives on Stage now: a kit's B1 TRIM (the sampler pages' B1 and Chop come here)
@@ -1584,7 +1585,8 @@ void Context::chop_to_pads() {
     auto& t = track();
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames) return;
-    unsigned pad = 0;
+    unsigned pad = 0, placed = 0;
+    std::array<int16_t, max_slices> placed_pads; placed_pads.fill(-1); // LAB: which pad each slice went to
     for (unsigned n = 0; n < ui.slices.count; ++n) {
         while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
         if (pad >= sampler_pads) break;
@@ -1593,7 +1595,41 @@ void Context::chop_to_pads() {
         sound.mono = true; // INDIGO X DENIM: a chop's slices cut each other off (Mono), as one played break
         t.pads[pad] = sound;
         send_pad(ui.track, pad);
+        placed_pads[n] = int16_t(pad);
+        ++placed;
     }
+    // INDIGO X DENIM LAB: and the slices as notes, so the pattern plays the break back as it was (SXL's Extract with
+    // events): the region taken as whole bars at the project's tempo, each slice's note where it starts, as long as it
+    // lasts; into the pattern in play when it is empty, else the first empty one.
+    if (!ui.settings.chop_notes || !placed) return;
+    const uint32_t from = ui.chop_from, to = ui.chop_to ? std::min(ui.chop_to, frames) : frames;
+    if (to <= from) return;
+    const double seconds = double(to - from) / 44100.0, beats = seconds * (tempo_now() / 10.0) / 60.0;
+    const unsigned bar = project.bar_ticks(), quarters_a_bar = std::max(1u, bar / ticks_per_quarter);
+    const unsigned bars = std::clamp(unsigned(std::lround(beats / quarters_a_bar)), 1u, 16u);
+    unsigned target = t.pattern % pattern_count;
+    if (!patterns.at[ui.track][target].empty())
+        for (unsigned p = 0; p < pattern_count; ++p) if (patterns.at[ui.track][p].empty()) { target = p; break; }
+    if (!patterns.at[ui.track][target].empty()) { notice("Pads made; no empty pattern for the notes"); return; }
+    Edit edit = begin_edit("Chop to pads + notes", ui.track, int(target), false);
+    auto& pattern = patterns.at[ui.track][target];
+    pattern.length = bars * bar;
+    const double ticks_per_frame = double(pattern.length) / double(to - from);
+    for (unsigned n = 0; n < ui.slices.count && n < placed_pads.size(); ++n) {
+        if (placed_pads[n] < 0) continue;
+        uint32_t s0 = std::max(ui.slices.start[n], from), s1 = std::min(ui.slices.end(n, frames), to);
+        if (s1 <= s0) continue;
+        Event e;
+        e.tick = uint32_t((s0 - from) * ticks_per_frame);
+        e.length = uint16_t(std::clamp<double>((s1 - s0) * ticks_per_frame, 1.0, 65535.0));
+        e.key = uint8_t(sampler_first_note + unsigned(placed_pads[n]));
+        e.velocity = 100;
+        if (e.tick < pattern.length) pattern.add(e);
+    }
+    sync_pattern(ui.track, target);
+    commit_edit(std::move(edit));
+    launch(ui.track, target);
+    notice("Slices on pads + notes in P" + std::to_string(target + 1));
 }
 
 // A track chain changed shape: motion on its effects named slots that now

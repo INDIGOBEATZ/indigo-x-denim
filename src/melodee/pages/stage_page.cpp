@@ -857,7 +857,8 @@ void draw(Paint& p, const Snapshot& s) {
     h.right.push_back(tag_of(s, s.ui.track));
     auto keys = stage_keys(s);
     if (s.ui.shift && page.kind == StageKind::Trim && t.engine == EngineKind::Sampler && !instrument_pad(s)) // the old Trim's Shift jobs on B1 and B2
-        { keys = SoftKeys {{"LOOP LOCK", "NORMALIZE", ""}, -1, c}; keys.toggles = 1; keys.lit = sampler_pad(s).loop_lock ? 1 : 0; keys.leds[0] = c; }
+        { keys = SoftKeys {{"LOOP LOCK", "NORMALIZE", "PROCESS"}, -1, c}; keys.toggles = 1; keys.lit = sampler_pad(s).loop_lock ? 1 : 0; keys.leds[0] = c; } // LAB: PROCESS
+    if (s.ui.process_open) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     if (s.ui.shift && page.kind == StageKind::Layers && t.engine == EngineKind::Sampler) keys = layers_keys(s);
     if (!t.used()) { keys.active = stage_focus(s.ui, t); keys.dots = {}; } // the doors: the one Push makes lit
     frame(p, s, keys, h);
@@ -878,15 +879,30 @@ void draw(Paint& p, const Snapshot& s) {
     case StagePicture::Cc: cc_picture(p, s); break;
     case StagePicture::Engines: case StagePicture::Sources: case StagePicture::Ports: doors_picture(p, s); break;
     }
+    if (s.ui.process_open) { // LAB: PROCESS: the region into a new file, faded, backwards, normalized or trimmed
+        static const char* rows[] {"Fade in", "Fade out", "Reverse", "Normalize", "Trim silence"};
+        MenuSheet m;
+        m.title = "PROCESS"; m.detail = "NEW FILE"; m.accent = c;
+        for (unsigned r = 0; r < 5; ++r) m.rows[r] = {rows[r], "", false, false, false};
+        m.count = 5; m.current = s.ui.process_row % 5;
+        p.dim_zone(zone::picture_y, zone::picture_h, 0.6f);
+        menu_sheet(p, m);
+    }
 }
 
 void soft(Context& c, int key) {
+    if (c.ui.process_open) { // LAB: BACK, DO IT
+        if (key == 2) c.process_sample(c.ui.process_row % 5 + 1u);
+        if (key != 1) c.ui.process_open = false;
+        return;
+    }
     const auto& page = stage_page_now(c.ui, c.track());
     const auto& last = c.track().pads[c.track().last_pad % sampler_pads];
     const bool zones = last.used() && c.project.samples[last.sample % sample_slots].instrument(); // ZONES: no Trim jobs
     if (c.ui.shift && page.kind == StageKind::Trim && c.track().engine == EngineKind::Sampler && !zones) {
         if (key == 0) c.toggle_loop_lock(); // Shift + B1, as on the MPC's Trim
         if (key == 1) c.normalize();        // Shift + B2
+        if (key == 2) { c.ui.shift_used = true; c.ui.process_open = true; c.ui.process_row = 0; } // LAB: Shift + B3 PROCESS
         return;
     }
     if (c.ui.shift && page.kind == StageKind::Layers && c.track().engine == EngineKind::Sampler) {
@@ -900,6 +916,7 @@ void soft(Context& c, int key) {
 }
 
 void wheel(Context& c, int delta) {
+    if (c.ui.process_open) { c.ui.process_row = uint8_t(std::clamp(int(c.ui.process_row) + delta, 0, 4)); return; } // LAB
     const auto& page = stage_page_now(c.ui, c.track());
     auto cards = page_bindings(c.project, c.ui, c.pattern(), false);
     if (page.kind == StageKind::Preset) { // the sounds, one a detent
@@ -916,6 +933,7 @@ void wheel(Context& c, int delta) {
 }
 
 void push(Context& c) {
+    if (c.ui.process_open) { c.process_sample(c.ui.process_row % 5 + 1u); c.ui.process_open = false; return; } // LAB
     auto& t = c.track();
     const auto& page = stage_page_now(c.ui, t);
     if (!t.used()) { stage_go(c.ui, unsigned(stage_focus(c.ui, t)), 0); c.stage_new(); return; } // the door of the pot touched last

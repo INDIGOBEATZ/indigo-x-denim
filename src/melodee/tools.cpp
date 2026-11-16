@@ -1884,8 +1884,9 @@ const Preview previews[] {
     {"rollkitarmed", [](Shell& shell, Snapshot& s) { // LAB: B3 tapped once on the note: DELETE? lit, again deletes it
          step_edit_kit(shell, s);
          s.ui.page = PageId::Roll; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 11);
-         int focus = roll_focus(s.pattern, s.ui);
-         if (focus >= 0) { s.now = std::max<uint32_t>(s.now, 5000); s.ui.roll_del_armed = s.now - 100; s.ui.roll_del_tick = s.pattern.events[size_t(focus)].tick; s.ui.roll_del_key = s.pattern.events[size_t(focus)].key; }
+         const auto& pattern = shell.patterns().at[s.ui.track][s.project.tracks[s.ui.track].pattern]; // the one drawn
+         int focus = roll_focus(pattern, s.ui);
+         if (focus >= 0) { s.ui.roll_del_armed = s.now - 100; s.ui.roll_del_tick = pattern.events[size_t(focus)].tick; s.ui.roll_del_key = pattern.events[size_t(focus)].key; }
      }},
     {"stepedit", [](Shell& shell, Snapshot& s) { // Shift + Seq (step entry): the caret on the kit's step 5, what it holds
          step_edit_kit(shell, s);

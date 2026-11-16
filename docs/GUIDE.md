@@ -1367,7 +1367,7 @@ was chopped from, else from its length. Other pads keep theirs.
 
 - **B3 twice** on a note: the first tap turns B3 into **DELETE?** (lit red), the second within two seconds deletes the
   note. Move off the note and B3 is MOTION again.
-- **Shift + B3 DELETE...**: B3 again deletes the note in focus (no note there: every note of that pad). **B2 MORE**
+- **Shift + B3 DELETE**: B3 again deletes the note in focus (no note there: every note of that pad). **B2 MORE**
   lists *This note*, *All of this pad* (or key) and *Selected notes*; turn the wheel, B3 or Push does it.
 - Everything goes back with undo (Shift + Minus).
 - On a kit the wheel now stays on the pad you picked: pad 6 stays pad 6 while you scroll (Shift + wheel still jumps

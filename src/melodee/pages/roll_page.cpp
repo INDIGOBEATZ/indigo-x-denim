@@ -106,7 +106,7 @@ void draw(Paint& p, const Snapshot& s) {
         keys.tints[2] = colour::rec;
         if (armed) { keys.toggles = 4; keys.lit = 4; keys.leds[2] = colour::rec; }
     }
-    if (ui.shift && !ui.sheet_open) keys = SoftKeys {{"STEPS", "ROLL", "DELETE..."}, 1, c}; // LAB: Shift + B3, the DELETE sheet
+    if (ui.shift && !ui.sheet_open) keys = SoftKeys {{"STEPS", "ROLL", "DELETE"}, 1, c}; // LAB: Shift + B3, the DELETE sheet
     if (del_sheet && ui.sheet_more) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (del_sheet) { keys = SoftKeys {{"BACK", "MORE", "DELETE"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; keys.tints[2] = colour::rec; }
     else if (view_sheet || sel_sheet) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};

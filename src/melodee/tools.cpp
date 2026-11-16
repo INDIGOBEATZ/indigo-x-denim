@@ -4,6 +4,7 @@
 #include "melodee/shell/arrange_lanes.h"
 #include "melodee/shell/expansion_install.h"
 #include "melodee/shell/mpc_program.h"
+#include "melodee/shell/roll.h"
 #include "melodee/shell/mpc_project.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/sample_library.h"
@@ -1869,6 +1870,22 @@ const Preview previews[] {
     {"rollkit", [](Shell& shell, Snapshot& s) { // Roll on a kit: a lane per pad, pad 3's hit at 1.2.1 in focus
          step_edit_kit(shell, s);
          s.ui.page = PageId::Roll; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 11);
+     }},
+    {"rollkitdelete", [](Shell& shell, Snapshot& s) { // LAB: Shift + B3 on Roll: DELETE, the note in focus under B3
+         step_edit_kit(shell, s);
+         s.ui.page = PageId::Roll; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 11);
+         s.ui.sheet_open = true; s.ui.roll_sheet_del = true;
+     }},
+    {"rollkitdeletemore", [](Shell& shell, Snapshot& s) { // LAB: and MORE: the note, all of pad 3, the selection
+         step_edit_kit(shell, s);
+         s.ui.page = PageId::Roll; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 11);
+         s.ui.sheet_open = true; s.ui.roll_sheet_del = true; s.ui.sheet_more = true; s.ui.sheet_row = 1;
+     }},
+    {"rollkitarmed", [](Shell& shell, Snapshot& s) { // LAB: B3 tapped once on the note: DELETE? lit, again deletes it
+         step_edit_kit(shell, s);
+         s.ui.page = PageId::Roll; s.ui.roll_key = uint8_t(sampler_first_note + 2); s.ui.roll_top = uint8_t(sampler_first_note + 11);
+         int focus = roll_focus(s.pattern, s.ui);
+         if (focus >= 0) { s.ui.roll_del_armed = s.now ? s.now : 1; s.ui.roll_del_tick = s.pattern.events[size_t(focus)].tick; s.ui.roll_del_key = s.pattern.events[size_t(focus)].key; }
      }},
     {"stepedit", [](Shell& shell, Snapshot& s) { // Shift + Seq (step entry): the caret on the kit's step 5, what it holds
          step_edit_kit(shell, s);

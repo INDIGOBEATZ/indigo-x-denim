@@ -35,7 +35,8 @@ void roll_select(const Pattern& pattern, UiState& ui);
 // was when one is in view, or the pattern is empty.
 void roll_open(const Pattern& pattern, UiState& ui);
 // The wheel: the cursor a step of Q on; where notes start, the pitch goes to the nearest of them.
-void roll_step(const Pattern& pattern, UiState& ui, int way);
+// LAB: `lanes` (a kit's pads) keeps the lane the cursor is on, the pad you picked, instead of the nearest note's.
+void roll_step(const Pattern& pattern, UiState& ui, int way, bool lanes = false);
 // Shift + wheel: to the next (or previous) note, by step and then pitch, so a chord's notes come one by one; false when none.
 bool roll_jump(const Pattern& pattern, UiState& ui, int way);
 // Minus / Plus: to the next note up (or down) starting in the cursor's step; past the last, a semitone.

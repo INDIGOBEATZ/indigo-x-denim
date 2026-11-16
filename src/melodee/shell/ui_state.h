@@ -194,6 +194,12 @@ struct UiState {
     uint8_t roll_sel_count = 0;
     uint8_t note_board_count = 0; // LAB: notes copied in Roll, to paste on any track
     bool roll_sheet_sel = false;
+    // LAB: Shift + B3 on Roll opens the DELETE sheet (B3 the note in focus; B2 MORE: the note, every note of its
+    // pad or key, the selection). B3 alone on a note in focus is DELETE, tapped twice: the first arms it.
+    bool roll_sheet_del = false;
+    uint32_t roll_del_armed = 0;   // ms of that first tap, 0 not armed
+    uint32_t roll_del_tick = 0;    // and the note it was on
+    uint8_t roll_del_key = 0;
     bool map_open = false;    // the page map over Edit
     uint8_t map_cursor = 0;
     int8_t pattern_held = -1; // Patterns: a pad held, so the next one copies it

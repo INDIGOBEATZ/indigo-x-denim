@@ -5145,6 +5145,10 @@ void roll() {
     roll_pitch(p, ui, -1); CHECK(ui.roll_key == 64);                          // and back onto the chord's top
     roll_step(p, ui, 2); CHECK(ui.step_cursor == 8 && ui.roll_key == 57);     // the wheel: onto the nearest note starting there
     roll_step(p, ui, 1); CHECK(ui.step_cursor == 9 && ui.roll_key == 57 && roll_focus(p, ui) < 0); // an empty step keeps the pitch
+    { // LAB: on a kit's lanes the wheel keeps the pad picked, past other pads' notes
+        UiState lane = ui; lane.roll_key = 61; lane.step_cursor = 7;
+        roll_step(p, lane, 1, true); CHECK(lane.step_cursor == 8 && lane.roll_key == 61);
+    }
     CHECK(roll_jump(p, ui, 1) && ui.step_cursor == 40 && ui.roll_key == 69);  // Shift + wheel: note to note over empty bars
     CHECK(!roll_jump(p, ui, 1) && ui.step_cursor == 40);
     { // Round 2: NUDGE on Shift + K1, the note in focus off its nearest grid line (1/16: -12 .. 11 ticks).

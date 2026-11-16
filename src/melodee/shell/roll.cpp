@@ -79,10 +79,10 @@ void roll_open(const Pattern& pattern, UiState& ui) {
     roll_select(pattern, ui);
 }
 
-void roll_step(const Pattern& pattern, UiState& ui, int way) {
+void roll_step(const Pattern& pattern, UiState& ui, int way, bool lanes) {
     int step = std::clamp<int>(int(roll_cursor(pattern, ui)) + way, 0, int(pattern.steps()) - 1);
     put_cursor(ui, unsigned(step));
-    ui.roll_key = uint8_t(nearest_key(pattern, unsigned(step), ui.roll_key));
+    if (!lanes) ui.roll_key = uint8_t(nearest_key(pattern, unsigned(step), ui.roll_key));
     roll_follow(pattern, ui);
     roll_select(pattern, ui);
 }

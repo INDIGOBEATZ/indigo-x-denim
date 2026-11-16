@@ -49,6 +49,13 @@ constexpr float gutter = 23, ruler = 13, row_h_12 = 10.5f, column_1x = 18.5f;
 constexpr unsigned columns_1x = roll_columns, columns_most = roll_columns * 8;
 enum SheetRow : uint8_t { RowAccent, RowSlide, RowTie, RowQuantize, RowLegato, RowDuplicate, RowDelete, sheet_rows };
 enum ViewRow : uint8_t { ViewFollow, ViewScale, ViewQuantize, ViewLegato, ViewSelectAll, ViewPaste, view_rows }; // LAB: Paste notes
+enum DelRow : uint8_t { DelNote, DelLane, DelPicks, del_rows }; // LAB: the DELETE sheet (Shift + B3)
+constexpr uint32_t del_window = 2000; // LAB: ms for B3's second tap on a note
+// LAB: B3's first tap armed on this very note, and not long ago.
+bool roll_armed(const UiState& ui, uint32_t now, const Event* note) {
+    return note && ui.roll_del_armed && now - ui.roll_del_armed < del_window && note->tick == ui.roll_del_tick && note->key == ui.roll_del_key;
+}
+bool kit_lanes(const Track& t) { return t.engine == EngineKind::Sampler || drum_pads(t); }
 enum SelRow : uint8_t { SelEarlier, SelLater, SelUp, SelDown, SelOctaveUp, SelOctaveDown, SelDuplicate, SelQuantize, SelCopy, SelDelete, SelClear, sel_rows }; // LAB: Copy notes
 
 bool black(int key) { return (0x54A >> (key % 12)) & 1; } // C#, D#, F#, G#, A#
@@ -86,12 +93,23 @@ void draw(Paint& p, const Snapshot& s) {
         else if (!focused && ui.settings.roll_follow) { auto f = pill("FOLLOW", following ? c : colour::mid); f.spare = true; h.left.push_back(f); } // lit while it turns
     }
     h.right.push_back(tag_of(s, ui.track));
-    bool sel_sheet = ui.sheet_open && ui.roll_sheet_sel;
-    bool view_sheet = ui.sheet_open && ui.roll_sheet_view && !sel_sheet;
-    bool sheet = ui.sheet_open && !ui.roll_sheet_view && !sel_sheet && focused;
+    bool del_sheet = ui.sheet_open && ui.roll_sheet_del; // LAB
+    bool sel_sheet = ui.sheet_open && ui.roll_sheet_sel && !del_sheet;
+    bool view_sheet = ui.sheet_open && ui.roll_sheet_view && !sel_sheet && !del_sheet;
+    bool sheet = ui.sheet_open && !ui.roll_sheet_view && !sel_sheet && !del_sheet && focused;
+    const int lane_key = focused ? int(focused->key) : int(ui.roll_key);
     SoftKeys keys {{"STEPS", "ROLL", "MOTION"}, 1, c};
     keys.dots[1] = 2; keys.dot_at[1] = ui.trig_cards ? 1 : 0; // ROLL again: the TRIG row of cards
-    if (view_sheet || sel_sheet) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+    if (!ui.sheet_open && focused) { // LAB: B3 on a note: DELETE, twice (the first arms it)
+        bool armed = roll_armed(ui, s.now, focused);
+        keys.labels[2] = armed ? "DELETE?" : "DELETE";
+        keys.tints[2] = colour::rec;
+        if (armed) { keys.toggles = 4; keys.lit = 4; keys.leds[2] = colour::rec; }
+    }
+    if (ui.shift && !ui.sheet_open) keys = SoftKeys {{"STEPS", "ROLL", "DELETE..."}, 1, c}; // LAB: Shift + B3, the DELETE sheet
+    if (del_sheet && ui.sheet_more) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+    else if (del_sheet) { keys = SoftKeys {{"BACK", "MORE", "DELETE"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; keys.tints[2] = colour::rec; }
+    else if (view_sheet || sel_sheet) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (sheet && ui.sheet_more) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (sheet) { // the likely job, Accent, under B3; MORE the rest
         keys = SoftKeys {{"BACK", "MORE", "ACCENT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
@@ -205,7 +223,23 @@ void draw(Paint& p, const Snapshot& s) {
     p.fill(zone::width - 3, top, 2, height, colour::line, 1);
     p.fill(zone::width - 3, top + height * (1 - place) * 0.74f, 2, height * 0.26f, colour::mid, 1);
 
-    if (sheet && !ui.sheet_more) {
+    if (del_sheet && !ui.sheet_more) { // LAB: the likely job, the note in focus (else every note of its lane)
+        auto tile = focused ? word_sub_tile(Icon::Note, "DELETE", "NOTE " + juce::String(key_label(track, focused->key)))
+                            : word_sub_tile(Icon::Note, "DELETE ALL", juce::String(key_label(track, lane_key)));
+        tile.colour = colour::rec;
+        likely_sheet(p, tile, del_rows - 1);
+    } else if (del_sheet) {
+        p.dim_zone(zone::picture_y, zone::picture_h, 0.7f);
+        MenuSheet m;
+        m.title = "DELETE"; m.detail = juce::String(key_label(track, lane_key)); m.accent = c;
+        int lane_notes = 0;
+        for (const auto& e : pattern.events) if (e.key == lane_key) ++lane_notes;
+        m.rows[DelNote] = {"This note", "", false, true, !focused};
+        m.rows[DelLane] = {juce::String(kit ? "All of this pad" : "All of this key"), juce::String(lane_notes) + (lane_notes == 1 ? " note" : " notes"), false, true, lane_notes == 0};
+        m.rows[DelPicks] = {"Selected notes", ui.roll_sel_count ? juce::String(int(ui.roll_sel_count)) : juce::String(), false, true, ui.roll_sel_count == 0};
+        m.count = del_rows; m.current = ui.sheet_row % del_rows;
+        menu_sheet(p, m);
+    } else if (sheet && !ui.sheet_more) {
         bool accent = focused->flags & step_accent;
         auto tile = word_sub_tile(Icon::Accent, "ACCENT", accent ? "ON" : "OFF");
         tile.colour = c;
@@ -275,6 +309,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
 }
 
 void wheel(Context& c, int delta) {
+    if (c.ui.sheet_open && c.ui.roll_sheet_del) { if (c.ui.sheet_more) c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(del_rows) - 1)); return; } // LAB
     if (c.ui.sheet_open && c.ui.roll_sheet_sel) { c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(sel_rows) - 1)); return; }
     if (c.ui.sheet_open && c.ui.roll_sheet_view) { c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(view_rows) - 1)); return; }
     if (c.ui.sheet_open) {
@@ -287,7 +322,7 @@ void wheel(Context& c, int delta) {
         if (!roll_jump(c.pattern(), c.ui, delta)) c.notice(delta > 0 ? "No later note" : "No earlier note");
         return;
     }
-    roll_step(c.pattern(), c.ui, delta);
+    roll_step(c.pattern(), c.ui, delta, kit_lanes(c.track())); // LAB: a kit stays on the pad picked
 }
 
 void save_settings(Context& c) { if (c.store) c.store->save_settings(c.ui.settings.text()); }
@@ -327,7 +362,23 @@ void do_sel_row(Context& c) {
     if (!c.ui.roll_sel_count) c.ui.sheet_open = false;
 }
 
+// LAB: the DELETE sheet: its likely job (B3 before MORE) the note in focus, else every note of the lane.
+void do_del_row(Context& c, bool likely) {
+    const auto& pattern = c.pattern();
+    int focus = roll_focus(pattern, c.ui);
+    int key = focus >= 0 ? int(pattern.events[size_t(focus)].key) : int(c.ui.roll_key);
+    unsigned row = likely ? (focus >= 0 ? DelNote : DelLane) : c.ui.sheet_row % del_rows;
+    c.ui.sheet_open = false; c.ui.roll_sheet_del = false; c.ui.roll_del_armed = 0;
+    switch (row) {
+    case DelNote: if (focus >= 0) roll_erase(c); else c.notice("No note here"); break;
+    case DelLane: erase_key_events(c, key); break;
+    case DelPicks: if (c.ui.roll_sel_count) roll_picks_delete(c); else c.notice("Nothing selected"); break;
+    default: break;
+    }
+}
+
 void do_row(Context& c) {
+    if (c.ui.roll_sheet_del) { do_del_row(c, !c.ui.sheet_more); return; } // LAB
     if (c.ui.roll_sheet_sel) { do_sel_row(c); return; }
     if (c.ui.roll_sheet_view) { do_view_row(c); return; }
     if (!c.ui.sheet_more) { roll_flag(c, step_accent); c.ui.sheet_open = false; return; } // the likely job: Accent, and done
@@ -346,13 +397,36 @@ void do_row(Context& c) {
 void push(Context& c) {
     if (c.ui.sheet_open) { do_row(c); return; }
     c.ui.sheet_row = 0;
-    c.ui.roll_sheet_sel = false;
+    c.ui.roll_sheet_sel = false; c.ui.roll_sheet_del = false;
     if (roll_picks_tidy(c.pattern(), c.ui)) { c.ui.sheet_open = true; c.ui.roll_sheet_sel = true; c.ui.sheet_more = true; return; } // SELECTION
     if (roll_focus(c.pattern(), c.ui) < 0) { c.ui.sheet_open = true; c.ui.roll_sheet_view = true; c.ui.sheet_more = true; return; } // VIEW
     c.ui.sheet_open = true; c.ui.sheet_more = false; c.ui.roll_sheet_view = false;
 }
 
 void soft(Context& c, int key) {
+    if (c.ui.sheet_open && c.ui.roll_sheet_del) { // LAB, DELETE: BACK, MORE, DELETE; on the list BACK, -, DO IT
+        if (key == 0) { if (c.ui.sheet_more) c.ui.sheet_more = false; else { c.ui.sheet_open = false; c.ui.roll_sheet_del = false; } }
+        if (key == 1 && !c.ui.sheet_more) { c.ui.sheet_more = true; c.ui.sheet_row = roll_focus(c.pattern(), c.ui) >= 0 ? DelNote : DelLane; }
+        if (key == 2) do_row(c);
+        return;
+    }
+    if (!c.ui.sheet_open && key == 2 && c.ui.shift && c.track().used()) { // LAB: Shift + B3, the DELETE sheet
+        c.ui.shift_used = true;
+        c.ui.sheet_open = true; c.ui.roll_sheet_del = true; c.ui.sheet_more = false; c.ui.sheet_row = 0;
+        c.ui.roll_sheet_sel = false; c.ui.roll_sheet_view = false; c.ui.roll_del_armed = 0;
+        return;
+    }
+    if (!c.ui.sheet_open && key == 2 && !c.ui.shift) { // LAB: B3 on a note: DELETE, the second tap does it
+        const auto& pattern = c.pattern();
+        int focus = roll_focus(pattern, c.ui);
+        if (focus >= 0) {
+            const Event* note = &pattern.events[size_t(focus)];
+            if (roll_armed(c.ui, c.now, note)) { c.ui.roll_del_armed = 0; roll_erase(c); return; }
+            c.ui.roll_del_armed = std::max<uint32_t>(c.now, 1); c.ui.roll_del_tick = note->tick; c.ui.roll_del_key = note->key;
+            c.notice("B3 again: delete note");
+            return;
+        }
+    }
     if (c.ui.sheet_open && (c.ui.roll_sheet_view || c.ui.roll_sheet_sel)) { // VIEW, SELECTION: BACK, -, DO IT
         if (key == 0) c.ui.sheet_open = false;
         if (key == 2) do_row(c);

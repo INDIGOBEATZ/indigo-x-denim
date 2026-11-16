@@ -580,9 +580,9 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
         if (ui.mixer_view == 0 && tr.engine == EngineKind::Sampler) {
             const auto& pd = tr.pads[tr.last_pad % sampler_pads];
             if (!pd.used()) return {};
-            return {Binding {Kind::PadOut, 0, 0, int(bus_count), pd.out}, Binding {}, Binding {}};
+            return {Binding {Kind::PadOut, 0, 0, int(pad_outs), pd.out}, Binding {}, Binding {}};
         }
-        return {Binding {Kind::TrackOut, 0, 0, int(bus_count), tr.mix.out}, Binding {}, Binding {}};
+        return {Binding {Kind::TrackOut, 0, 0, int(bus_count), tr.mix.out}, Binding {Kind::TrackUsb, 0, 0, int(usb_pairs), tr.mix.usb}, Binding {}};
     }
     case PageId::Song: { // roadmap P5: the tempo lane at the cursor's bar: its tempo, and (a point there) its shape
         if (ui.song_export) return {};

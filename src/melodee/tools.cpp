@@ -2070,6 +2070,14 @@ const Preview previews[] {
     {"mixerout", [](Shell& shell, Snapshot& s) { // LAB: Shift on TRACKS: K1 OUT, the track into bus B
          preview_as(shell, s, "mixertracks", 1, 0); s.ui.shift = true; s.ui.shift_used = true; s.project.tracks[s.ui.track % track_count].mix.out = 2;
      }},
+    {"mixerusb", [](Shell& shell, Snapshot& s) { // LAB: Shift on TRACKS: K2 USB OUT, the track's copy on USB 25/26
+         preview_as(shell, s, "mixertracks", 1, 0); s.ui.shift = true; s.ui.shift_used = true; s.project.tracks[s.ui.track % track_count].mix.usb = 12;
+     }},
+    {"mixerpadusb", [](Shell& shell, Snapshot& s) { // LAB: Shift on PADS: the pad on USB 7/8
+         preview_as(shell, s, "mixerpads", 0, 0); s.ui.shift = true; s.ui.shift_used = true;
+         auto& t = s.project.tracks[s.ui.track % track_count];
+         t.pads[t.last_pad % sampler_pads].out = uint8_t(bus_count + 3);
+     }},
     {"stepsbars", [](Shell&, Snapshot& s) { // LAB: STEPS held: the pads pick a bar
          s.ui.page = PageId::Steps; s.ui.step_cursor = 6; s.playing = true; s.ui.steps_b1 = true;
      }},
@@ -2150,7 +2158,7 @@ const Preview previews[] {
          s.ui.copy_track = 1; s.ui.moving = true;
      }},
     {"settingsaudiousb", [](Shell&, Snapshot& s) { // LAB: AUDIO > USB outputs (the seventh row)
-         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::UsbOuts; s.ui.settings.usb_outs = 1;
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::UsbOuts; s.ui.settings.usb_outs = 2;
      }},
     {"settingsknobslab", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::ChopNotes; }},
     {"tuner", [](Shell&, Snapshot& s) { s.ui.page = PageId::Tuner; s.tuner_hz = 443.1f; s.tuner_level = 0.2f; }},

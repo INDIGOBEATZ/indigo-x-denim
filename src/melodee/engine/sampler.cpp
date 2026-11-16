@@ -961,13 +961,13 @@ void SamplerEngine::render_stereo(float* left, float* right, unsigned frames) {
     auto out_l = [&](int pad) {
         if (keying && pad == key_pad) return key_l;
         if (knobbing && knobbed(pad)) { knob_used = true; return knob_l; }
-        if (unsigned b = bus_of(pad); b >= 1 && b <= 4) { bus_used |= 1u << (b - 1); return bus_l + (b - 1) * bus_stride; }
+        if (unsigned b = bus_of(pad); b >= 1 && b <= pad_outs) { bus_used |= 1u << (b - 1); return bus_l + (b - 1) * bus_stride; }
         return left;
     };
     auto out_r = [&](int pad) {
         if (keying && pad == key_pad) return key_r;
         if (knobbing && knobbed(pad)) return knob_r;
-        if (unsigned b = bus_of(pad); b >= 1 && b <= 4) return bus_r + (b - 1) * bus_stride;
+        if (unsigned b = bus_of(pad); b >= 1 && b <= pad_outs) return bus_r + (b - 1) * bus_stride;
         return right;
     };
     for (auto& v : voices) {

@@ -41,6 +41,8 @@ juce::Colour colour_of(const Snapshot& s);              // the selected track's 
 juce::Colour load_colour(float load);                   // a load's: green, amber from 60 %, red from 85 % (of a block, a core)
 // A kit pad's name: its sample's, or for pads sharing one sample (a chop),
 // the last word of it and which slice: "Break 5" in full, "Brk 5" on a pad.
+// LAB: a USB-C stereo pair by its channels, pair 1 "USB 3/4" to pair 12 "USB 25/26".
+juce::String usb_pair_name(unsigned pair);
 juce::String pad_name(const Snapshot& s, unsigned kit, bool short_form);
 // Stage on a kit pad holding an instrument (an SFZ, EXS, keygroup; round 3 "instrument C", pages/instrument_map.cpp):
 // ZONES (Trim's place) the whole map; the envelopes, Tune and the filters a key strip over their own drawing; the

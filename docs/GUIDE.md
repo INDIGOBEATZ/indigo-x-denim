@@ -1385,11 +1385,26 @@ B1 stops copying.
 While Knob FX's bar shows on another page, **B3 is BYPASS** (lit while bypassed). Settings > KNOBS >
 **Knob FX on B3: Page's own** gives B3 back to the page.
 
-### USB outputs
+### USB outputs (v0.7.1: 12 stereo pairs)
 
-Over USB-C the MPC Sample is an 18-channel interface: 1-2 the main mix, 3-18 the sixteen tracks, each on its own
-channel, so a DAW records them all at once. Settings > AUDIO > **USB outputs: T1-12 + buses** puts tracks 1-12 on
-3-14 and bus A-D (submixes) on 15-18.
+Over USB-C the MPC Sample is now a **26-channel** interface: **1/2** the main mix (what the jacks play) and
+**twelve stereo outs, USB 3/4 to USB 25/26**. That is the most the MPC's USB audio allows (27 channels a direction),
+so 16 or 32 stereo outs cannot be done. On the computer, pick channels 3-26 of the MPC in your DAW.
+
+What goes on the twelve pairs:
+
+- **Mixer > TRACKS, Shift + K2 USB OUT**: the track's own pair (AUTO, USB 3/4 … USB 25/26). A copy, after its level,
+  pan and chain: the track still plays in the main mix (or its bus) as well.
+- **Mixer > PADS, Shift + K1 OUT**: TRACK, BUS A-D, or **USB 3/4 … USB 25/26** for the pad in hand. The pad goes past
+  the track's chain (like a pad sent to a bus), at the track's level and pan, is heard where the track goes and comes
+  out on that pair too. Put the kick on 3/4, the snare on 5/6 and so on.
+- **Settings > AUDIO > USB outputs** decides what else is on the pairs:
+  - **Tracks 1-12** (default): track 1 on 3/4, track 2 on 5/6 … track 12 on 25/26.
+  - **T1-8 + buses**: tracks 1-8 on 3/4 to 17/18, bus A-D on 19/20 to 25/26.
+  - **Routed only**: only what you sent with USB OUT (track) or OUT (pad).
+  A track with its own USB OUT leaves its usual pair; things sent to the same pair add up.
+
+If the MPC refuses the 26 channels, it goes back to 18 (main mix and the first eight pairs, USB 3/4 to 17/18).
 
 ### ARRANGE (as MPC 3.10's Arrange mode)
 

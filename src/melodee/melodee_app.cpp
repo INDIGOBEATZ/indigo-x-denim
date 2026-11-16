@@ -107,8 +107,8 @@ uint32_t MelodeeApp::now_ms() const {
     return uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - started).count());
 }
 
-static_assert(usb_stem_count == melodee::track_count && usb_stem_frames == melodee::EngineHost::block && audio_frames <= usb_stem_frames,
-              "one USB-C stem a track, a block at a time");
+static_assert(usb_stem_count == 2 * melodee::usb_pairs && usb_stem_frames == melodee::EngineHost::block && audio_frames <= usb_stem_frames,
+              "USB-C: twelve stereo pairs, a block at a time");
 
 void MelodeeApp::render(const AudioBlock& input, AudioBlock& output) {
     host.render(output.data(), audio_frames, shell.volume(), input.data(), &stem_block.track[0][0], input_route.usb_block(audio_frames));

@@ -20,7 +20,7 @@ MixState mix_of(const Project& p) {
     MixState m {};
     for (unsigned t = 0; t < track_count; ++t) {
         const auto& x = p.tracks[t].mix;
-        m.level[t] = x.level; m.pan[t] = x.pan; m.sends[t] = x.sends; m.out[t] = x.out;
+        m.level[t] = x.level; m.pan[t] = x.pan; m.sends[t] = x.sends; m.out[t] = x.out; m.usb[t] = x.usb;
     }
     for (unsigned b = 0; b < bus_count; ++b) m.returns[b] = p.buses[b].level;
     return m;
@@ -50,7 +50,7 @@ UndoScope binding_scope(const Project& project, const UiState& ui, const Binding
     using S = UndoScope::Kind;
     switch (b.kind) {
     case Kind::Param: case Kind::ModSource: case Kind::ModDest: case Kind::ModAmount: return of(S::Sound, ui);
-    case Kind::Level: case Kind::Pan: case Kind::Send: case Kind::SendBus: case Kind::BusReturn: case Kind::TrackOut: return of(S::Mix, ui);
+    case Kind::Level: case Kind::Pan: case Kind::Send: case Kind::SendBus: case Kind::BusReturn: case Kind::TrackOut: case Kind::TrackUsb: return of(S::Mix, ui);
     case Kind::FxParam: case Kind::FxKey: return of(S::Chain, ui, unsigned(b.id) / 64);
     // Roadmap P4: a modulator's settings and a macro's targets, with the master's; a macro's turn and the picks are not kept.
     case Kind::ModKind: case Kind::ModShape: case Kind::ModSync: case Kind::ModRate: case Kind::ModInput: case Kind::ModAttack:

@@ -104,7 +104,7 @@ void EngineHost::play_parked(int32_t* out, unsigned frames, float* stems) {
                 frame_now + parked_frames);
     frames = std::min(frames, block);
     std::fill(out, out + 2 * frames, 0);
-    if (stems) std::fill(stems, stems + size_t(track_count) * block, 0.0f);
+    if (stems) std::fill(stems, stems + size_t(2 * usb_pairs) * block, 0.0f);
     for (auto* level : {&out_levels[0], &out_levels[1], &in_levels[0], &in_levels[1]}) level->store(0, std::memory_order_relaxed);
     parked_frames += frames;
 }
@@ -308,6 +308,7 @@ void EngineHost::load_track(unsigned t, const Track& track) {
     apply({Command::Type::Pan, uint8_t(t), 0, 0, track.mix.pan});
     for (unsigned b = 0; b < bus_count; ++b) { slot.sends[b] = track.mix.sends[b] / 100.0f; slot.mix_sends[b] = track.mix.sends[b]; }
     slot.out = uint8_t(std::min<unsigned>(track.mix.out, bus_count)); // LAB
+    slot.usb = uint8_t(std::min<unsigned>(track.mix.usb, usb_pairs));
     slot.mute = track.mix.mute; slot.solo = track.mix.solo;
     slot.pattern = track.pattern;
     patterns_now[t].store(slot.pattern, std::memory_order_relaxed);
@@ -781,6 +782,7 @@ void EngineHost::apply(const Command& c) {
     case Type::Level: slot.mix_level = c.value; set_level(slot, c.value); if (mods_on) mod_note(c.track % track_count, motion_level, 0, c.value, true); break; // roadmap P4: kept, Motion borrows it
     case Type::Pan: slot.mix_pan = c.value; set_pan(slot, c.value); if (mods_on) mod_note(c.track % track_count, motion_pan, 0, c.value, true); break;
     case Type::Send: // index: the bus
+        if (c.index == 0x101) { slot.usb = uint8_t(std::min<unsigned>(c.value, usb_pairs)); break; } // LAB: index 0x101, its USB-C pair
         if (c.index >= 0x100) { slot.out = uint8_t(std::min<unsigned>(c.value, bus_count)); break; } // LAB: index 0x100, the track's way out
         slot.mix_sends[c.index % bus_count] = int16_t(std::clamp<int>(c.value, 0, 100));
         slot.sends[c.index % bus_count] = std::clamp<int>(c.value, 0, 100) / 100.0f;
@@ -2288,7 +2290,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     track_ns.fill(0);
     if (reformatting) { // a new rate: silent until the Reload has built everything again at it
         std::fill(out, out + 2 * frames, 0);
-        if (stems) std::fill(stems, stems + size_t(track_count) * block, 0.0f);
+        if (stems) std::fill(stems, stems + size_t(2 * usb_pairs) * block, 0.0f);
         for (auto* level : {&out_levels[0], &out_levels[1], &in_levels[0], &in_levels[1]}) level->store(0, std::memory_order_relaxed);
         frame_now += frames;
         if (park_wanted) { park_gain = Ease {0, 0, 0}; go_parked(); } // silent already: no fade to wait for
@@ -2308,7 +2310,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         std::fill(slot.buffer, slot.buffer + frames, 0.0f);
         std::fill(slot.left, slot.left + frames, 0.0f); std::fill(slot.right, slot.right + frames, 0.0f);
         slot.knob_pad_fed = false;
-        if (slot.bus_pad_fed) for (unsigned b = 0; b < bus_count; ++b) { std::fill(slot.bus_pad_l[b], slot.bus_pad_l[b] + block, 0.0f); std::fill(slot.bus_pad_r[b], slot.bus_pad_r[b] + block, 0.0f); }
+        if (slot.bus_pad_fed) for (unsigned b = 0; b < pad_outs; ++b) if ((slot.bus_pad_fed >> b) & 1) { std::fill(slot.bus_pad_l[b], slot.bus_pad_l[b] + block, 0.0f); std::fill(slot.bus_pad_r[b], slot.bus_pad_r[b] + block, 0.0f); }
         slot.bus_pad_fed = 0;
         if (knob_heard && slot.engine == &slot.sampler) { // Knob FX on kit pads: they play apart, into the slot's knob_pad_l / knob_pad_r
             std::fill(slot.knob_pad_l, slot.knob_pad_l + frames, 0.0f); std::fill(slot.knob_pad_r, slot.knob_pad_r + frames, 0.0f);
@@ -2494,11 +2496,19 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     bool scope_fed = false;
     const int lens_a = lens_tracks[0].load(std::memory_order_relaxed), lens_b = lens_tracks[1].load(std::memory_order_relaxed);
     bool lens_fed[2] {false, false};
+    // LAB: USB-C's twelve stereo pairs after the main mix: silent, then each track and pad sent there adds itself.
+    const unsigned usb_layout = usb_mode.load(std::memory_order_relaxed);
+    if (stems) std::fill(stems, stems + size_t(2 * usb_pairs) * block, 0.0f);
+    auto usb_l = [&](unsigned pair) { return stems + size_t(2 * pair) * block; };
+    auto usb_r = [&](unsigned pair) { return stems + size_t(2 * pair + 1) * block; };
     for (unsigned t = 0; t < track_count; ++t) {
         auto& slot = slots[t];
         float level = 0;
-        float* stem = stems ? stems + size_t(t) * block : nullptr;
-        if (stem) std::fill(stem, stem + frames, 0.0f);
+        // LAB: the pair this track's copy goes to: its own choice, else Settings' layout (tracks 1-12, or 1-8 beside the buses)
+        const unsigned pair = slot.usb >= 1 && slot.usb <= usb_pairs ? slot.usb - 1u
+                            : usb_layout == 0 && t < usb_pairs ? t : usb_layout == 1 && t < usb_pairs - bus_count ? t : usb_pairs;
+        float* stem_l = stems && pair < usb_pairs ? usb_l(pair) : nullptr;
+        float* stem_r = stem_l ? usb_r(pair) : nullptr;
         bool tap = tapping && t == tapped;
         if (slot.engine) {
             bool keying = keyed && t == key && pad_keyed < 0;
@@ -2522,12 +2532,22 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
                     knob_fed = true;
                 }
                 // LAB: a kit's pads sent straight to a bus: at the track's level and pan, past its chain.
+                // LAB: or to a USB-C pair: heard where the track goes (past its chain) and a copy on that pair.
+                const unsigned pads_bus = slot.out >= 1 && slot.out <= bus_count ? slot.out - 1u : bus_count;
                 if (slot.engine == &slot.sampler && slot.bus_pad_fed)
-                    for (unsigned b = 0; b < bus_count; ++b) {
+                    for (unsigned b = 0; b < pad_outs; ++b) {
                         if (!((slot.bus_pad_fed >> b) & 1)) continue;
+                        const bool to_usb = b >= bus_count;
+                        float* to_l = !to_usb ? bus_l[b] : pads_bus < bus_count ? bus_l[pads_bus] : master_l;
+                        float* to_r = !to_usb ? bus_r[b] : pads_bus < bus_count ? bus_r[pads_bus] : master_r;
+                        float* copy_l = to_usb && stems ? usb_l(b - bus_count) : nullptr;
+                        float* copy_r = copy_l ? usb_r(b - bus_count) : nullptr;
                         for (unsigned f = 0; f < frames; ++f) {
                             float a = slot.audible.at(f);
-                            bus_l[b][f] += slot.bus_pad_l[b][f] * slot.mix_l.at(f) * a; bus_r[b][f] += slot.bus_pad_r[b][f] * slot.mix_r.at(f) * a;
+                            float l = slot.bus_pad_l[b][f] * slot.mix_l.at(f) * a, r = slot.bus_pad_r[b][f] * slot.mix_r.at(f) * a;
+                            to_l[f] += l; to_r[f] += r;
+                            if (copy_l) { copy_l[f] += l; copy_r[f] += r; }
+                            if (to_usb) level = std::max(level, std::max(std::fabs(l), std::fabs(r)));
                         }
                     }
                 // Into Knob FX as much as it is picked, the rest to the master (or aside, the Sidechain's key); LAB: or
@@ -2536,14 +2556,13 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
                 float* rest_l = keying ? aside_l : out_bus < bus_count ? bus_l[out_bus] : master_l;
                 float* rest_r = keying ? aside_r : out_bus < bus_count ? bus_r[out_bus] : master_r;
                 knob_fed |= !slot.knob_share.silent();
-                float unpan = 1.0f / std::max(slot.pan_left + slot.pan_right, 1.0f); // a centred mono track's stem sums to itself
                 for (unsigned f = 0; f < frames; ++f) {
                     float a = slot.audible.at(f), k = slot.knob_share.at(f);
                     float l = slot.left[f] * a, r = slot.right[f] * a;
                     knob_l[f] += l * k; knob_r[f] += r * k;
                     rest_l[f] += l - l * k; rest_r[f] += r - r * k;
                     level = std::max(level, std::max(std::fabs(l), std::fabs(r)));
-                    if (stem) stem[f] = (l + r) * unpan;
+                    if (stem_l) { stem_l[f] += l; stem_r[f] += r; } // LAB: in stereo, as heard
                 }
                 for (unsigned b = 0; b < bus_count; ++b) { // into each bus as much as its send
                     const auto& send = slot.sends_now[b];
@@ -2558,7 +2577,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
                         float a = slot.audible.at(f), l = key_l[f] * a, r = key_r[f] * a;
                         aside_l[f] += l; aside_r[f] += r;
                         level = std::max(level, std::max(std::fabs(l), std::fabs(r)));
-                        if (stem) stem[f] += (l + r) * unpan;
+                        if (stem_l) { stem_l[f] += l; stem_r[f] += r; }
                     }
             }
         }
@@ -2607,13 +2626,14 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
         auto& back = returns_now[b];
         back.aim(returns[b], frames, snap_mix);
         float loud = 0; // LAB: the bus's meter, after its return
-        // LAB: a submix of its own on USB-C (channels 15-18 for bus A-D) when Settings asks, in place of tracks 13-16.
-        float* usb = stems && usb_mode.load(std::memory_order_relaxed) == 1 ? stems + size_t(track_count - bus_count + b) * block : nullptr;
+        // LAB: a submix of its own on USB-C (19/20 to 25/26 for bus A-D) when Settings asks, in place of tracks 9-12.
+        float* bus_usb_l = stems && usb_layout == 1 ? usb_l(usb_pairs - bus_count + b) : nullptr;
+        float* bus_usb_r = bus_usb_l ? usb_r(usb_pairs - bus_count + b) : nullptr;
         for (unsigned f = 0; f < frames; ++f) {
             float g = back.at(f), l = bus_l[b][f] * g, r = bus_r[b][f] * g;
             master_l[f] += l; master_r[f] += r;
             loud = std::max(loud, std::max(std::fabs(l), std::fabs(r)));
-            if (usb) usb[f] = (l + r) * 0.5f;
+            if (bus_usb_l) { bus_usb_l[f] += l; bus_usb_r[f] += r; }
         }
         float was = bus_meters[b].load(std::memory_order_relaxed) * dsp::fall_per_block(0.97f, frames);
         bus_meters[b].store(std::max(loud, was < 1e-5f ? 0.0f : was), std::memory_order_relaxed);
@@ -2709,7 +2729,7 @@ void EngineHost::render(int32_t* out, unsigned frames, float volume, const int32
     park_gain.aim(park_wanted ? 0.0f : 1.0f, frames); // a Park fades out (and the next project in), never a jump
     bool park_fading = !(park_gain.flat() && park_gain.to == 1.0f);
     if (park_fading && stems)
-        for (unsigned t = 0; t < track_count; ++t)
+        for (unsigned t = 0; t < 2 * usb_pairs; ++t)
             for (unsigned f = 0; f < frames; ++f) stems[size_t(t) * block + f] *= park_gain.at(f);
     // INDIGO X DENIM LAB: Reference A/B: the reference song instead of the mix, eased across (after a bounce took the
     // mix, before the meters: the loudness and spectrum read what is heard). It starts from its top as the transport

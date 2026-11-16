@@ -102,6 +102,7 @@ struct Mix {
     bool mute = false, solo = false;
     std::array<uint8_t, 4> sends {}; // a track's send into each bus A-D, 0..100 (round 2: four sends a track)
     uint8_t out = 0; // INDIGO X DENIM LAB: where the track goes: 0 the master, 1-4 bus A-D (all of it, as an MPC submix)
+    uint8_t usb = 0; // LAB: a copy of it on USB-C as well: 0 none (Settings decides), 1-12 the pair 3/4 to 25/26
 };
 
 // The arrange view: clips of patterns on track lanes over bars, named

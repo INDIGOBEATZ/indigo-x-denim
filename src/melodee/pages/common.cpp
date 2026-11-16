@@ -465,9 +465,11 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::TrackOut: case Kind::PadOut: { // LAB
         static const char* const outs[] {"MAIN", "BUS A", "BUS B", "BUS C", "BUS D"};
         c.label = "OUT";
+        if (b.kind == Kind::PadOut && b.value > int(bus_count)) { c.value = usb_pair_name(unsigned(b.value) - bus_count); break; } // USB-C 3/4..
         c.value = b.kind == Kind::PadOut && b.value == 0 ? juce::String("TRACK") : juce::String(outs[std::clamp(b.value, 0, 4)]);
         break;
     }
+    case Kind::TrackUsb: c.label = "USB OUT"; c.value = b.value ? usb_pair_name(unsigned(b.value)) : juce::String("AUTO"); break; // LAB
     case Kind::PadKeySync: c.label = "KEY SYNC"; c.value = b.value ? juce::String("On") : juce::String("Off"); break;
     case Kind::PadPingTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;
     case Kind::PadPingRegion: c.label = "REPEAT"; c.value = juce::String(b.value); c.unit = "ms"; break;
@@ -759,6 +761,11 @@ void play_soft(Context& c, int key) {
 
 // A pad's name: its sample's, or for pads sharing one sample (a chop), the
 // last word of it and which slice: "Break 5" in full, "Brk 5" on a pad.
+juce::String usb_pair_name(unsigned pair) {
+    pair = std::clamp(pair, 1u, usb_pairs);
+    return "USB " + juce::String(2 * pair + 1) + "/" + juce::String(2 * pair + 2);
+}
+
 juce::String pad_name(const Snapshot& s, unsigned kit, bool short_form) {
     const auto& pads = s.track().pads;
     const auto& pad = pads[kit];

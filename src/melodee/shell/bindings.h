@@ -108,7 +108,8 @@ struct Binding {
         ArrZoom, ArrLanes, // INDIGO X DENIM LAB, ARRANGE's K1 / K2 (and the FADER): bars in view (arrange_zooms), lanes in view (1..16)
         RollRows,          // INDIGO X DENIM LAB: Roll's rows in view (1..16), the FADER's there
         FilesScroll,       // INDIGO X DENIM LAB: the browser's FADER: where in the list (0..127 over its rows)
-        TrackOut, PadOut // INDIGO X DENIM LAB, the mixer's Shift + K1: where the track (TRACKS) or the pad (PADS) goes, 0 master or its track, 1-4 bus A-D
+        TrackOut, PadOut, // INDIGO X DENIM LAB, the mixer's Shift + K1: where the track (TRACKS) or the pad (PADS) goes, 0 master or its track, 1-4 bus A-D (a pad's 5-16 USB-C 3/4 to 25/26)
+        TrackUsb          // LAB, the mixer's Shift + K2 on TRACKS: the track's copy on USB-C, 0 as Settings has it, 1-12 a pair
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter

@@ -146,6 +146,8 @@ void draw(Paint& p, const Snapshot& s) {
         const auto& tr = s.track();
         unsigned out = pads ? (tr.engine == EngineKind::Sampler ? tr.pads[tr.last_pad % sampler_pads].out : 0u) : tr.mix.out;
         if (out >= 1 && out <= 4) h.left.push_back(pill(juce::String(pads ? "PAD OUT " : "OUT ") + buses[out], colour::amber));
+        else if (pads && out > bus_count && out <= pad_outs) h.left.push_back(pill("PAD " + usb_pair_name(out - bus_count), colour::amber));
+        if (!pads && tr.mix.usb) h.left.push_back(pill(usb_pair_name(tr.mix.usb), colour::amber)); // its copy on USB-C
     }
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"PADS", "TRACKS", "FX"}, pads ? 0 : 1, c};

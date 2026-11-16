@@ -6375,7 +6375,7 @@ void one_dispatch() {
         for (uint16_t key : {60, 64, 67}) host.send({Command::Type::ArpKey, 2, 0, key, 100});
         host.send({Command::Type::Play});
         std::vector<int32_t> out(256);
-        std::vector<float> all, stems(size_t(track_count) * EngineHost::block);
+        std::vector<float> all, stems(size_t(2 * usb_pairs) * EngineHost::block);
         auto timed = [&](Command c, uint64_t frame) { c.timed = true; c.at = uint32_t(frame); host.send(c); };
         for (unsigned n = 0; n < 700; ++n) {
             uint64_t at = uint64_t(n) * 128 + 128; // the next block's
@@ -8662,11 +8662,11 @@ void hits_on_time() {
         host.send({Command::Type::MidiTrack, 0, 0, 5, 1}); // MIDI out too, to the frame
         host.send({Command::Type::MidiTrack, 1, 0, 6, 1});
         std::vector<int32_t> out(256);
-        std::vector<float> stems(size_t(track_count) * EngineHost::block);
+        std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
         std::array<std::vector<float>, 2> heard;
         auto render = [&] {
             host.render(out.data(), 128, 1, nullptr, stems.data());
-            for (unsigned t = 0; t < 2; ++t) heard[t].insert(heard[t].end(), stems.begin() + t * 128, stems.begin() + (t + 1) * 128);
+            for (unsigned t = 0; t < 2; ++t) heard[t].insert(heard[t].end(), stems.begin() + 2 * t * 128, stems.begin() + (2 * t + 1) * 128); // LAB: a track's left on its pair
         };
         for (int b = 0; b < 4; ++b) render();
         const auto& clock = host.audio_clock();
@@ -10205,7 +10205,7 @@ void delay_compensation_p4() {
     slow.late = 300;
     CHECK(host->offer_plugin(0, &on_time) && host->offer_plugin(1, &slow));
     std::vector<int32_t> out(256);
-    std::vector<float> stems(size_t(track_count) * EngineHost::block);
+    std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
     uint64_t rendered = 0; // frames
     auto play = [&](unsigned blocks, std::vector<float>* mix, std::array<std::vector<float>, 2>* stem) {
         for (unsigned n = 0; n < blocks; ++n) {
@@ -10213,7 +10213,7 @@ void delay_compensation_p4() {
             rendered += 128;
             for (unsigned f = 0; f < 128; ++f) {
                 if (mix) mix->push_back(out[2 * f] / 2147483648.0f);
-                if (stem) for (unsigned t = 0; t < 2; ++t) (*stem)[t].push_back(stems[t * EngineHost::block + f]);
+                if (stem) for (unsigned t = 0; t < 2; ++t) (*stem)[t].push_back(stems[2 * t * EngineHost::block + f]); // LAB: the pair's left
             }
         }
     };
@@ -10306,12 +10306,12 @@ void keyed_dynamics_p4() {
     FakePlugin tone, key;
     CHECK(host->offer_plugin(0, &tone) && host->offer_plugin(1, &key));
     std::vector<int32_t> out(256);
-    std::vector<float> stems(size_t(track_count) * EngineHost::block);
+    std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
     auto level = [&](unsigned track, unsigned blocks) {
         float most = 0;
         for (unsigned n = 0; n < blocks; ++n) {
             host->render(out.data(), 128, 1, nullptr, stems.data());
-            for (unsigned f = 0; f < 128; ++f) most = std::max(most, std::fabs(stems[track * EngineHost::block + f]));
+            for (unsigned f = 0; f < 128; ++f) most = std::max(most, std::fabs(stems[2 * track * EngineHost::block + f])); // LAB: the pair's left
         }
         return most;
     };
@@ -10439,7 +10439,7 @@ void mix_motion_p4() {
     FakePlugin tone;
     CHECK(host->offer_plugin(0, &tone));
     std::vector<int32_t> out(256);
-    std::vector<float> stems(size_t(track_count) * EngineHost::block);
+    std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
     float early = 0, late = 0, mix_late = 0;
     host->send({Command::Type::Play, 0, 0, 0, 0});
     for (unsigned n = 0; n < 400; ++n) {
@@ -10561,7 +10561,7 @@ void modulators_p4() {
     FakePlugin tone, key;
     CHECK(host->offer_plugin(0, &tone) && host->offer_plugin(1, &key));
     std::vector<int32_t> out(256);
-    std::vector<float> stems(size_t(track_count) * EngineHost::block);
+    std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
     auto levels = [&](unsigned blocks, float& low, float& high) {
         low = 1e9f; high = 0;
         for (unsigned n = 0; n < blocks; ++n) {
@@ -10733,7 +10733,7 @@ void midi_tracks_p4() {
     // An input as the track's sound: the rear inputs into its stem, at its LEVEL.
     host->send({Command::Type::MidiAudio, 0, 0, 0, AudioRear});
     std::vector<int32_t> input(256, int32_t(0.25 * 2147483647.0));
-    std::vector<float> stems(size_t(track_count) * EngineHost::block);
+    std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
     run(4, input.data(), stems.data());
     float most = 0;
     for (unsigned f = 0; f < 128; ++f) most = std::max(most, std::fabs(stems[f]));
@@ -11351,6 +11351,77 @@ void samples_found_again() {
 }
 
 // INDIGO X DENIM LAB: ways out (a track into a bus, a pad into another) and eight inserts a bus survive a save.
+void lab_usb_pairs() {
+    // INDIGO X DENIM LAB: twelve stereo pairs on USB-C. A track on its own pair, the rest as Settings lays them out.
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    for (unsigned t = 0; t < 2; ++t) { project->tracks[t].engine = EngineKind::Plugin; project->tracks[t].plugin = uint8_t(t); }
+    project->tracks[1].mix.usb = 5; // USB 11/12
+    project->tracks[4].pads[7].sample = 0; project->tracks[4].pads[7].out = uint8_t(bus_count + 12); // a pad on USB 25/26
+    { // kept
+        auto bytes = save_project(*project, *bank);
+        auto back = std::make_unique<Project>();
+        CHECK(load_project(bytes, *back, *bank).empty());
+        CHECK(back->tracks[1].mix.usb == 5 && back->tracks[0].mix.usb == 0 && back->tracks[4].pads[7].out == bus_count + 12);
+    }
+    auto host = std::make_unique<EngineHost>();
+    host->load(*project, *bank);
+    FakePlugin a, b;
+    CHECK(host->offer_plugin(0, &a) && host->offer_plugin(1, &b));
+    std::vector<int32_t> out(256);
+    std::vector<float> stems(size_t(2 * usb_pairs) * EngineHost::block);
+    auto loudest = [&](unsigned channel) {
+        float most = 0;
+        for (unsigned n = 0; n < 8; ++n) {
+            host->render(out.data(), 128, 1, nullptr, stems.data());
+            for (unsigned f = 0; f < 128; ++f) most = std::max(most, std::fabs(stems[channel * EngineHost::block + f]));
+        }
+        return most;
+    };
+    host->send({Command::Type::NoteOn, 0, 0, 60, 100});
+    host->send({Command::Type::NoteOn, 1, 0, 60, 100});
+    loudest(0);
+    CHECK(loudest(0) > 0.1f && loudest(1) > 0.1f);       // track 1 on 3/4, both sides
+    CHECK(loudest(8) > 0.1f && loudest(9) > 0.1f);       // track 2 on its own 11/12
+    CHECK(loudest(2) < 1e-6f);                           // not on its usual 5/6
+    host->usb_mode.store(2);                             // routed only
+    CHECK(loudest(0) < 1e-6f && loudest(8) > 0.1f);
+    host->send({Command::Type::Send, 1, 0, 0x101, 0});   // and taken off again
+    CHECK(loudest(8) < 1e-6f);
+    { // a kit's pad on USB 25/26: heard in the mix and copied there, the kit's other pads not
+        auto kit = std::make_unique<Project>();
+        tone_kit(*kit, 0);
+        kit->tracks[0].pads[2].out = uint8_t(bus_count + 12);
+        for (auto& pad : kit->tracks[0].pads) pad.play = PadPlay::OneShot;
+        SampleData tone;
+        tone.frames = 22050; tone.left.resize(22050); tone.right.resize(22050);
+        for (unsigned n = 0; n < 22050; ++n) tone.left[n] = tone.right[n] = float(std::sin(n * 0.05) * 0.4);
+        auto pads = std::make_unique<EngineHost>();
+        pads->load(*kit, *bank);
+        CHECK(pads->offer_sample(0, &tone));
+        pads->usb_mode.store(2);
+        auto heard = [&](unsigned channel, float* mix) {
+            float most = 0, all = 0;
+            for (unsigned n = 0; n < 6; ++n) {
+                pads->render(out.data(), 128, 1, nullptr, stems.data());
+                for (unsigned f = 0; f < 128; ++f) {
+                    most = std::max(most, std::fabs(stems[channel * EngineHost::block + f]));
+                    all = std::max(all, std::fabs(out[2 * f] / 2147483648.0f));
+                }
+            }
+            if (mix) *mix = all;
+            return most;
+        };
+        heard(22, nullptr);
+        pads->send({Command::Type::PadNote, 0, 0, 2, 110});
+        float mix = 0;
+        CHECK(heard(22, &mix) > 0.05f && mix > 0.05f);
+        pads->send({Command::Type::PadNote, 0, 0, 1, 110});
+        heard(22, nullptr);
+        CHECK(heard(0, nullptr) < 1e-6f); // routed only: pad 2 goes nowhere on USB
+    }
+}
+
 void lab_outs() {
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
@@ -11368,6 +11439,7 @@ void lab_outs() {
 
 int main() {
     lab_outs();
+    lab_usb_pairs();
     samples_found_again();
     tempo_lane_p5();
     capture_p5();

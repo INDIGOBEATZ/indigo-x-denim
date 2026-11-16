@@ -650,6 +650,12 @@ std::vector<uint8_t> save_project(const Project& project, const PatternBank& pat
         for (unsigned k = 0; k < sampler_pads; ++k) if (tr.pads[k].out) { w.u8(k); w.u8(tr.pads[k].out); }
         w.end(at);
     }
+    for (unsigned t = 0; t < track_count; ++t) { // LAB: a track's copy on a USB-C pair
+        if (!project.tracks[t].mix.usb) continue;
+        at = w.begin("USBO");
+        w.u8(t); w.u8(project.tracks[t].mix.usb);
+        w.end(at);
+    }
     for (unsigned n = 0; n < sample_slots; ++n) { // a sample's chop (roadmap P3): its region, type, amount and slices
         const auto& c = project.chops[n];
         if (!c.used() || !project.samples[n].used()) continue;
@@ -745,8 +751,11 @@ std::string load_project(const std::vector<uint8_t>& data, Project& target, Patt
             if (t < track_count) project->tracks[t].mix.out = uint8_t(std::min(out, bus_count));
             for (unsigned k = 0; k < count && r.ok; ++k) {
                 unsigned pad = r.u8(), to = r.u8();
-                if (t < track_count && pad < sampler_pads) project->tracks[t].pads[pad].out = uint8_t(std::min(to, bus_count));
+                if (t < track_count && pad < sampler_pads) project->tracks[t].pads[pad].out = uint8_t(std::min(to, pad_outs));
             }
+        } else if (name == "USBO") { // LAB: a track's copy on a USB-C pair
+            unsigned t = r.u8(), pair = r.u8();
+            if (r.ok && t < track_count) project->tracks[t].mix.usb = uint8_t(std::min(pair, usb_pairs));
         } else if (name == "CHOP") { // a sample's chop (roadmap P3); without it Chop cuts afresh
             unsigned n = r.u8();
             SampleChop c;

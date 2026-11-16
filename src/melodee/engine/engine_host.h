@@ -381,9 +381,10 @@ private:
         float left[block] {}, right[block] {};
         float knob_pad_l[block] {}, knob_pad_r[block] {}; // a kit's pads under Knob FX, as the sampler left them
         bool knob_pad_fed = false;                         // and some sub-block of this block put something there
-        float bus_pad_l[bus_count][block] {}, bus_pad_r[bus_count][block] {}; // LAB: a kit's pads sent straight to a bus
-        unsigned bus_pad_fed = 0;                          // which buses
+        float bus_pad_l[pad_outs][block] {}, bus_pad_r[pad_outs][block] {}; // LAB: a kit's pads sent straight to a bus or a USB-C pair
+        unsigned bus_pad_fed = 0;                          // which ways (a bit each, PadSound::out - 1)
         uint8_t out = 0;                                   // LAB: the track's own way out: 0 master, 1-4 bus A-D
+        uint8_t usb = 0;                                   // LAB: its copy on USB-C: 0 as Settings has it, 1-12 a pair
         Arp arp;
         PendingOn arp_late;
         std::array<PendingHit, 32> hits {}; // ratchets' hits to come, each on its frame
@@ -848,7 +849,8 @@ private:
     std::array<std::atomic<float>, 2> out_levels {}, in_levels {};
     std::array<std::atomic<float>, bus_count> bus_meters {}; // LAB
 public:
-    // INDIGO X DENIM LAB, any thread: USB-C channels 3-18: 0 the sixteen tracks, 1 tracks 1-12 then bus A-D on 15-18.
+    // INDIGO X DENIM LAB, any thread: what USB-C's twelve pairs (3/4 to 25/26) carry besides what is sent there:
+    // 0 tracks 1-12 a pair each, 1 tracks 1-8 then bus A-D on 19/20 to 25/26, 2 only what a track or pad is sent.
     std::atomic<uint8_t> usb_mode {0};
 private:
     std::atomic<unsigned> lost {0};

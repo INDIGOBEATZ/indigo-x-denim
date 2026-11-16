@@ -70,7 +70,7 @@ struct Settings {
     // shell/shortcuts.h names the rest).
     std::array<uint8_t, 16> shortcuts {};
     bool knob_fx_b3 = true;       // INDIGO X DENIM LAB: while Knob FX's bar shows, B3 is its bypass (off: the page's own B3)
-    uint8_t usb_outs = 0;         // INDIGO X DENIM LAB: USB 3-18: 0 the sixteen tracks, 1 tracks 1-12 then bus A-D on 15-18 (submixes)
+    uint8_t usb_outs = 0;         // INDIGO X DENIM LAB: USB-C 3/4 to 25/26 besides what is sent there: 0 tracks 1-12, 1 tracks 1-8 then bus A-D, 2 nothing more
     uint8_t seq_first = 0;        // INDIGO X DENIM LAB: the editor SEQ opens: 0 the one used last (kit: STEPS, keys: ROLL), 1 STEPS, 2 ROLL
     bool chop_notes = false;      // INDIGO X DENIM LAB: Chop's TO PADS also writes the slices as notes (off: the pattern stays empty; the file key is chop_events)
     uint8_t shift_map_delay = 2;  // INDIGO X DENIM LAB: the Shift pads' map after Shift is held: 0 off, 1 at once, 2 0.65 s, 3 1 s, 4 2 s, 5 3 s
@@ -143,7 +143,7 @@ struct Settings {
         case ChopNotes: return chop_notes ? "Pads + notes" : "Pads only";
         case SeqFirst: { static const char* d[] {"Last used", "STEPS", "ROLL"}; return d[seq_first % 3]; } // LAB
         case KnobFxB3: return knob_fx_b3 ? "Bypass" : "Page's own";
-        case UsbOuts: return usb_outs ? "T1-12 + buses" : "16 tracks";
+        case UsbOuts: { static const char* d[] {"Tracks 1-12", "T1-8 + buses", "Routed only"}; return d[usb_outs % 3]; }
         case ShiftMapDelay: { static const char* d[] {"Off", "At once", "0.65 s", "1 s", "2 s", "3 s"}; return d[shift_map_delay % 6]; }
         case StartFolder: {
             auto path = start_folder_text();
@@ -194,7 +194,7 @@ struct Settings {
         case ChopNotes: chop_notes = !chop_notes; break;
         case SeqFirst: seq_first = uint8_t(std::clamp(int(seq_first) + way, 0, 2)); break; // LAB
         case KnobFxB3: knob_fx_b3 = !knob_fx_b3; break;
-        case UsbOuts: usb_outs = uint8_t(std::clamp(int(usb_outs) + way, 0, 1)); break;
+        case UsbOuts: usb_outs = uint8_t(std::clamp(int(usb_outs) + way, 0, 2)); break;
         case PreviewTempo: preview_tempo = !preview_tempo; break;
         case ShiftMapDelay: shift_map_delay = uint8_t(std::clamp(int(shift_map_delay) + way, 0, 5)); break;
         case StartFolder: start_folder.fill(0); break; // back to the browser's own start
@@ -325,7 +325,7 @@ struct Settings {
             else if (key == "chop_events") chop_notes = value != 0; // LAB: the old chop_notes (on) is left behind: off by default now
             else if (key == "seq_first") seq_first = uint8_t(value % 3);
             else if (key == "knob_fx_b3") knob_fx_b3 = value != 0;
-            else if (key == "usb_outs") usb_outs = uint8_t(value % 2);
+            else if (key == "usb_outs") usb_outs = uint8_t(std::clamp(value, 0, 2));
             else if (key == "shortcuts") read_shortcuts(line.substr(eq + 1));
             else if (key == "shift_map_delay") shift_map_delay = uint8_t(std::clamp(value, 0, 5));
             else if (key == "level_leds") level_leds = value == 1 ? 1 : 0; // 2 and 3 (the bank lights, taken out): on

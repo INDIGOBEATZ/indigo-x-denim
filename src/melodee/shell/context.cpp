@@ -535,7 +535,11 @@ void Context::apply(const Binding& b, int value) {
         t.mix.out = uint8_t(std::clamp(value, 0, int(bus_count)));
         send({Type::Send, ui.track, 0, 0x100, int16_t(t.mix.out)});
         break;
-    case Kind::PadOut: pad().out = uint8_t(std::clamp(value, 0, int(bus_count))); send_pad(ui.track, t.last_pad); break; // LAB
+    case Kind::PadOut: pad().out = uint8_t(std::clamp(value, 0, int(pad_outs))); send_pad(ui.track, t.last_pad); break; // LAB
+    case Kind::TrackUsb: // LAB: the track's copy on a USB-C pair
+        t.mix.usb = uint8_t(std::clamp(value, 0, int(usb_pairs)));
+        send({Type::Send, ui.track, 0, 0x101, int16_t(t.mix.usb)});
+        break;
     case Kind::Root: project.root = uint8_t(value); break;
     case Kind::Scale: project.scale = uint8_t(value); break;
     case Kind::Layout:
